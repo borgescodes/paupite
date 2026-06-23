@@ -27,15 +27,9 @@ Deno.serve(async (req) => {
 
     const admin = createClient(SUPABASE_URL, SERVICE_ROLE, {
       auth: { persistSession: false, autoRefreshToken: false },
-      db: { schema: "private" },
     });
 
-    // Admin no schema public para verificações / updates fora do schema private
-    const adminPublic = createClient(SUPABASE_URL, SERVICE_ROLE, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
-
-    const { data: callerProfile, error: callerErr } = await adminPublic
+    const { data: callerProfile, error: callerErr } = await admin
       .from("profiles")
       .select("role")
       .eq("id", userData.user.id)
@@ -46,11 +40,12 @@ Deno.serve(async (req) => {
     const { match_id } = (await req.json()) as { match_id: string };
     if (!match_id) return j({ error: "missing match_id" }, 400);
 
-    // RPC para função em schema private (service role autorizado)
-    const { data, error } = await admin.rpc("recalculate_match_points", { _match_id: match_id });
+    const { data, error } = await admin.rpc("admin_recalculate_match_points", {
+      _match_id: match_id,
+    });
     if (error) return j({ error: error.message }, 400);
 
-    await adminPublic.from("matches").update({ status: "closed" }).eq("id", match_id);
+    await admin.from("matches").update({ status: "closed" }).eq("id", match_id);
 
     return j({ updated: data });
   } catch (e) {
