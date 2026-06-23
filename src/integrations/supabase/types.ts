@@ -63,13 +63,6 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "bets_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "ranking"
-            referencedColumns: ["user_id"]
-          },
         ]
       }
       competitions: {
@@ -304,10 +297,6 @@ export type Database = {
         }
         Returns: number
       }
-      has_role: { Args: { _role: string; _user_id: string }; Returns: boolean }
-      is_admin: { Args: { _user_id: string }; Returns: boolean }
-      match_kickoff_passed: { Args: { _match_id: string }; Returns: boolean }
-      recalculate_match_points: { Args: { _match_id: string }; Returns: number }
     }
     Enums: {
       app_role: "admin" | "player"
