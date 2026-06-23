@@ -8,6 +8,11 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
+interface ProfileRole {
+  role: "superadmin" | "admin" | "player";
+  status: "invited" | "active" | "disabled";
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -29,16 +34,22 @@ Deno.serve(async (req) => {
       auth: { persistSession: false, autoRefreshToken: false },
     });
 
-    const { data: callerProfile, error: callerErr } = await admin
+    const { data: callerProfileRaw, error: callerErr } = await admin
       .from("profiles")
-      .select("role")
+      .select("role,status")
       .eq("id", userData.user.id)
       .maybeSingle();
+    const callerProfile = callerProfileRaw as ProfileRole | null;
     if (callerErr) return j({ error: callerErr.message }, 500);
-    if (!callerProfile || callerProfile.role !== "admin") return j({ error: "forbidden" }, 403);
+    if (!callerProfile || callerProfile.status !== "active") {
+      return j({ error: "Apenas usuários ativos podem fechar partidas." }, 403);
+    }
+    if (callerProfile.role !== "superadmin" && callerProfile.role !== "admin") {
+      return j({ error: "Você não tem permissão para fechar partidas." }, 403);
+    }
 
     const { match_id } = (await req.json()) as { match_id: string };
-    if (!match_id) return j({ error: "missing match_id" }, 400);
+    if (!match_id) return j({ error: "Informe a partida." }, 400);
 
     const { data, error } = await admin.rpc("admin_recalculate_match_points", {
       _match_id: match_id,

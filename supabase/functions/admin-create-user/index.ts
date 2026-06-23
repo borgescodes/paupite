@@ -13,7 +13,12 @@ interface Payload {
   email: string;
   display_name: string;
   nickname: string;
-  role: "admin" | "player";
+  role?: "admin" | "player";
+}
+
+interface ProfileRole {
+  role: "superadmin" | "admin" | "player";
+  status: "invited" | "active" | "disabled";
 }
 
 Deno.serve(async (req) => {
@@ -39,19 +44,27 @@ Deno.serve(async (req) => {
 
     // Verifica role do solicitante via service role (helpers SECURITY DEFINER
     // não são mais expostos no schema público).
-    const { data: callerProfile, error: callerErr } = await admin
+    const { data: callerProfileRaw, error: callerErr } = await admin
       .from("profiles")
-      .select("role")
+      .select("role,status")
       .eq("id", userData.user.id)
       .maybeSingle();
+    const callerProfile = callerProfileRaw as ProfileRole | null;
     if (callerErr) return json({ error: callerErr.message }, 500);
-    if (!callerProfile || callerProfile.role !== "admin") {
-      return json({ error: "forbidden" }, 403);
+    if (!callerProfile || callerProfile.status !== "active") {
+      return json({ error: "Apenas usuários ativos podem criar usuários." }, 403);
+    }
+    if (!isAdminRole(callerProfile.role)) {
+      return json({ error: "Você não tem permissão para criar usuários." }, 403);
     }
 
     const body = (await req.json()) as Payload;
-    if (!body.email || !body.display_name || !body.nickname || !body.role) {
-      return json({ error: "invalid payload" }, 400);
+    const targetRole = body.role ?? "player";
+    if (!body.email || !body.display_name || !body.nickname) {
+      return json({ error: "Informe email, nome e apelido." }, 400);
+    }
+    if (!canCreateRole(callerProfile.role, targetRole)) {
+      return json({ error: "Você não tem permissão para criar usuário com essa role." }, 403);
     }
 
     const { data: created, error: createErr } = await admin.auth.admin.createUser({
@@ -60,21 +73,22 @@ Deno.serve(async (req) => {
       user_metadata: {
         display_name: body.display_name,
         nickname: body.nickname,
-        role: body.role,
+        role: targetRole,
       },
     });
     if (createErr) return json({ error: createErr.message }, 400);
 
-    await admin
+    const { error: profileErr } = await admin
       .from("profiles")
       .upsert({
         id: created.user!.id,
         email: body.email,
         display_name: body.display_name,
         nickname: body.nickname,
-        role: body.role,
+        role: targetRole,
         status: "invited",
       });
+    if (profileErr) return json({ error: profileErr.message }, 400);
 
     const { data: linkData, error: linkErr } = await admin.auth.admin.generateLink({
       type: "recovery",
@@ -98,4 +112,14 @@ function json(payload: unknown, status = 200) {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
+}
+
+function isAdminRole(role: string) {
+  return role === "superadmin" || role === "admin";
+}
+
+function canCreateRole(callerRole: string, targetRole: string) {
+  if (callerRole === "superadmin") return targetRole === "admin" || targetRole === "player";
+  if (callerRole === "admin") return targetRole === "player";
+  return false;
 }

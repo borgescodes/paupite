@@ -9,7 +9,7 @@ export interface Profile {
   nickname: string | null;
   avatar_url: string | null;
   favorite_country_code: string | null;
-  role: "admin" | "player";
+  role: "superadmin" | "admin" | "player";
   status: "invited" | "active" | "disabled";
 }
 
@@ -46,5 +46,5 @@ export function useAuth() {
     };
   }, []);
 
-  return { user, profile, loading, isAdmin: profile?.role === "admin" };
+  return { user, profile, loading, isAdmin: profile?.role === "admin" || profile?.role === "superadmin" };
 }

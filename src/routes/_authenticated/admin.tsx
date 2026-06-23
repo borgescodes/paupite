@@ -2,18 +2,21 @@ import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { callEdgeFunction } from "@/lib/edge";
+import { useAuth } from "@/hooks/use-auth";
 
 export const Route = createFileRoute("/_authenticated/admin")({
   beforeLoad: async () => {
     const { data } = await supabase.auth.getUser();
     if (!data.user) throw redirect({ to: "/auth" });
-    const { data: prof } = await supabase.from("profiles").select("role").eq("id", data.user.id).maybeSingle();
-    if (!prof || prof.role !== "admin") throw redirect({ to: "/home" });
+    const { data: prof } = await supabase.from("profiles").select("role,status").eq("id", data.user.id).maybeSingle();
+    if (!prof || prof.status !== "active" || !isAdminRole(prof.role)) throw redirect({ to: "/home" });
   },
   component: AdminPage,
 });
 
-interface ProfRow { id: string; email: string; display_name: string | null; nickname: string | null; role: string; status: string }
+type Role = "superadmin" | "admin" | "player";
+type Status = "invited" | "active" | "disabled";
+interface ProfRow { id: string; email: string; display_name: string | null; nickname: string | null; role: Role; status: Status }
 interface TeamRow { id: string; name: string }
 interface MatchRow {
   id: string; kickoff_at: string; status: string;
@@ -22,13 +25,15 @@ interface MatchRow {
 }
 
 function AdminPage() {
+  const { profile } = useAuth();
+
   return (
     <div style={{ maxWidth: 960, margin: "40px auto", padding: 16, fontFamily: "system-ui" }}>
       <Link to="/home">← voltar</Link>
       <h1>Admin</h1>
-      <CreateUser />
+      <CreateUser currentRole={profile?.role} />
       <hr style={{ margin: "24px 0" }} />
-      <Users />
+      <Users currentRole={profile?.role} currentUserId={profile?.id} />
       <hr style={{ margin: "24px 0" }} />
       <Teams />
       <hr style={{ margin: "24px 0" }} />
@@ -37,7 +42,7 @@ function AdminPage() {
   );
 }
 
-function CreateUser() {
+function CreateUser({ currentRole }: { currentRole?: Role }) {
   const [email, setEmail] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [nickname, setNickname] = useState("");
@@ -66,7 +71,7 @@ function CreateUser() {
         <input placeholder="Apelido" required value={nickname} onChange={(e) => setNickname(e.target.value)} />
         <select value={role} onChange={(e) => setRole(e.target.value as "player" | "admin")}>
           <option value="player">player</option>
-          <option value="admin">admin</option>
+          {currentRole === "superadmin" && <option value="admin">admin</option>}
         </select>
         <button type="submit">Criar</button>
       </form>
@@ -76,52 +81,92 @@ function CreateUser() {
   );
 }
 
-function Users() {
+function Users({ currentRole, currentUserId }: { currentRole?: Role; currentUserId?: string }) {
   const [rows, setRows] = useState<ProfRow[]>([]);
-  const load = () => supabase.from("profiles").select("id,email,display_name,nickname,role,status")
-    .order("created_at").then(({ data }) => setRows((data ?? []) as ProfRow[]));
-  useEffect(() => { void load(); }, []);
+  const [err, setErr] = useState<string | null>(null);
+  const [resetLink, setResetLink] = useState<string | null>(null);
+
+  const load = async () => {
+    let query = supabase.from("profiles").select("id,email,display_name,nickname,role,status").order("created_at");
+    if (currentRole === "admin") query = query.eq("role", "player");
+    const { data, error } = await query;
+    setErr(error?.message ?? null);
+    setRows((data ?? []) as ProfRow[]);
+  };
+
+  useEffect(() => { if (currentRole) void load(); }, [currentRole]);
 
   async function update(id: string, patch: Partial<ProfRow>) {
-    await supabase.from("profiles").update(patch).eq("id", id);
+    setErr(null);
+    const { error } = await supabase.from("profiles").update(patch).eq("id", id);
+    if (error) setErr(error.message);
     void load();
   }
+
   async function sendReset(email: string) {
     try {
+      setErr(null); setResetLink(null);
       const r = await callEdgeFunction<{ action_link: string }>("admin-reset-user-password", { email });
-      alert("Link: " + r.action_link);
-    } catch (e) { alert((e as Error).message); }
+      setResetLink(r.action_link);
+    } catch (e) { setErr((e as Error).message); }
   }
 
   return (
     <section>
       <h2>Usuários</h2>
+      {err && <p style={{ color: "crimson" }}>{err}</p>}
+      {resetLink && <pre style={{ background: "#eef", padding: 8, whiteSpace: "pre-wrap" }}>Link de reset:\n{resetLink}</pre>}
       <table style={{ width: "100%", borderCollapse: "collapse" }}>
         <thead><tr><th>E-mail</th><th>Nome</th><th>Role</th><th>Status</th><th>Ações</th></tr></thead>
         <tbody>
-          {rows.map((r) => (
-            <tr key={r.id} style={{ borderTop: "1px solid #ddd" }}>
-              <td>{r.email}</td>
-              <td>{r.display_name}</td>
-              <td>
-                <select value={r.role} onChange={(e) => update(r.id, { role: e.target.value })}>
-                  <option value="player">player</option><option value="admin">admin</option>
-                </select>
-              </td>
-              <td>
-                <select value={r.status} onChange={(e) => update(r.id, { status: e.target.value })}>
-                  <option value="invited">invited</option>
-                  <option value="active">active</option>
-                  <option value="disabled">disabled</option>
-                </select>
-              </td>
-              <td><button onClick={() => sendReset(r.email)}>Reset senha</button></td>
-            </tr>
-          ))}
+          {rows.map((r) => {
+            const manageable = canManageProfile(currentRole, r, currentUserId);
+            const canReset = canResetPassword(currentRole, r, currentUserId);
+            return (
+              <tr key={r.id} style={{ borderTop: "1px solid #ddd" }}>
+                <td>{r.email}</td>
+                <td>{r.display_name}</td>
+                <td>
+                  <select value={r.role} disabled={!manageable || currentRole !== "superadmin"}
+                    onChange={(e) => update(r.id, { role: e.target.value as Role })}>
+                    <option value="player">player</option>
+                    <option value="admin">admin</option>
+                    {r.role === "superadmin" && <option value="superadmin">superadmin</option>}
+                  </select>
+                </td>
+                <td>
+                  <select value={r.status} disabled={!manageable} onChange={(e) => update(r.id, { status: e.target.value as Status })}>
+                    <option value="invited">invited</option>
+                    <option value="active">active</option>
+                    <option value="disabled">disabled</option>
+                  </select>
+                </td>
+                <td><button disabled={!canReset} onClick={() => sendReset(r.email)}>Reset senha</button></td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </section>
   );
+}
+
+function isAdminRole(role?: string) {
+  return role === "superadmin" || role === "admin";
+}
+
+function canManageProfile(currentRole: Role | undefined, target: ProfRow, currentUserId?: string) {
+  if (!currentRole || target.id === currentUserId || target.role === "superadmin") return false;
+  if (currentRole === "superadmin") return target.role === "admin" || target.role === "player";
+  if (currentRole === "admin") return target.role === "player";
+  return false;
+}
+
+function canResetPassword(currentRole: Role | undefined, target: ProfRow, currentUserId?: string) {
+  if (!currentRole || target.id === currentUserId || target.role === "superadmin") return false;
+  if (currentRole === "superadmin") return target.role === "admin" || target.role === "player";
+  if (currentRole === "admin") return target.role === "player";
+  return false;
 }
 
 function Teams() {
