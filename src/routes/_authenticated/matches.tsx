@@ -31,10 +31,17 @@ function MatchesPage() {
 
   useEffect(() => {
     void load();
+
+    if (!user?.id) return;
+
     const ch = supabase
-      .channel("matches-rt")
+      .channel(`matches-rt-${user.id}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "matches" }, () => void load())
-      .on("postgres_changes", { event: "*", schema: "public", table: "bets" }, () => void load())
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "bets", filter: `user_id=eq.${user.id}` },
+        () => void load(),
+      )
       .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, [user?.id]);

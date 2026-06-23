@@ -1,1 +1,16 @@
 project_id = "pvsysbrejmuryszsbdhk"
+
+[functions.admin-create-user]
+verify_jwt = false
+
+[functions.admin-reset-user-password]
+verify_jwt = false
+
+[functions.admin-set-temp-password]
+verify_jwt = false
+
+[functions.complete-password-change]
+verify_jwt = false
+
+[functions.recalculate-match-points]
+verify_jwt = false
