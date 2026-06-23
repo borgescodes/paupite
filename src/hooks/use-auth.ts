@@ -11,6 +11,10 @@ export interface Profile {
   favorite_country_code: string | null;
   role: "superadmin" | "admin" | "player";
   status: "invited" | "active" | "disabled";
+  must_change_password: boolean;
+  first_access_completed_at: string | null;
+  last_password_reset_at: string | null;
+  temporary_password_set_at: string | null;
 }
 
 export function useAuth() {

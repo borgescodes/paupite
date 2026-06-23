@@ -181,7 +181,11 @@ export type Database = {
           display_name: string | null
           email: string
           favorite_country_code: string | null
+          first_access_completed_at: string | null
           id: string
+          last_password_reset_at: string | null
+          must_change_password: boolean
+          temporary_password_set_at: string | null
           nickname: string | null
           role: string
           status: string
@@ -193,7 +197,11 @@ export type Database = {
           display_name?: string | null
           email: string
           favorite_country_code?: string | null
+          first_access_completed_at?: string | null
           id: string
+          last_password_reset_at?: string | null
+          must_change_password?: boolean
+          temporary_password_set_at?: string | null
           nickname?: string | null
           role?: string
           status?: string
@@ -205,7 +213,11 @@ export type Database = {
           display_name?: string | null
           email?: string
           favorite_country_code?: string | null
+          first_access_completed_at?: string | null
           id?: string
+          last_password_reset_at?: string | null
+          must_change_password?: boolean
+          temporary_password_set_at?: string | null
           nickname?: string | null
           role?: string
           status?: string

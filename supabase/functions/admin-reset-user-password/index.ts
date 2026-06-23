@@ -1,5 +1,5 @@
 // Edge Function: admin-reset-user-password
-// Gera link de redefinição de senha. Apenas admins.
+// Gera link de redefinição de senha e marca troca obrigatória. Apenas admins.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
@@ -9,6 +9,7 @@ const corsHeaders = {
 };
 
 interface ProfileRole {
+  id: string;
   role: "superadmin" | "admin" | "player";
   status: "invited" | "active" | "disabled";
 }
@@ -36,7 +37,7 @@ Deno.serve(async (req) => {
 
     const { data: callerProfileRaw, error: callerErr } = await admin
       .from("profiles")
-      .select("role,status")
+      .select("id,role,status")
       .eq("id", userData.user.id)
       .maybeSingle();
     const callerProfile = callerProfileRaw as ProfileRole | null;
@@ -48,26 +49,38 @@ Deno.serve(async (req) => {
       return j({ error: "Você não tem permissão para resetar senhas." }, 403);
     }
 
-    const { email } = (await req.json()) as { email: string };
-    if (!email) return j({ error: "Informe o email do usuário." }, 400);
+    const { email, redirect_to } = (await req.json()) as { email: string; redirect_to?: string };
+    const normalizedEmail = email?.trim().toLowerCase();
+    if (!normalizedEmail) return j({ error: "Informe o email do usuário." }, 400);
 
     const { data: targetProfileRaw, error: targetErr } = await admin
       .from("profiles")
-      .select("role,status")
-      .ilike("email", email)
+      .select("id,role,status")
+      .ilike("email", normalizedEmail)
       .maybeSingle();
     const targetProfile = targetProfileRaw as ProfileRole | null;
     if (targetErr) return j({ error: targetErr.message }, 500);
     if (!targetProfile) return j({ error: "Usuário não encontrado." }, 404);
+    if (targetProfile.status === "disabled") return j({ error: "Usuário desativado." }, 403);
     if (!canResetRole(callerProfile.role, targetProfile.role)) {
       return j({ error: "Você não tem permissão para resetar a senha desse usuário." }, 403);
     }
 
     const { data, error } = await admin.auth.admin.generateLink({
       type: "recovery",
-      email,
+      email: normalizedEmail,
+      options: redirect_to ? { redirectTo: redirect_to } : undefined,
     });
     if (error) return j({ error: error.message }, 400);
+
+    const { error: updateErr } = await admin
+      .from("profiles")
+      .update({
+        must_change_password: true,
+        last_password_reset_at: new Date().toISOString(),
+      })
+      .eq("id", targetProfile.id);
+    if (updateErr) return j({ error: updateErr.message }, 400);
 
     return j({ action_link: data.properties?.action_link });
   } catch (e) {

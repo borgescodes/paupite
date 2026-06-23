@@ -16,7 +16,7 @@ export const Route = createFileRoute("/_authenticated/admin")({
 
 type Role = "superadmin" | "admin" | "player";
 type Status = "invited" | "active" | "disabled";
-interface ProfRow { id: string; email: string; display_name: string | null; nickname: string | null; role: Role; status: Status }
+interface ProfRow { id: string; email: string; display_name: string | null; nickname: string | null; role: Role; status: Status; must_change_password: boolean }
 interface TeamRow { id: string; name: string }
 interface MatchRow {
   id: string; kickoff_at: string; status: string;
@@ -55,7 +55,11 @@ function CreateUser({ currentRole }: { currentRole?: Role }) {
     setOut(null); setErr(null);
     try {
       const r = await callEdgeFunction<{ action_link: string }>("admin-create-user", {
-        email, display_name: displayName, nickname, role,
+        email,
+        display_name: displayName,
+        nickname,
+        role,
+        redirect_to: `${window.location.origin}/reset-password?mode=first-access`,
       });
       setOut(`Usuário criado. Link de primeiro acesso:\n${r.action_link}`);
       setEmail(""); setDisplayName(""); setNickname("");
@@ -85,13 +89,34 @@ function Users({ currentRole, currentUserId }: { currentRole?: Role; currentUser
   const [rows, setRows] = useState<ProfRow[]>([]);
   const [err, setErr] = useState<string | null>(null);
   const [resetLink, setResetLink] = useState<string | null>(null);
+  const [tempPasswords, setTempPasswords] = useState<Record<string, string>>({});
+  const [tempPasswordMsg, setTempPasswordMsg] = useState<string | null>(null);
 
   const load = async () => {
-    let query = supabase.from("profiles").select("id,email,display_name,nickname,role,status").order("created_at");
+    const baseSelect = "id,email,display_name,nickname,role,status";
+    let query = supabase
+      .from("profiles")
+      .select(`${baseSelect},must_change_password`)
+      .order("created_at");
     if (currentRole === "admin") query = query.eq("role", "player");
+
     const { data, error } = await query;
-    setErr(error?.message ?? null);
-    setRows((data ?? []) as ProfRow[]);
+    if (!error) {
+      setErr(null);
+      setRows((data ?? []) as ProfRow[]);
+      return;
+    }
+
+    // Compatibilidade temporária: evita quebrar /admin caso a migration
+    // de must_change_password ainda não tenha sido aplicada no banco remoto.
+    let fallbackQuery = supabase.from("profiles").select(baseSelect).order("created_at");
+    if (currentRole === "admin") fallbackQuery = fallbackQuery.eq("role", "player");
+    const { data: fallbackData, error: fallbackError } = await fallbackQuery;
+    setErr(fallbackError?.message ?? null);
+    setRows(((fallbackData ?? []) as Omit<ProfRow, "must_change_password">[]).map((row) => ({
+      ...row,
+      must_change_password: false,
+    })));
   };
 
   useEffect(() => { if (currentRole) void load(); }, [currentRole]);
@@ -105,9 +130,27 @@ function Users({ currentRole, currentUserId }: { currentRole?: Role; currentUser
 
   async function sendReset(email: string) {
     try {
-      setErr(null); setResetLink(null);
-      const r = await callEdgeFunction<{ action_link: string }>("admin-reset-user-password", { email });
+      setErr(null); setResetLink(null); setTempPasswordMsg(null);
+      const r = await callEdgeFunction<{ action_link: string }>("admin-reset-user-password", {
+        email,
+        redirect_to: `${window.location.origin}/reset-password?mode=reset`,
+      });
       setResetLink(r.action_link);
+      void load();
+    } catch (e) { setErr((e as Error).message); }
+  }
+
+  async function setTemporaryPassword(userId: string) {
+    try {
+      setErr(null); setResetLink(null); setTempPasswordMsg(null);
+      const temporaryPassword = tempPasswords[userId] ?? "";
+      await callEdgeFunction("admin-set-temp-password", {
+        user_id: userId,
+        temporary_password: temporaryPassword,
+      });
+      setTempPasswords((prev) => ({ ...prev, [userId]: "" }));
+      setTempPasswordMsg("Senha temporária definida. O usuário será obrigado a trocar a senha no próximo acesso.");
+      void load();
     } catch (e) { setErr((e as Error).message); }
   }
 
@@ -116,8 +159,9 @@ function Users({ currentRole, currentUserId }: { currentRole?: Role; currentUser
       <h2>Usuários</h2>
       {err && <p style={{ color: "crimson" }}>{err}</p>}
       {resetLink && <pre style={{ background: "#eef", padding: 8, whiteSpace: "pre-wrap" }}>Link de reset:\n{resetLink}</pre>}
+      {tempPasswordMsg && <p style={{ color: "green" }}>{tempPasswordMsg}</p>}
       <table style={{ width: "100%", borderCollapse: "collapse" }}>
-        <thead><tr><th>E-mail</th><th>Nome</th><th>Role</th><th>Status</th><th>Ações</th></tr></thead>
+        <thead><tr><th>E-mail</th><th>Nome</th><th>Role</th><th>Status</th><th>Senha</th><th>Ações</th></tr></thead>
         <tbody>
           {rows.map((r) => {
             const manageable = canManageProfile(currentRole, r, currentUserId);
@@ -140,8 +184,22 @@ function Users({ currentRole, currentUserId }: { currentRole?: Role; currentUser
                     <option value="active">active</option>
                     <option value="disabled">disabled</option>
                   </select>
+                  {r.must_change_password && <div style={{ fontSize: 12, color: "#b45309" }}>troca obrigatória</div>}
                 </td>
-                <td><button disabled={!canReset} onClick={() => sendReset(r.email)}>Reset senha</button></td>
+                <td>
+                  <input
+                    type="password"
+                    placeholder="Senha temporária"
+                    value={tempPasswords[r.id] ?? ""}
+                    disabled={!canReset}
+                    onChange={(e) => setTempPasswords((prev) => ({ ...prev, [r.id]: e.target.value }))}
+                    style={{ width: 150 }}
+                  />
+                  <button disabled={!canReset || (tempPasswords[r.id] ?? "").length < 8} onClick={() => setTemporaryPassword(r.id)}>
+                    Definir
+                  </button>
+                </td>
+                <td><button disabled={!canReset} onClick={() => sendReset(r.email)}>Gerar link reset</button></td>
               </tr>
             );
           })}
