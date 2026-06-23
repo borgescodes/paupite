@@ -33,9 +33,6 @@ function ResetPasswordPage() {
     if (password.length < 8) return setErr("Mínimo 8 caracteres");
     const { error } = await supabase.auth.updateUser({ password });
     if (error) return setErr(error.message);
-    // Marca status active no perfil
-    const { data: u } = await supabase.auth.getUser();
-    if (u.user) await supabase.from("profiles").update({ status: "active" }).eq("id", u.user.id);
     setMsg("Senha atualizada! Redirecionando...");
     setTimeout(() => navigate({ to: "/home" }), 1200);
   }
