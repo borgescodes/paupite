@@ -288,6 +288,10 @@ export type Database = {
       }
     }
     Functions: {
+      admin_recalculate_match_points: {
+        Args: { _match_id: string }
+        Returns: number
+      }
       calc_bet_points: {
         Args: {
           _away_actual: number
