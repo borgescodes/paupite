@@ -1,5 +1,10 @@
 -- Etapas 1 e 2: primeiro acesso, reset obrigatório e senha temporária.
 
+-- O SQL Editor/Lovable não executa com auth.uid().
+-- Esta configuração faz a trigger de hierarquia tratar esta migration como contexto trusted/service.
+SELECT set_config('request.jwt.claim.role', 'service_role', false);
+
+
 ALTER TABLE public.profiles
   ADD COLUMN IF NOT EXISTS must_change_password boolean NOT NULL DEFAULT false,
   ADD COLUMN IF NOT EXISTS first_access_completed_at timestamptz NULL,
@@ -164,3 +169,6 @@ $function$;
 
 REVOKE EXECUTE ON FUNCTION public.enforce_profile_hierarchy() FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.enforce_profile_hierarchy() TO service_role;
+
+-- Limpa o contexto especial usado apenas para aplicar esta migration.
+SELECT set_config('request.jwt.claim.role', '', false);
