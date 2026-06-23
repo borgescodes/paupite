@@ -8,6 +8,11 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
+interface ProfileRole {
+  role: "superadmin" | "admin" | "player";
+  status: "invited" | "active" | "disabled";
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -31,14 +36,30 @@ Deno.serve(async (req) => {
 
     const { data: callerProfile, error: callerErr } = await admin
       .from("profiles")
-      .select("role")
+      .select("role,status")
       .eq("id", userData.user.id)
-      .maybeSingle();
+      .maybeSingle<ProfileRole>();
     if (callerErr) return j({ error: callerErr.message }, 500);
-    if (!callerProfile || callerProfile.role !== "admin") return j({ error: "forbidden" }, 403);
+    if (!callerProfile || callerProfile.status !== "active") {
+      return j({ error: "Apenas usuários ativos podem resetar senhas." }, 403);
+    }
+    if (callerProfile.role !== "superadmin" && callerProfile.role !== "admin") {
+      return j({ error: "Você não tem permissão para resetar senhas." }, 403);
+    }
 
     const { email } = (await req.json()) as { email: string };
-    if (!email) return j({ error: "missing email" }, 400);
+    if (!email) return j({ error: "Informe o email do usuário." }, 400);
+
+    const { data: targetProfile, error: targetErr } = await admin
+      .from("profiles")
+      .select("role,status")
+      .ilike("email", email)
+      .maybeSingle<ProfileRole>();
+    if (targetErr) return j({ error: targetErr.message }, 500);
+    if (!targetProfile) return j({ error: "Usuário não encontrado." }, 404);
+    if (!canResetRole(callerProfile.role, targetProfile.role)) {
+      return j({ error: "Você não tem permissão para resetar a senha desse usuário." }, 403);
+    }
 
     const { data, error } = await admin.auth.admin.generateLink({
       type: "recovery",
@@ -57,4 +78,11 @@ function j(p: unknown, s = 200) {
     status: s,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
+}
+
+function canResetRole(callerRole: string, targetRole: string) {
+  if (targetRole === "superadmin") return false;
+  if (callerRole === "superadmin") return targetRole === "admin" || targetRole === "player";
+  if (callerRole === "admin") return targetRole === "player";
+  return false;
 }
