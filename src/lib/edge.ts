@@ -7,13 +7,14 @@ export async function callEdgeFunction<T = unknown>(name: string, body: unknown)
   if (error) {
     const context = (error as { context?: unknown }).context;
     if (context instanceof Response) {
+      let message: unknown;
       try {
         const payload = (await context.clone().json()) as { error?: unknown; message?: unknown };
-        const message = payload.error ?? payload.message;
-        if (message) throw new Error(String(message));
-      } catch (parseError) {
-        if (parseError instanceof Error && parseError.message !== "Failed to fetch") throw parseError;
+        message = payload.error ?? payload.message;
+      } catch {
+        message = null;
       }
+      if (message) throw new Error(String(message));
     }
     throw error;
   }
