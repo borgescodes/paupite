@@ -34,11 +34,12 @@ Deno.serve(async (req) => {
       auth: { persistSession: false, autoRefreshToken: false },
     });
 
-    const { data: callerProfile, error: callerErr } = await admin
+    const { data: callerProfileRaw, error: callerErr } = await admin
       .from("profiles")
       .select("role,status")
       .eq("id", userData.user.id)
-      .maybeSingle<ProfileRole>();
+      .maybeSingle();
+    const callerProfile = callerProfileRaw as ProfileRole | null;
     if (callerErr) return j({ error: callerErr.message }, 500);
     if (!callerProfile || callerProfile.status !== "active") {
       return j({ error: "Apenas usuários ativos podem fechar partidas." }, 403);
