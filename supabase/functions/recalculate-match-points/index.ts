@@ -1,5 +1,5 @@
 // Edge Function: recalculate-match-points
-// Recalcula pontos de uma partida. Apenas admins.
+// Recalcula pontos de uma partida e fecha. Apenas admins.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
@@ -25,20 +25,26 @@ Deno.serve(async (req) => {
     const { data: userData, error: userErr } = await userClient.auth.getUser();
     if (userErr || !userData.user) return j({ error: "unauthorized" }, 401);
 
-    const { data: isAdmin } = await userClient.rpc("is_admin", { _user_id: userData.user.id });
-    if (!isAdmin) return j({ error: "forbidden" }, 403);
-
-    const { match_id } = (await req.json()) as { match_id: string };
-    if (!match_id) return j({ error: "missing match_id" }, 400);
-
     const admin = createClient(SUPABASE_URL, SERVICE_ROLE, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
 
-    const { data, error } = await admin.rpc("recalculate_match_points", { _match_id: match_id });
+    const { data: callerProfile, error: callerErr } = await admin
+      .from("profiles")
+      .select("role")
+      .eq("id", userData.user.id)
+      .maybeSingle();
+    if (callerErr) return j({ error: callerErr.message }, 500);
+    if (!callerProfile || callerProfile.role !== "admin") return j({ error: "forbidden" }, 403);
+
+    const { match_id } = (await req.json()) as { match_id: string };
+    if (!match_id) return j({ error: "missing match_id" }, 400);
+
+    const { data, error } = await admin.rpc("admin_recalculate_match_points", {
+      _match_id: match_id,
+    });
     if (error) return j({ error: error.message }, 400);
 
-    // Marca partida como fechada
     await admin.from("matches").update({ status: "closed" }).eq("id", match_id);
 
     return j({ updated: data });

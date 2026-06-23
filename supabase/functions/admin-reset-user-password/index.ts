@@ -25,15 +25,20 @@ Deno.serve(async (req) => {
     const { data: userData, error: userErr } = await userClient.auth.getUser();
     if (userErr || !userData.user) return j({ error: "unauthorized" }, 401);
 
-    const { data: isAdmin } = await userClient.rpc("is_admin", { _user_id: userData.user.id });
-    if (!isAdmin) return j({ error: "forbidden" }, 403);
-
-    const { email } = (await req.json()) as { email: string };
-    if (!email) return j({ error: "missing email" }, 400);
-
     const admin = createClient(SUPABASE_URL, SERVICE_ROLE, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
+
+    const { data: callerProfile, error: callerErr } = await admin
+      .from("profiles")
+      .select("role")
+      .eq("id", userData.user.id)
+      .maybeSingle();
+    if (callerErr) return j({ error: callerErr.message }, 500);
+    if (!callerProfile || callerProfile.role !== "admin") return j({ error: "forbidden" }, 403);
+
+    const { email } = (await req.json()) as { email: string };
+    if (!email) return j({ error: "missing email" }, 400);
 
     const { data, error } = await admin.auth.admin.generateLink({
       type: "recovery",

@@ -27,27 +27,33 @@ Deno.serve(async (req) => {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) return json({ error: "missing auth" }, 401);
 
-    // Cliente "como usuário" para validar quem está chamando
     const userClient = createClient(SUPABASE_URL, ANON_KEY, {
       global: { headers: { Authorization: authHeader } },
     });
     const { data: userData, error: userErr } = await userClient.auth.getUser();
     if (userErr || !userData.user) return json({ error: "unauthorized" }, 401);
 
-    // Verifica role do solicitante
-    const { data: isAdmin } = await userClient.rpc("is_admin", { _user_id: userData.user.id });
-    if (!isAdmin) return json({ error: "forbidden" }, 403);
+    const admin = createClient(SUPABASE_URL, SERVICE_ROLE, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+
+    // Verifica role do solicitante via service role (helpers SECURITY DEFINER
+    // não são mais expostos no schema público).
+    const { data: callerProfile, error: callerErr } = await admin
+      .from("profiles")
+      .select("role")
+      .eq("id", userData.user.id)
+      .maybeSingle();
+    if (callerErr) return json({ error: callerErr.message }, 500);
+    if (!callerProfile || callerProfile.role !== "admin") {
+      return json({ error: "forbidden" }, 403);
+    }
 
     const body = (await req.json()) as Payload;
     if (!body.email || !body.display_name || !body.nickname || !body.role) {
       return json({ error: "invalid payload" }, 400);
     }
 
-    const admin = createClient(SUPABASE_URL, SERVICE_ROLE, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
-
-    // Cria usuário (sem senha) e gera invite link
     const { data: created, error: createErr } = await admin.auth.admin.createUser({
       email: body.email,
       email_confirm: false,
@@ -59,7 +65,6 @@ Deno.serve(async (req) => {
     });
     if (createErr) return json({ error: createErr.message }, 400);
 
-    // Garante role/status no profile (trigger pode já ter criado)
     await admin
       .from("profiles")
       .upsert({
@@ -71,7 +76,6 @@ Deno.serve(async (req) => {
         status: "invited",
       });
 
-    // Gera link de recuperação para primeiro acesso
     const { data: linkData, error: linkErr } = await admin.auth.admin.generateLink({
       type: "recovery",
       email: body.email,
