@@ -34,11 +34,12 @@ Deno.serve(async (req) => {
       auth: { persistSession: false, autoRefreshToken: false },
     });
 
-    const { data: callerProfile, error: callerErr } = await admin
+    const { data: callerProfileRaw, error: callerErr } = await admin
       .from("profiles")
       .select("role,status")
       .eq("id", userData.user.id)
-      .maybeSingle<ProfileRole>();
+      .maybeSingle();
+    const callerProfile = callerProfileRaw as ProfileRole | null;
     if (callerErr) return j({ error: callerErr.message }, 500);
     if (!callerProfile || callerProfile.status !== "active") {
       return j({ error: "Apenas usuários ativos podem resetar senhas." }, 403);
@@ -50,11 +51,12 @@ Deno.serve(async (req) => {
     const { email } = (await req.json()) as { email: string };
     if (!email) return j({ error: "Informe o email do usuário." }, 400);
 
-    const { data: targetProfile, error: targetErr } = await admin
+    const { data: targetProfileRaw, error: targetErr } = await admin
       .from("profiles")
       .select("role,status")
       .ilike("email", email)
-      .maybeSingle<ProfileRole>();
+      .maybeSingle();
+    const targetProfile = targetProfileRaw as ProfileRole | null;
     if (targetErr) return j({ error: targetErr.message }, 500);
     if (!targetProfile) return j({ error: "Usuário não encontrado." }, 404);
     if (!canResetRole(callerProfile.role, targetProfile.role)) {
