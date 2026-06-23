@@ -44,11 +44,12 @@ Deno.serve(async (req) => {
 
     // Verifica role do solicitante via service role (helpers SECURITY DEFINER
     // não são mais expostos no schema público).
-    const { data: callerProfile, error: callerErr } = await admin
+    const { data: callerProfileRaw, error: callerErr } = await admin
       .from("profiles")
       .select("role,status")
       .eq("id", userData.user.id)
-      .maybeSingle<ProfileRole>();
+      .maybeSingle();
+    const callerProfile = callerProfileRaw as ProfileRole | null;
     if (callerErr) return json({ error: callerErr.message }, 500);
     if (!callerProfile || callerProfile.status !== "active") {
       return json({ error: "Apenas usuários ativos podem criar usuários." }, 403);
