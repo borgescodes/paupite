@@ -14,16 +14,303 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      bets: {
+        Row: {
+          away_score: number
+          created_at: string
+          home_score: number
+          id: string
+          locked_at: string | null
+          match_id: string
+          points: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          away_score: number
+          created_at?: string
+          home_score: number
+          id?: string
+          locked_at?: string | null
+          match_id: string
+          points?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          away_score?: number
+          created_at?: string
+          home_score?: number
+          id?: string
+          locked_at?: string | null
+          match_id?: string
+          points?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bets_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: false
+            referencedRelation: "matches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bets_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bets_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "ranking"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      competitions: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          season: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          season?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          season?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      matches: {
+        Row: {
+          api_match_id: string | null
+          api_provider: string | null
+          away_score: number
+          away_team_id: string | null
+          competition_id: string | null
+          created_at: string
+          group_name: string | null
+          home_score: number
+          home_team_id: string | null
+          id: string
+          kickoff_at: string
+          last_synced_at: string | null
+          manual_override: boolean
+          stage: string | null
+          status: string
+          update_mode: string
+          updated_at: string
+        }
+        Insert: {
+          api_match_id?: string | null
+          api_provider?: string | null
+          away_score?: number
+          away_team_id?: string | null
+          competition_id?: string | null
+          created_at?: string
+          group_name?: string | null
+          home_score?: number
+          home_team_id?: string | null
+          id?: string
+          kickoff_at: string
+          last_synced_at?: string | null
+          manual_override?: boolean
+          stage?: string | null
+          status?: string
+          update_mode?: string
+          updated_at?: string
+        }
+        Update: {
+          api_match_id?: string | null
+          api_provider?: string | null
+          away_score?: number
+          away_team_id?: string | null
+          competition_id?: string | null
+          created_at?: string
+          group_name?: string | null
+          home_score?: number
+          home_team_id?: string | null
+          id?: string
+          kickoff_at?: string
+          last_synced_at?: string | null
+          manual_override?: boolean
+          stage?: string | null
+          status?: string
+          update_mode?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "matches_away_team_id_fkey"
+            columns: ["away_team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "matches_competition_id_fkey"
+            columns: ["competition_id"]
+            isOneToOne: false
+            referencedRelation: "competitions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "matches_home_team_id_fkey"
+            columns: ["home_team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          display_name: string | null
+          email: string
+          favorite_country_code: string | null
+          id: string
+          nickname: string | null
+          role: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          email: string
+          favorite_country_code?: string | null
+          id: string
+          nickname?: string | null
+          role?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          email?: string
+          favorite_country_code?: string | null
+          id?: string
+          nickname?: string | null
+          role?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      score_rules: {
+        Row: {
+          created_at: string
+          exact_score_points: number
+          goal_difference_bonus: number
+          id: string
+          outcome_points: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          exact_score_points?: number
+          goal_difference_bonus?: number
+          id?: string
+          outcome_points?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          exact_score_points?: number
+          goal_difference_bonus?: number
+          id?: string
+          outcome_points?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      teams: {
+        Row: {
+          country_code: string | null
+          created_at: string
+          flag_url: string | null
+          id: string
+          name: string
+          short_name: string | null
+          updated_at: string
+        }
+        Insert: {
+          country_code?: string | null
+          created_at?: string
+          flag_url?: string | null
+          id?: string
+          name: string
+          short_name?: string | null
+          updated_at?: string
+        }
+        Update: {
+          country_code?: string | null
+          created_at?: string
+          flag_url?: string | null
+          id?: string
+          name?: string
+          short_name?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
-      [_ in never]: never
+      ranking: {
+        Row: {
+          avatar_url: string | null
+          bets_count: number | null
+          display_name: string | null
+          exact_scores_count: number | null
+          nickname: string | null
+          outcome_hits_count: number | null
+          rank_position: number | null
+          total_points: number | null
+          user_id: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
-      [_ in never]: never
+      calc_bet_points: {
+        Args: {
+          _away_actual: number
+          _away_bet: number
+          _home_actual: number
+          _home_bet: number
+        }
+        Returns: number
+      }
+      has_role: { Args: { _role: string; _user_id: string }; Returns: boolean }
+      is_admin: { Args: { _user_id: string }; Returns: boolean }
+      match_kickoff_passed: { Args: { _match_id: string }; Returns: boolean }
+      recalculate_match_points: { Args: { _match_id: string }; Returns: number }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "player"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +437,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "player"],
+    },
   },
 } as const
