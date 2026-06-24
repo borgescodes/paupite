@@ -18,6 +18,8 @@ export const Route = createFileRoute("/_authenticated")({
       throw redirect({ to: "/reset-password" });
     }
 
+
+
     return { user: data.user };
   },
   component: () => <Outlet />,

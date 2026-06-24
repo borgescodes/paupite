@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { callEdgeFunction } from "@/lib/edge";
 
@@ -17,24 +17,46 @@ function ResetPasswordPage() {
   const [msg, setMsg] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
   const [saving, setSaving] = useState(false);
-
-  const mode: PasswordMode = useMemo(() => {
-    if (typeof window === "undefined") return "reset";
-    const raw = new URLSearchParams(window.location.search).get("mode");
-    return raw === "first-access" ? "first-access" : "reset";
-  }, []);
+  const [mode, setMode] = useState<PasswordMode>("reset");
 
   useEffect(() => {
+    const urlMode =
+      typeof window !== "undefined"
+        ? new URLSearchParams(window.location.search).get("mode")
+        : null;
+    if (urlMode === "first-access") setMode("first-access");
+
+    const detect = async () => {
+      const { data } = await supabase.auth.getUser();
+      if (!data.user) return;
+      setReady(true);
+      const { data: prof } = await supabase
+        .from("profiles")
+        .select("must_change_password,status")
+        .eq("id", data.user.id)
+        .maybeSingle();
+      if (prof && (prof.must_change_password || prof.status === "invited")) {
+        setMode("first-access");
+      }
+    };
+
     const { data: sub } = supabase.auth.onAuthStateChange((event) => {
-      if (event === "PASSWORD_RECOVERY" || event === "SIGNED_IN") setReady(true);
+      if (event === "PASSWORD_RECOVERY" || event === "SIGNED_IN") {
+        setReady(true);
+        void detect();
+      }
     });
 
     supabase.auth.getSession().then(({ data }) => {
-      if (data.session) setReady(true);
+      if (data.session) {
+        setReady(true);
+        void detect();
+      }
     });
 
     return () => sub.subscription.unsubscribe();
   }, []);
+
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -65,12 +87,13 @@ function ResetPasswordPage() {
 
   return (
     <div style={{ maxWidth: 360, margin: "60px auto", padding: 16, fontFamily: "system-ui" }}>
-      <h1>{mode === "first-access" ? "Definir senha" : "Redefinir senha"}</h1>
+      <h1>{mode === "first-access" ? "Troca obrigatória de senha" : "Redefinir senha"}</h1>
       <p style={{ color: "#555" }}>
         {mode === "first-access"
-          ? "Crie sua senha de primeiro acesso para liberar sua conta."
+          ? "Esta é sua primeira entrada (ou um admin definiu uma nova senha). Defina uma nova senha pessoal para continuar."
           : "Informe sua nova senha para continuar."}
       </p>
+
       {!ready && <p>Validando link...</p>}
       {ready && (
         <form onSubmit={onSubmit}>
