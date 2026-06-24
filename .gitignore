@@ -20,6 +20,13 @@ dist-ssr
 .wrangler/
 .dev.vars
 
+# Visual/data references (local only, not part of the app — canonical copies live under src/data and public/flags)
+references.zip
+flag-icons-main.zip
+design-system.zip
+print-reference.jpg
+paupite-world-cup-2026-group-stage-seed-clean.txt
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

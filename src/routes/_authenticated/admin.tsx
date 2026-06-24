@@ -289,7 +289,7 @@ function Matches() {
   async function closeMatch(id: string) {
     try {
       const r = await callEdgeFunction<{ updated: number }>("recalculate-match-points", { match_id: id });
-      alert(`Fechada. Palpites recalculados: ${r.updated}`);
+      alert(`Fechada. Paupites recalculados: ${r.updated}`);
       void load();
     } catch (e) { alert((e as Error).message); }
   }

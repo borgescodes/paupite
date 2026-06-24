@@ -66,7 +66,7 @@ function MatchesPage() {
       <h1>Partidas</h1>
       <table style={{ width: "100%", borderCollapse: "collapse" }}>
         <thead>
-          <tr><th>Quando</th><th>Jogo</th><th>Placar</th><th>Status</th><th>Meu palpite</th><th></th></tr>
+          <tr><th>Quando</th><th>Jogo</th><th>Placar</th><th>Status</th><th>Meu paupite</th><th></th></tr>
         </thead>
         <tbody>
           {matches.map((m) => {

@@ -31,7 +31,7 @@ function RankingPage() {
       <h1>Ranking</h1>
       <table style={{ width: "100%", borderCollapse: "collapse" }}>
         <thead>
-          <tr><th>#</th><th>Jogador</th><th>Pontos</th><th>Exatos</th><th>Vencedor</th><th>Palpites</th></tr>
+          <tr><th>#</th><th>Jogador</th><th>Pontos</th><th>Exatos</th><th>Vencedor</th><th>Paupites</th></tr>
         </thead>
         <tbody>
           {rows.map((r) => (
