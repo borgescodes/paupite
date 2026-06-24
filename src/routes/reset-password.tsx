@@ -87,12 +87,13 @@ function ResetPasswordPage() {
 
   return (
     <div style={{ maxWidth: 360, margin: "60px auto", padding: 16, fontFamily: "system-ui" }}>
-      <h1>{mode === "first-access" ? "Definir senha" : "Redefinir senha"}</h1>
+      <h1>{mode === "first-access" ? "Troca obrigatória de senha" : "Redefinir senha"}</h1>
       <p style={{ color: "#555" }}>
         {mode === "first-access"
-          ? "Crie sua senha de primeiro acesso para liberar sua conta."
+          ? "Esta é sua primeira entrada (ou um admin definiu uma nova senha). Defina uma nova senha pessoal para continuar."
           : "Informe sua nova senha para continuar."}
       </p>
+
       {!ready && <p>Validando link...</p>}
       {ready && (
         <form onSubmit={onSubmit}>
