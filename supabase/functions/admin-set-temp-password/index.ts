@@ -63,6 +63,7 @@ Deno.serve(async (req) => {
 
     const { error: authErr } = await admin.auth.admin.updateUserById(user_id, {
       password: temporary_password,
+      email_confirm: true,
     });
     if (authErr) return json({ error: authErr.message }, 400);
 
