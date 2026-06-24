@@ -47,22 +47,27 @@ function CreateUser({ currentRole }: { currentRole?: Role }) {
   const [displayName, setDisplayName] = useState("");
   const [nickname, setNickname] = useState("");
   const [role, setRole] = useState<"player" | "admin">("player");
+  const [initialPassword, setInitialPassword] = useState("");
   const [out, setOut] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setOut(null); setErr(null);
+    if (initialPassword.length < 8) {
+      setErr("A senha inicial precisa ter pelo menos 8 caracteres.");
+      return;
+    }
     try {
-      const r = await callEdgeFunction<{ action_link: string }>("admin-create-user", {
+      await callEdgeFunction("admin-create-user", {
         email,
         display_name: displayName,
         nickname,
         role,
-        redirect_to: `${window.location.origin}/reset-password?mode=first-access`,
+        initial_password: initialPassword,
       });
-      setOut(`Usuário criado. Link de primeiro acesso:\n${r.action_link}`);
-      setEmail(""); setDisplayName(""); setNickname("");
+      setOut("Usuário criado. Envie a senha inicial manualmente ao usuário.");
+      setEmail(""); setDisplayName(""); setNickname(""); setInitialPassword("");
     } catch (e) { setErr((e as Error).message); }
   }
 
@@ -77,9 +82,17 @@ function CreateUser({ currentRole }: { currentRole?: Role }) {
           <option value="player">player</option>
           {currentRole === "superadmin" && <option value="admin">admin</option>}
         </select>
+        <input
+          placeholder="Senha inicial (mín. 8 caracteres)"
+          required
+          type="text"
+          minLength={8}
+          value={initialPassword}
+          onChange={(e) => setInitialPassword(e.target.value)}
+        />
         <button type="submit">Criar</button>
       </form>
-      {out && <pre style={{ background: "#eef", padding: 8, whiteSpace: "pre-wrap" }}>{out}</pre>}
+      {out && <p style={{ color: "green" }}>{out}</p>}
       {err && <p style={{ color: "crimson" }}>{err}</p>}
     </section>
   );
@@ -88,7 +101,6 @@ function CreateUser({ currentRole }: { currentRole?: Role }) {
 function Users({ currentRole, currentUserId }: { currentRole?: Role; currentUserId?: string }) {
   const [rows, setRows] = useState<ProfRow[]>([]);
   const [err, setErr] = useState<string | null>(null);
-  const [resetLink, setResetLink] = useState<string | null>(null);
   const [tempPasswords, setTempPasswords] = useState<Record<string, string>>({});
   const [tempPasswordMsg, setTempPasswordMsg] = useState<string | null>(null);
 
@@ -107,8 +119,6 @@ function Users({ currentRole, currentUserId }: { currentRole?: Role; currentUser
       return;
     }
 
-    // Compatibilidade temporária: evita quebrar /admin caso a migration
-    // de must_change_password ainda não tenha sido aplicada no banco remoto.
     let fallbackQuery = supabase.from("profiles").select(baseSelect).order("created_at");
     if (currentRole === "admin") fallbackQuery = fallbackQuery.eq("role", "player");
     const { data: fallbackData, error: fallbackError } = await fallbackQuery;
@@ -128,28 +138,16 @@ function Users({ currentRole, currentUserId }: { currentRole?: Role; currentUser
     void load();
   }
 
-  async function sendReset(email: string) {
+  async function setNewPassword(userId: string) {
     try {
-      setErr(null); setResetLink(null); setTempPasswordMsg(null);
-      const r = await callEdgeFunction<{ action_link: string }>("admin-reset-user-password", {
-        email,
-        redirect_to: `${window.location.origin}/reset-password?mode=reset`,
-      });
-      setResetLink(r.action_link);
-      void load();
-    } catch (e) { setErr((e as Error).message); }
-  }
-
-  async function setTemporaryPassword(userId: string) {
-    try {
-      setErr(null); setResetLink(null); setTempPasswordMsg(null);
-      const temporaryPassword = tempPasswords[userId] ?? "";
+      setErr(null); setTempPasswordMsg(null);
+      const newPassword = tempPasswords[userId] ?? "";
       await callEdgeFunction("admin-set-temp-password", {
         user_id: userId,
-        temporary_password: temporaryPassword,
+        temporary_password: newPassword,
       });
       setTempPasswords((prev) => ({ ...prev, [userId]: "" }));
-      setTempPasswordMsg("Senha temporária definida. O usuário será obrigado a trocar a senha no próximo acesso.");
+      setTempPasswordMsg("Senha atualizada. O usuário deverá trocar no próximo login.");
       void load();
     } catch (e) { setErr((e as Error).message); }
   }
@@ -158,10 +156,9 @@ function Users({ currentRole, currentUserId }: { currentRole?: Role; currentUser
     <section>
       <h2>Usuários</h2>
       {err && <p style={{ color: "crimson" }}>{err}</p>}
-      {resetLink && <pre style={{ background: "#eef", padding: 8, whiteSpace: "pre-wrap" }}>Link de reset:\n{resetLink}</pre>}
       {tempPasswordMsg && <p style={{ color: "green" }}>{tempPasswordMsg}</p>}
       <table style={{ width: "100%", borderCollapse: "collapse" }}>
-        <thead><tr><th>E-mail</th><th>Nome</th><th>Role</th><th>Status</th><th>Senha</th><th>Ações</th></tr></thead>
+        <thead><tr><th>E-mail</th><th>Nome</th><th>Role</th><th>Status</th><th>Nova senha</th></tr></thead>
         <tbody>
           {rows.map((r) => {
             const manageable = canManageProfile(currentRole, r, currentUserId);
@@ -188,18 +185,17 @@ function Users({ currentRole, currentUserId }: { currentRole?: Role; currentUser
                 </td>
                 <td>
                   <input
-                    type="password"
-                    placeholder="Senha temporária"
+                    type="text"
+                    placeholder="Nova senha"
                     value={tempPasswords[r.id] ?? ""}
                     disabled={!canReset}
                     onChange={(e) => setTempPasswords((prev) => ({ ...prev, [r.id]: e.target.value }))}
                     style={{ width: 150 }}
                   />
-                  <button disabled={!canReset || (tempPasswords[r.id] ?? "").length < 8} onClick={() => setTemporaryPassword(r.id)}>
-                    Definir
+                  <button disabled={!canReset || (tempPasswords[r.id] ?? "").length < 8} onClick={() => setNewPassword(r.id)}>
+                    Atualizar senha
                   </button>
                 </td>
-                <td><button disabled={!canReset} onClick={() => sendReset(r.email)}>Gerar link reset</button></td>
               </tr>
             );
           })}
