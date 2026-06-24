@@ -185,10 +185,10 @@ export type Database = {
           id: string
           last_password_reset_at: string | null
           must_change_password: boolean
-          temporary_password_set_at: string | null
           nickname: string | null
           role: string
           status: string
+          temporary_password_set_at: string | null
           updated_at: string
         }
         Insert: {
@@ -201,10 +201,10 @@ export type Database = {
           id: string
           last_password_reset_at?: string | null
           must_change_password?: boolean
-          temporary_password_set_at?: string | null
           nickname?: string | null
           role?: string
           status?: string
+          temporary_password_set_at?: string | null
           updated_at?: string
         }
         Update: {
@@ -217,10 +217,10 @@ export type Database = {
           id?: string
           last_password_reset_at?: string | null
           must_change_password?: boolean
-          temporary_password_set_at?: string | null
           nickname?: string | null
           role?: string
           status?: string
+          temporary_password_set_at?: string | null
           updated_at?: string
         }
         Relationships: []
