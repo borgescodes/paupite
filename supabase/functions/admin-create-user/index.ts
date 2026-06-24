@@ -85,6 +85,23 @@ Deno.serve(async (req) => {
     });
     if (createErr) return json({ error: createErr.message }, 400);
 
+    // Fallback: garantir que o email fique confirmado mesmo se o createUser
+    // não tiver marcado email_confirmed_at (alguns ambientes ignoram a flag).
+    let confirmedUser = created.user!;
+    if (!confirmedUser.email_confirmed_at) {
+      const { data: updated, error: confirmErr } = await admin.auth.admin.updateUserById(
+        confirmedUser.id,
+        { email_confirm: true },
+      );
+      if (confirmErr) {
+        return json({ error: `Usuário criado, mas email não foi confirmado no Auth: ${confirmErr.message}` }, 500);
+      }
+      if (updated?.user) confirmedUser = updated.user;
+      if (!confirmedUser.email_confirmed_at) {
+        return json({ error: "Usuário criado, mas email não foi confirmado no Auth." }, 500);
+      }
+    }
+
     const now = new Date().toISOString();
     const { error: profileErr } = await admin
       .from("profiles")
