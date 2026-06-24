@@ -15,8 +15,9 @@ export const Route = createFileRoute("/_authenticated")({
     }
 
     if (profile.status === "invited" || profile.must_change_password) {
-      throw redirect({ to: "/reset-password" });
+      throw redirect({ to: "/reset-password", search: { mode: "first-access" } });
     }
+
 
     return { user: data.user };
   },
