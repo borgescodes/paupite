@@ -1,6 +1,6 @@
 // Edge Function: admin-create-user
-// Cria usuário via Auth Admin API e gera link de primeiro acesso.
-// Apenas superadmin/admin ativos podem chamar, respeitando hierarquia.
+// Cria usuário no Supabase Auth já com senha inicial definida pelo admin.
+// Não envia email, não gera link de convite. Apenas superadmin/admin ativos.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
@@ -14,7 +14,7 @@ interface Payload {
   display_name: string;
   nickname: string;
   role?: "admin" | "player";
-  redirect_to?: string;
+  initial_password: string;
 }
 
 interface ProfileRole {
@@ -61,10 +61,13 @@ Deno.serve(async (req) => {
     const body = (await req.json()) as Payload;
     const targetRole = body.role ?? "player";
     const email = body.email?.trim().toLowerCase();
-    const redirectTo = body.redirect_to?.trim();
+    const initialPassword = body.initial_password ?? "";
 
     if (!email || !body.display_name?.trim() || !body.nickname?.trim()) {
       return json({ error: "Informe email, nome e apelido." }, 400);
+    }
+    if (!initialPassword || initialPassword.length < 8) {
+      return json({ error: "A senha inicial precisa ter pelo menos 8 caracteres." }, 400);
     }
     if (!canCreateRole(callerProfile.role, targetRole)) {
       return json({ error: "Você não tem permissão para criar usuário com essa role." }, 403);
@@ -72,6 +75,7 @@ Deno.serve(async (req) => {
 
     const { data: created, error: createErr } = await admin.auth.admin.createUser({
       email,
+      password: initialPassword,
       email_confirm: true,
       user_metadata: {
         display_name: body.display_name,
@@ -81,6 +85,7 @@ Deno.serve(async (req) => {
     });
     if (createErr) return json({ error: createErr.message }, 400);
 
+    const now = new Date().toISOString();
     const { error: profileErr } = await admin
       .from("profiles")
       .upsert({
@@ -89,25 +94,17 @@ Deno.serve(async (req) => {
         display_name: body.display_name,
         nickname: body.nickname,
         role: targetRole,
-        status: "invited",
+        status: "active",
         must_change_password: true,
         first_access_completed_at: null,
         last_password_reset_at: null,
-        temporary_password_set_at: null,
+        temporary_password_set_at: now,
       });
     if (profileErr) return json({ error: profileErr.message }, 400);
-
-    const { data: linkData, error: linkErr } = await admin.auth.admin.generateLink({
-      type: "recovery",
-      email,
-      options: redirectTo ? { redirectTo } : undefined,
-    });
-    if (linkErr) return json({ error: linkErr.message }, 400);
 
     return json({
       user_id: created.user!.id,
       email,
-      action_link: linkData.properties?.action_link,
     });
   } catch (e) {
     console.error(e);
