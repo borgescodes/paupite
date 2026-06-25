@@ -51,12 +51,33 @@ Deno.serve(async (req) => {
     const { match_id } = (await req.json()) as { match_id: string };
     if (!match_id) return j({ error: "Informe a partida." }, 400);
 
+    const { data: match, error: matchErr } = await admin
+      .from("matches")
+      .select("id,kickoff_at,status")
+      .eq("id", match_id)
+      .maybeSingle();
+    if (matchErr) return j({ error: matchErr.message }, 500);
+    if (!match) return j({ error: "Partida não encontrada." }, 404);
+    if (new Date(match.kickoff_at) > new Date()) {
+      return j({ error: "Não é permitido fechar partida futura." }, 400);
+    }
+    if (match.status === "scheduled") {
+      return j({ error: "Lance o resultado antes de fechar a partida." }, 400);
+    }
+
     const { data, error } = await admin.rpc("admin_recalculate_match_points", {
       _match_id: match_id,
     });
     if (error) return j({ error: error.message }, 400);
 
     await admin.from("matches").update({ status: "closed" }).eq("id", match_id);
+    await admin.from("audit_logs").insert({
+      actor_id: userData.user.id,
+      action: "match.closed_and_scored",
+      entity_type: "match",
+      entity_id: match_id,
+      metadata: { bets_updated: data },
+    });
 
     return j({ updated: data });
   } catch (e) {

@@ -78,17 +78,37 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "PauPite" },
-      { name: "description", content: "A private Copa betting app for managing users, matches, and bets with Supabase backend." },
+      {
+        name: "description",
+        content:
+          "A private Copa betting app for managing users, matches, and bets with Supabase backend.",
+      },
       { name: "author", content: "Lovable" },
       { property: "og:title", content: "PauPite" },
-      { property: "og:description", content: "A private Copa betting app for managing users, matches, and bets with Supabase backend." },
+      {
+        property: "og:description",
+        content:
+          "A private Copa betting app for managing users, matches, and bets with Supabase backend.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "twitter:site", content: "@Lovable" },
       { name: "twitter:title", content: "PauPite" },
-      { name: "twitter:description", content: "A private Copa betting app for managing users, matches, and bets with Supabase backend." },
-      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/9a1280de-0f5d-47ad-b0d3-9c40535ca9ec/id-preview-e91061d1--62969498-ea4b-4fea-8238-f2cccb5aeac2.lovable.app-1782192623911.png" },
-      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/9a1280de-0f5d-47ad-b0d3-9c40535ca9ec/id-preview-e91061d1--62969498-ea4b-4fea-8238-f2cccb5aeac2.lovable.app-1782192623911.png" },
+      {
+        name: "twitter:description",
+        content:
+          "A private Copa betting app for managing users, matches, and bets with Supabase backend.",
+      },
+      {
+        property: "og:image",
+        content:
+          "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/9a1280de-0f5d-47ad-b0d3-9c40535ca9ec/id-preview-e91061d1--62969498-ea4b-4fea-8238-f2cccb5aeac2.lovable.app-1782192623911.png",
+      },
+      {
+        name: "twitter:image",
+        content:
+          "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/9a1280de-0f5d-47ad-b0d3-9c40535ca9ec/id-preview-e91061d1--62969498-ea4b-4fea-8238-f2cccb5aeac2.lovable.app-1782192623911.png",
+      },
     ],
     links: [
       {

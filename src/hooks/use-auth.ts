@@ -50,5 +50,10 @@ export function useAuth() {
     };
   }, []);
 
-  return { user, profile, loading, isAdmin: profile?.role === "admin" || profile?.role === "superadmin" };
+  return {
+    user,
+    profile,
+    loading,
+    isAdmin: profile?.role === "admin" || profile?.role === "superadmin",
+  };
 }

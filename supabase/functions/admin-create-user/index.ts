@@ -1,6 +1,6 @@
 // Edge Function: admin-create-user
 // Cria usuário no Supabase Auth já com senha inicial definida pelo admin.
-// Não envia email, não gera link de convite. Apenas superadmin/admin ativos.
+// Não envia email, não gera link de convite. Apenas superadmin ativo.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
@@ -54,7 +54,7 @@ Deno.serve(async (req) => {
     if (!callerProfile || callerProfile.status !== "active") {
       return json({ error: "Apenas usuários ativos podem criar usuários." }, 403);
     }
-    if (!isAdminRole(callerProfile.role)) {
+    if (callerProfile.role !== "superadmin") {
       return json({ error: "Você não tem permissão para criar usuários." }, 403);
     }
 
@@ -94,7 +94,10 @@ Deno.serve(async (req) => {
         { email_confirm: true },
       );
       if (confirmErr) {
-        return json({ error: `Usuário criado, mas email não foi confirmado no Auth: ${confirmErr.message}` }, 500);
+        return json(
+          { error: `Usuário criado, mas email não foi confirmado no Auth: ${confirmErr.message}` },
+          500,
+        );
       }
       if (updated?.user) confirmedUser = updated.user;
       if (!confirmedUser.email_confirmed_at) {
@@ -103,21 +106,27 @@ Deno.serve(async (req) => {
     }
 
     const now = new Date().toISOString();
-    const { error: profileErr } = await admin
-      .from("profiles")
-      .upsert({
-        id: created.user!.id,
-        email,
-        display_name: body.display_name,
-        nickname: body.nickname,
-        role: targetRole,
-        status: "active",
-        must_change_password: true,
-        first_access_completed_at: null,
-        last_password_reset_at: null,
-        temporary_password_set_at: now,
-      });
+    const { error: profileErr } = await admin.from("profiles").upsert({
+      id: created.user!.id,
+      email,
+      display_name: body.display_name,
+      nickname: body.nickname,
+      role: targetRole,
+      status: "active",
+      must_change_password: true,
+      first_access_completed_at: null,
+      last_password_reset_at: null,
+      temporary_password_set_at: now,
+    });
     if (profileErr) return json({ error: profileErr.message }, 400);
+
+    await admin.from("audit_logs").insert({
+      actor_id: userData.user.id,
+      action: "profile.created",
+      entity_type: "profile",
+      entity_id: created.user!.id,
+      metadata: { role: targetRole },
+    });
 
     return json({
       user_id: created.user!.id,
@@ -136,12 +145,7 @@ function json(payload: unknown, status = 200) {
   });
 }
 
-function isAdminRole(role: string) {
-  return role === "superadmin" || role === "admin";
-}
-
 function canCreateRole(callerRole: string, targetRole: string) {
   if (callerRole === "superadmin") return targetRole === "admin" || targetRole === "player";
-  if (callerRole === "admin") return targetRole === "player";
   return false;
 }
