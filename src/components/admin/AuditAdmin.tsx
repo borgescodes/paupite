@@ -25,7 +25,7 @@ export function AuditAdmin() {
       .select("id,action,entity_type,entity_id,metadata,created_at")
       .order("created_at", { ascending: false })
       .limit(100)
-      .then(({ data, error: loadError }) => {
+      .then(({ data, error: loadError }: { data: any; error: any }) => {
         setRows((data ?? []) as AuditRow[]);
         setError(loadError?.message ?? null);
       });
