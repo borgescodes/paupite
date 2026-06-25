@@ -69,14 +69,14 @@ function PoolPage() {
   const load = useCallback(async () => {
     if (!user?.id) return;
     const [summaryResult, enrollmentResult, prizeResult, rankingResult] = await Promise.all([
-      supabase.from("pool_public_summary").select("*").maybeSingle(),
+      (supabase as any).from("pool_public_summary").select("*").maybeSingle(),
       supabase
         .from("enrollments")
         .select("id,status,terms_accepted_at")
         .eq("user_id", user.id)
         .maybeSingle(),
-      supabase.from("prize_requests").select("id,status").eq("user_id", user.id).maybeSingle(),
-      supabase.from("ranking_pool").select("rank_position").eq("user_id", user.id).maybeSingle(),
+      (supabase as any).from("prize_requests").select("id,status").eq("user_id", user.id).maybeSingle(),
+      (supabase as any).from("ranking_pool").select("rank_position").eq("user_id", user.id).maybeSingle(),
     ]);
     const nextSummary = summaryResult.data as PoolSummary | null;
     const nextEnrollment = enrollmentResult.data as Enrollment | null;

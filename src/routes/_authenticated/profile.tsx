@@ -73,10 +73,10 @@ function ProfilePage() {
     setNickname(profile.nickname ?? "");
     setAvatarUrl(profile.avatar_url);
     Promise.all([
-      supabase.from("teams").select("id,name,short_name,country_code").order("name"),
-      supabase.from("profile_badges").select("*").eq("user_id", user.id).maybeSingle(),
-      supabase.from("ranking_free").select("*").eq("user_id", user.id).maybeSingle(),
-      supabase.from("ranking_pool").select("*").eq("user_id", user.id).maybeSingle(),
+      (supabase as any).from("teams").select("id,name,short_name,country_code").order("name"),
+      (supabase as any).from("profile_badges").select("*").eq("user_id", user.id).maybeSingle(),
+      (supabase as any).from("ranking_free").select("*").eq("user_id", user.id).maybeSingle(),
+      (supabase as any).from("ranking_pool").select("*").eq("user_id", user.id).maybeSingle(),
     ]).then(([teamResult, badgeResult, freeResult, poolResult]) => {
       setTeams((teamResult.data ?? []) as Team[]);
       setFavoriteTeams((badgeResult.data?.favorite_team_codes ?? []) as string[]);
@@ -124,7 +124,7 @@ function ProfilePage() {
       .from("profiles")
       .update({ display_name: displayName.trim() || null, nickname: nickname.trim() || null })
       .eq("id", profileId);
-    const badgeResult = await supabase.from("profile_badges").upsert(
+    const badgeResult = await (supabase as any).from("profile_badges").upsert(
       {
         user_id: profileId,
         favorite_team_codes: favoriteTeams,
