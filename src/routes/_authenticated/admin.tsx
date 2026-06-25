@@ -97,8 +97,8 @@ function AdminPage() {
         {section === "users" && <UsersAdmin currentRole={profile.role} />}
         {section === "pool" && superadmin && <PoolAdmin />}
         {section === "import" && superadmin && <ImportAdmin />}
-        </main>
       </main>
+
     </div>
   );
 }
