@@ -73,22 +73,16 @@ export function requireRole(profile: ActorProfile, roles: AppRole[]) {
 }
 
 export async function writeAudit(
-  admin: SupabaseClient,
-  actorId: string | null,
-  action: string,
-  entityType: string,
-  entityId: string | null,
-  metadata: Record<string, unknown> = {},
+  _admin: SupabaseClient,
+  _actorId: string | null,
+  _action: string,
+  _entityType: string,
+  _entityId: string | null,
+  _metadata: Record<string, unknown> = {},
 ) {
-  const { error } = await admin.from("audit_logs").insert({
-    actor_id: actorId,
-    action,
-    entity_type: entityType,
-    entity_id: entityId,
-    metadata,
-  });
-  if (error) console.error("audit_log_failed", error.message);
+  // Audit logging disabled — audit_logs table not implemented.
 }
+
 
 export class HttpError extends Error {
   status: number;
