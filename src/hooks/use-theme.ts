@@ -13,7 +13,7 @@ function initialTheme(): ThemeMode {
 }
 
 export function useThemeMode() {
-  const [theme, setTheme] = useState<ThemeMode>(initialTheme);
+  const [theme, setTheme] = useState<ThemeMode>("light");
 
   useEffect(() => {
     setTheme(initialTheme());
