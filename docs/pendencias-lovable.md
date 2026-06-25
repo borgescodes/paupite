@@ -18,28 +18,38 @@ Arquivos em `supabase/migrations/` (ordem cronológica). Não há Supabase CLI l
 - `20260623040000_password_access_flow.sql`
 - `20260623050000_security_hardening.sql`
 - `20260623053000_fix_profiles_policy_recursion.sql` (mais recente — corrige recursão de policy em `profiles`)
+- `20260625030000_paupite_mvp.sql` (RBAC final, partidas, rankings, bolão, pagamentos, perfil, importação, prêmios e auditoria)
 
 > Quando uma nova migration for criada localmente neste projeto, adicionar o nome dela aqui até que se confirme a aplicação no remoto.
 
 ## Deploy de Edge Functions
 
-As 5 funções abaixo existem como código em `supabase/functions/` mas o deploy/atualização no projeto remoto precisa ser confirmado/feito via Lovable Cloud:
+As funções abaixo existem como código em `supabase/functions/` mas o deploy/atualização no projeto remoto precisa ser confirmado/feito via Lovable Cloud:
 
 - `admin-create-user`
 - `admin-reset-user-password`
 - `admin-set-temp-password`
 - `complete-password-change`
 - `recalculate-match-points`
+- `admin-manage-user`
+- `admin-save-match`
+- `pool-enrollment`
+- `pool-create-checkout`
+- `infinitepay-webhook`
+- `infinitepay-payment-check`
+- `import-matches`
 
 Todas configuradas com `verify_jwt = false` em `supabase/config.toml` — essa configuração também precisa estar refletida no projeto remoto.
 
 ## Configurações Supabase/Lovable
 
 - `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_PROJECT_ID` (e equivalentes `VITE_*`) estão em `.env` local — confirmar que correspondem ao projeto remoto correto e que segredos de produção (service role key, etc.) só existem no ambiente do Lovable/Supabase, nunca neste repositório.
-- `redirectTo` usado nos links de convite/reset (`admin-create-user`, `admin-reset-user-password`) depende da URL pública do app estar corretamente configurada nas allowed redirect URLs do projeto Supabase.
+- Configurar `INFINITEPAY_HANDLE`, `APP_PUBLIC_URL` e `INFINITEPAY_WEBHOOK_TOKEN` em Supabase Secrets.
+- `admin-reset-user-password` permanece apenas como legado restrito; a UI não dispara reset por e-mail.
 
 ## Validação que não pode ser feita localmente
 
-- Testar end-to-end o fluxo de convite/primeiro acesso/reset de senha (depende de envio de e-mail e link gerado pelo projeto remoto).
+- Testar end-to-end o fluxo de primeiro acesso com senha temporária definida pelo superadmin.
 - Testar RLS reais contra dados de produção/staging (as policies só existem no banco remoto; não há banco local).
 - Testar realtime (`postgres_changes`) de `matches`/`bets`, que depende da conexão com o projeto remoto.
+- Testar checkout/webhook/payment_check da InfinitePay com credenciais e pagamento reais.

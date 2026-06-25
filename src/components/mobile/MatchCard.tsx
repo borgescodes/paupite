@@ -13,6 +13,8 @@ export interface MatchCardProps {
   data: MatchCardData;
   onGuessChange?: (value: ScoreValue) => void;
   onSubmitGuess?: () => void;
+  saving?: boolean;
+  saveMessage?: string | null;
   className?: string;
 }
 
@@ -130,7 +132,14 @@ function LockedBar({ label }: { label: string }) {
   );
 }
 
-function MatchCard({ data, onGuessChange, onSubmitGuess, className }: MatchCardProps) {
+function MatchCard({
+  data,
+  onGuessChange,
+  onSubmitGuess,
+  saving,
+  saveMessage,
+  className,
+}: MatchCardProps) {
   return (
     <Card className={cn("rounded-lg border-border shadow-none", className)}>
       <CardContent className="space-y-2.5 p-3.5">
@@ -156,8 +165,9 @@ function MatchCard({ data, onGuessChange, onSubmitGuess, className }: MatchCardP
                   !data.guess.value && "bg-brand text-brand-foreground hover:bg-brand/90",
                 )}
                 onClick={onSubmitGuess}
+                disabled={saving}
               >
-                {data.guess.value ? "Editar paupite" : "Enviar paupite"}
+                {saving ? "Salvando..." : data.guess.saved ? "Salvar alteração" : "Enviar paupite"}
               </Button>
             ) : (
               <LockedBar label={data.paupiteClosedLabel} />
@@ -168,13 +178,32 @@ function MatchCard({ data, onGuessChange, onSubmitGuess, className }: MatchCardP
         {data.status === "live" && data.liveScore && (
           <div className="space-y-2">
             <FinalScoreRow data={data} score={data.liveScore} />
+            {data.guess.value && (
+              <p className="text-center text-xs text-muted-foreground">
+                Seu paupite: {data.guess.value.home} - {data.guess.value.away}
+              </p>
+            )}
             <LockedBar label={data.paupiteClosedLabel} />
           </div>
         )}
 
         {data.status === "finished" && data.finalScore && (
-          <FinalScoreRow data={data} score={data.finalScore} />
+          <div className="space-y-2">
+            <FinalScoreRow data={data} score={data.finalScore} />
+            {data.guess.value && (
+              <div className="rounded-md bg-muted px-3 py-2 text-center text-xs text-muted-foreground">
+                Você palpitou{" "}
+                <strong className="text-foreground">
+                  {data.guess.value.home} - {data.guess.value.away}
+                </strong>
+                {typeof data.guess.points === "number" && (
+                  <span> · {data.guess.points} ponto(s)</span>
+                )}
+              </div>
+            )}
+          </div>
         )}
+        {saveMessage && <p className="text-center text-xs text-success">{saveMessage}</p>}
       </CardContent>
     </Card>
   );

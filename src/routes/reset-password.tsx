@@ -1,13 +1,17 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { KeyRound, MessageCircle } from "lucide-react";
+
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { callEdgeFunction } from "@/lib/edge";
+import { getSupportWhatsAppUrl } from "@/lib/support";
 
 export const Route = createFileRoute("/reset-password")({
   component: ResetPasswordPage,
 });
-
-type PasswordMode = "first-access" | "reset";
 
 function ResetPasswordPage() {
   const navigate = useNavigate();
@@ -17,46 +21,31 @@ function ResetPasswordPage() {
   const [msg, setMsg] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [mode, setMode] = useState<PasswordMode>("reset");
+  const [requiresPasswordChange, setRequiresPasswordChange] = useState(false);
 
   useEffect(() => {
-    const urlMode =
-      typeof window !== "undefined"
-        ? new URLSearchParams(window.location.search).get("mode")
-        : null;
-    if (urlMode === "first-access") setMode("first-access");
-
     const detect = async () => {
       const { data } = await supabase.auth.getUser();
-      if (!data.user) return;
-      setReady(true);
+      if (!data.user) {
+        setReady(true);
+        setRequiresPasswordChange(false);
+        return;
+      }
       const { data: prof } = await supabase
         .from("profiles")
         .select("must_change_password,status")
         .eq("id", data.user.id)
         .maybeSingle();
-      if (prof && (prof.must_change_password || prof.status === "invited")) {
-        setMode("first-access");
-      }
+      setRequiresPasswordChange(Boolean(prof?.must_change_password || prof?.status === "invited"));
+      setReady(true);
     };
 
-    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
-      if (event === "PASSWORD_RECOVERY" || event === "SIGNED_IN") {
-        setReady(true);
-        void detect();
-      }
-    });
+    const { data: sub } = supabase.auth.onAuthStateChange(() => void detect());
 
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) {
-        setReady(true);
-        void detect();
-      }
-    });
+    void detect();
 
     return () => sub.subscription.unsubscribe();
   }, []);
-
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -85,46 +74,66 @@ function ResetPasswordPage() {
     setTimeout(() => navigate({ to: "/home" }), 800);
   }
 
-  return (
-    <div style={{ maxWidth: 360, margin: "60px auto", padding: 16, fontFamily: "system-ui" }}>
-      <h1>{mode === "first-access" ? "Troca obrigatória de senha" : "Redefinir senha"}</h1>
-      <p style={{ color: "#555" }}>
-        {mode === "first-access"
-          ? "Esta é sua primeira entrada (ou um admin definiu uma nova senha). Defina uma nova senha pessoal para continuar."
-          : "Informe sua nova senha para continuar."}
-      </p>
+  if (!ready) {
+    return <p className="p-8 text-center text-sm text-muted-foreground">Validando acesso...</p>;
+  }
 
-      {!ready && <p>Validando link...</p>}
-      {ready && (
-        <form onSubmit={onSubmit}>
-          <input
-            type="password"
-            required
-            autoComplete="new-password"
-            placeholder="Nova senha"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            style={inp}
-          />
-          <input
-            type="password"
-            required
-            autoComplete="new-password"
-            placeholder="Confirmar senha"
-            value={confirm}
-            onChange={(e) => setConfirm(e.target.value)}
-            style={inp}
-          />
-          <button type="submit" disabled={saving} style={btn}>
-            {saving ? "Salvando..." : "Salvar senha"}
-          </button>
-        </form>
-      )}
-      {err && <p style={{ color: "crimson" }}>{err}</p>}
-      {msg && <p style={{ color: "green" }}>{msg}</p>}
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-muted/40 px-4 py-10">
+      <Card className="w-full max-w-sm">
+        <CardHeader className="text-center">
+          <div className="mx-auto mb-2 grid size-12 place-items-center rounded-2xl bg-brand text-brand-foreground">
+            <KeyRound className="size-6" />
+          </div>
+          <CardTitle>
+            {requiresPasswordChange ? "Crie sua senha pessoal" : "Ajuda para acessar"}
+          </CardTitle>
+          <CardDescription>
+            {requiresPasswordChange
+              ? "Sua senha atual é temporária. Defina uma nova senha para continuar."
+              : "A recuperação de acesso é feita diretamente pelo administrador."}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {requiresPasswordChange ? (
+            <form onSubmit={onSubmit} className="space-y-3">
+              <Input
+                type="password"
+                required
+                autoComplete="new-password"
+                placeholder="Nova senha"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+              />
+              <Input
+                type="password"
+                required
+                autoComplete="new-password"
+                placeholder="Confirmar senha"
+                value={confirm}
+                onChange={(event) => setConfirm(event.target.value)}
+              />
+              <Button type="submit" disabled={saving} className="w-full">
+                {saving ? "Salvando..." : "Salvar senha"}
+              </Button>
+            </form>
+          ) : (
+            <>
+              <Button asChild className="w-full">
+                <a href={getSupportWhatsAppUrl()} target="_blank" rel="noreferrer">
+                  <MessageCircle className="size-4" />
+                  Pedir ajuda no WhatsApp
+                </a>
+              </Button>
+              <Button asChild variant="ghost" className="w-full">
+                <Link to="/auth">Voltar ao login</Link>
+              </Button>
+            </>
+          )}
+          {err && <p className="text-center text-sm text-destructive">{err}</p>}
+          {msg && <p className="text-center text-sm text-success">{msg}</p>}
+        </CardContent>
+      </Card>
     </div>
   );
 }
-
-const inp: React.CSSProperties = { display: "block", width: "100%", padding: 8, marginBottom: 8 };
-const btn: React.CSSProperties = { width: "100%", padding: 10 };

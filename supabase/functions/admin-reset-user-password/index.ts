@@ -1,5 +1,5 @@
 // Edge Function: admin-reset-user-password
-// Gera link de redefinição de senha e marca troca obrigatória. Apenas admins.
+// Legado: gera link de redefinição. Mantido apenas para compatibilidade e restrito ao superadmin.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
@@ -45,7 +45,7 @@ Deno.serve(async (req) => {
     if (!callerProfile || callerProfile.status !== "active") {
       return j({ error: "Apenas usuários ativos podem resetar senhas." }, 403);
     }
-    if (callerProfile.role !== "superadmin" && callerProfile.role !== "admin") {
+    if (callerProfile.role !== "superadmin") {
       return j({ error: "Você não tem permissão para resetar senhas." }, 403);
     }
 
@@ -98,6 +98,5 @@ function j(p: unknown, s = 200) {
 function canResetRole(callerRole: string, targetRole: string) {
   if (targetRole === "superadmin") return false;
   if (callerRole === "superadmin") return targetRole === "admin" || targetRole === "player";
-  if (callerRole === "admin") return targetRole === "player";
   return false;
 }

@@ -1,6 +1,12 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { MessageCircle, ShieldCheck } from "lucide-react";
+
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
+import { getSupportWhatsAppUrl } from "@/lib/support";
 
 export const Route = createFileRoute("/auth")({
   component: AuthPage,
@@ -8,10 +14,8 @@ export const Route = createFileRoute("/auth")({
 
 function AuthPage() {
   const navigate = useNavigate();
-  const [mode, setMode] = useState<"signin" | "forgot">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -24,7 +28,6 @@ function AuthPage() {
   async function onSignIn(e: React.FormEvent) {
     e.preventDefault();
     setErr(null);
-    setMsg(null);
     setLoading(true);
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
@@ -32,60 +35,61 @@ function AuthPage() {
     navigate({ to: "/home" });
   }
 
-  async function onForgot(e: React.FormEvent) {
-    e.preventDefault();
-    setErr(null);
-    setMsg(null);
-    setLoading(true);
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password?mode=reset`,
-    });
-    setLoading(false);
-    if (error) return setErr(error.message);
-    setMsg("Se o e-mail existir, enviamos um link de redefinição.");
-  }
-
   return (
-    <div style={{ maxWidth: 360, margin: "60px auto", padding: 16, fontFamily: "system-ui" }}>
-      <h1>Bolão da Copa</h1>
-      <h2>{mode === "signin" ? "Login" : "Esqueci minha senha"}</h2>
+    <div className="flex min-h-screen items-center justify-center bg-muted/40 px-4 py-10">
+      <Card className="w-full max-w-sm shadow-lg">
+        <CardHeader className="text-center">
+          <div className="mx-auto mb-2 grid size-12 place-items-center rounded-2xl bg-brand text-brand-foreground">
+            <ShieldCheck className="size-6" />
+          </div>
+          <CardTitle className="text-2xl">Pau Pite</CardTitle>
+          <CardDescription>Bolão privado da Copa 2026</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          <form onSubmit={onSignIn} className="space-y-3">
+            <Input
+              type="email"
+              required
+              autoComplete="email"
+              placeholder="E-mail"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+            />
+            <Input
+              type="password"
+              required
+              autoComplete="current-password"
+              placeholder="Senha"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+            />
+            <Button type="submit" disabled={loading} className="w-full">
+              {loading ? "Entrando..." : "Entrar"}
+            </Button>
+          </form>
 
-      {mode === "signin" ? (
-        <form onSubmit={onSignIn}>
-          <input type="email" required placeholder="E-mail" value={email}
-            onChange={(e) => setEmail(e.target.value)} style={inp} />
-          <input type="password" required placeholder="Senha" value={password}
-            onChange={(e) => setPassword(e.target.value)} style={inp} />
-          <button type="submit" disabled={loading} style={btn}>
-            {loading ? "Entrando..." : "Entrar"}
-          </button>
-          <button type="button" onClick={() => setMode("forgot")} style={linkBtn}>
-            Esqueci minha senha
-          </button>
-        </form>
-      ) : (
-        <form onSubmit={onForgot}>
-          <input type="email" required placeholder="E-mail" value={email}
-            onChange={(e) => setEmail(e.target.value)} style={inp} />
-          <button type="submit" disabled={loading} style={btn}>
-            {loading ? "Enviando..." : "Enviar link"}
-          </button>
-          <button type="button" onClick={() => setMode("signin")} style={linkBtn}>
-            Voltar ao login
-          </button>
-        </form>
-      )}
+          {err && (
+            <p role="alert" className="text-center text-sm text-destructive">
+              {err}
+            </p>
+          )}
 
-      {err && <p style={{ color: "crimson" }}>{err}</p>}
-      {msg && <p style={{ color: "green" }}>{msg}</p>}
-      <p style={{ fontSize: 12, color: "#666", marginTop: 24 }}>
-        Cadastro fechado. Solicite acesso a um admin.
-      </p>
-      <Link to="/">← voltar</Link>
+          <div className="space-y-2 border-t pt-4 text-center">
+            <p className="text-sm text-muted-foreground">
+              Esqueceu a senha ou ainda não possui acesso?
+            </p>
+            <Button asChild variant="outline" className="w-full">
+              <a href={getSupportWhatsAppUrl()} target="_blank" rel="noreferrer">
+                <MessageCircle className="size-4" />
+                Falar com o administrador
+              </a>
+            </Button>
+            <p className="text-xs text-muted-foreground">
+              O cadastro é fechado e nenhuma recuperação é enviada por e-mail.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
-
-const inp: React.CSSProperties = { display: "block", width: "100%", padding: 8, marginBottom: 8 };
-const btn: React.CSSProperties = { width: "100%", padding: 10, marginBottom: 8 };
-const linkBtn: React.CSSProperties = { background: "none", border: "none", color: "#06c", cursor: "pointer", padding: 0 };

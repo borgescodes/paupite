@@ -15,6 +15,7 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRankingRouteImport } from './routes/_authenticated/ranking'
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
+import { Route as AuthenticatedPoolRouteImport } from './routes/_authenticated/pool'
 import { Route as AuthenticatedMatchesRouteImport } from './routes/_authenticated/matches'
 import { Route as AuthenticatedHomeRouteImport } from './routes/_authenticated/home'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
@@ -48,6 +49,11 @@ const AuthenticatedProfileRoute = AuthenticatedProfileRouteImport.update({
   path: '/profile',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedPoolRoute = AuthenticatedPoolRouteImport.update({
+  id: '/pool',
+  path: '/pool',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedMatchesRoute = AuthenticatedMatchesRouteImport.update({
   id: '/matches',
   path: '/matches',
@@ -71,6 +77,7 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AuthenticatedAdminRoute
   '/home': typeof AuthenticatedHomeRoute
   '/matches': typeof AuthenticatedMatchesRoute
+  '/pool': typeof AuthenticatedPoolRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/ranking': typeof AuthenticatedRankingRoute
 }
@@ -81,6 +88,7 @@ export interface FileRoutesByTo {
   '/admin': typeof AuthenticatedAdminRoute
   '/home': typeof AuthenticatedHomeRoute
   '/matches': typeof AuthenticatedMatchesRoute
+  '/pool': typeof AuthenticatedPoolRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/ranking': typeof AuthenticatedRankingRoute
 }
@@ -93,6 +101,7 @@ export interface FileRoutesById {
   '/_authenticated/admin': typeof AuthenticatedAdminRoute
   '/_authenticated/home': typeof AuthenticatedHomeRoute
   '/_authenticated/matches': typeof AuthenticatedMatchesRoute
+  '/_authenticated/pool': typeof AuthenticatedPoolRoute
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
   '/_authenticated/ranking': typeof AuthenticatedRankingRoute
 }
@@ -105,6 +114,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/home'
     | '/matches'
+    | '/pool'
     | '/profile'
     | '/ranking'
   fileRoutesByTo: FileRoutesByTo
@@ -115,6 +125,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/home'
     | '/matches'
+    | '/pool'
     | '/profile'
     | '/ranking'
   id:
@@ -126,6 +137,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin'
     | '/_authenticated/home'
     | '/_authenticated/matches'
+    | '/_authenticated/pool'
     | '/_authenticated/profile'
     | '/_authenticated/ranking'
   fileRoutesById: FileRoutesById
@@ -181,6 +193,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedProfileRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/pool': {
+      id: '/_authenticated/pool'
+      path: '/pool'
+      fullPath: '/pool'
+      preLoaderRoute: typeof AuthenticatedPoolRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/matches': {
       id: '/_authenticated/matches'
       path: '/matches'
@@ -209,6 +228,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAdminRoute: typeof AuthenticatedAdminRoute
   AuthenticatedHomeRoute: typeof AuthenticatedHomeRoute
   AuthenticatedMatchesRoute: typeof AuthenticatedMatchesRoute
+  AuthenticatedPoolRoute: typeof AuthenticatedPoolRoute
   AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
   AuthenticatedRankingRoute: typeof AuthenticatedRankingRoute
 }
@@ -217,6 +237,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAdminRoute: AuthenticatedAdminRoute,
   AuthenticatedHomeRoute: AuthenticatedHomeRoute,
   AuthenticatedMatchesRoute: AuthenticatedMatchesRoute,
+  AuthenticatedPoolRoute: AuthenticatedPoolRoute,
   AuthenticatedProfileRoute: AuthenticatedProfileRoute,
   AuthenticatedRankingRoute: AuthenticatedRankingRoute,
 }
@@ -233,3 +254,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

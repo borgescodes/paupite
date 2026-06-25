@@ -42,13 +42,23 @@ Deno.serve(async (req) => {
       .maybeSingle();
     const caller = callerRaw as ProfileRole | null;
     if (callerErr) return json({ error: callerErr.message }, 500);
-    if (!caller || caller.status !== "active") return json({ error: "Apenas usuários ativos podem definir senha temporária." }, 403);
-    if (caller.role !== "superadmin" && caller.role !== "admin") return json({ error: "Você não tem permissão para definir senha temporária." }, 403);
+    if (!caller || caller.status !== "active")
+      return json({ error: "Apenas usuários ativos podem definir senha temporária." }, 403);
+    if (caller.role !== "superadmin")
+      return json({ error: "Você não tem permissão para definir senha temporária." }, 403);
 
-    const { user_id, temporary_password } = (await req.json()) as { user_id: string; temporary_password: string };
+    const { user_id, temporary_password } = (await req.json()) as {
+      user_id: string;
+      temporary_password: string;
+    };
     if (!user_id) return json({ error: "Informe o usuário." }, 400);
-    if (!temporary_password || temporary_password.length < 8) return json({ error: "A senha temporária precisa ter pelo menos 8 caracteres." }, 400);
-    if (user_id === caller.id) return json({ error: "Você não pode alterar sua própria senha pela área administrativa." }, 403);
+    if (!temporary_password || temporary_password.length < 8)
+      return json({ error: "A senha temporária precisa ter pelo menos 8 caracteres." }, 400);
+    if (user_id === caller.id)
+      return json(
+        { error: "Você não pode alterar sua própria senha pela área administrativa." },
+        403,
+      );
 
     const { data: targetRaw, error: targetErr } = await admin
       .from("profiles")
@@ -59,7 +69,8 @@ Deno.serve(async (req) => {
     if (targetErr) return json({ error: targetErr.message }, 500);
     if (!target) return json({ error: "Usuário não encontrado." }, 404);
     if (target.status === "disabled") return json({ error: "Usuário desativado." }, 403);
-    if (!canSetPassword(caller.role, target.role)) return json({ error: "Você não tem permissão para definir senha desse usuário." }, 403);
+    if (!canSetPassword(caller.role, target.role))
+      return json({ error: "Você não tem permissão para definir senha desse usuário." }, 403);
 
     const { error: authErr } = await admin.auth.admin.updateUserById(user_id, {
       password: temporary_password,
@@ -78,6 +89,14 @@ Deno.serve(async (req) => {
       .eq("id", user_id);
     if (profileErr) return json({ error: profileErr.message }, 400);
 
+    await admin.from("audit_logs").insert({
+      actor_id: caller.id,
+      action: "profile.temporary_password_set",
+      entity_type: "profile",
+      entity_id: user_id,
+      metadata: {},
+    });
+
     return json({ ok: true });
   } catch (e) {
     return json({ error: (e as Error).message }, 500);
@@ -94,6 +113,5 @@ function json(payload: unknown, status = 200) {
 function canSetPassword(callerRole: string, targetRole: string) {
   if (targetRole === "superadmin") return false;
   if (callerRole === "superadmin") return targetRole === "admin" || targetRole === "player";
-  if (callerRole === "admin") return targetRole === "player";
   return false;
 }

@@ -34,7 +34,11 @@ export interface MatchCardData {
   paupiteClosedLabel: string;
   /** "HH:mm" closing time, shown next to the open countdown badge. */
   paupiteClosesAtLabel?: string;
-  guess: { value: ScoreValue | null };
+  guess: {
+    value: ScoreValue | null;
+    saved?: boolean;
+    points?: number;
+  };
   /** Only populated once a real probability feed exists; absent renders the neutral MegaBrain state. */
   megaBrain?: MegaBrainForecast;
 }

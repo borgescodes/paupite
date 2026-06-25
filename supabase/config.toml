@@ -14,3 +14,24 @@ verify_jwt = false
 
 [functions.recalculate-match-points]
 verify_jwt = false
+
+[functions.admin-manage-user]
+verify_jwt = false
+
+[functions.admin-save-match]
+verify_jwt = false
+
+[functions.pool-enrollment]
+verify_jwt = false
+
+[functions.pool-create-checkout]
+verify_jwt = false
+
+[functions.infinitepay-webhook]
+verify_jwt = false
+
+[functions.infinitepay-payment-check]
+verify_jwt = false
+
+[functions.import-matches]
+verify_jwt = false

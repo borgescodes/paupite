@@ -1,336 +1,104 @@
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { callEdgeFunction } from "@/lib/edge";
+import { ArrowLeft, FileJson, Gamepad2, History, ShieldCheck, Trophy, Users } from "lucide-react";
+import { useState } from "react";
+
+import { AuditAdmin } from "@/components/admin/AuditAdmin";
+import { ImportAdmin } from "@/components/admin/ImportAdmin";
+import { MatchesAdmin } from "@/components/admin/MatchesAdmin";
+import { PoolAdmin } from "@/components/admin/PoolAdmin";
+import { UsersAdmin } from "@/components/admin/UsersAdmin";
+import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
+import { supabase } from "@/integrations/supabase/client";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/admin")({
   beforeLoad: async () => {
     const { data } = await supabase.auth.getUser();
     if (!data.user) throw redirect({ to: "/auth" });
-    const { data: prof } = await supabase.from("profiles").select("role,status").eq("id", data.user.id).maybeSingle();
-    if (!prof || prof.status !== "active" || !isAdminRole(prof.role)) throw redirect({ to: "/home" });
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role,status")
+      .eq("id", data.user.id)
+      .maybeSingle();
+    if (
+      !profile ||
+      profile.status !== "active" ||
+      !["admin", "superadmin"].includes(profile.role)
+    ) {
+      throw redirect({ to: "/home" });
+    }
   },
   component: AdminPage,
 });
 
-type Role = "superadmin" | "admin" | "player";
-type Status = "invited" | "active" | "disabled";
-interface ProfRow { id: string; email: string; display_name: string | null; nickname: string | null; role: Role; status: Status; must_change_password: boolean }
-interface TeamRow { id: string; name: string }
-interface MatchRow {
-  id: string; kickoff_at: string; status: string;
-  home_team_id: string | null; away_team_id: string | null;
-  home_score: number; away_score: number; stage: string | null;
-}
+type Section = "matches" | "users" | "pool" | "import" | "audit";
 
 function AdminPage() {
-  const { profile } = useAuth();
+  const { profile, loading } = useAuth();
+  const [section, setSection] = useState<Section>("matches");
+
+  if (loading || !profile) {
+    return <p className="p-8 text-center text-sm text-muted-foreground">Carregando...</p>;
+  }
+
+  const superadmin = profile.role === "superadmin";
+  const sections = [
+    { key: "matches" as const, label: "Jogos", icon: Gamepad2, show: true },
+    { key: "users" as const, label: "Usuários", icon: Users, show: true },
+    { key: "pool" as const, label: "Bolão", icon: Trophy, show: superadmin },
+    { key: "import" as const, label: "Importar", icon: FileJson, show: superadmin },
+    { key: "audit" as const, label: "Auditoria", icon: History, show: superadmin },
+  ].filter((item) => item.show);
 
   return (
-    <div style={{ maxWidth: 960, margin: "40px auto", padding: 16, fontFamily: "system-ui" }}>
-      <Link to="/home">← voltar</Link>
-      <h1>Admin</h1>
-      <CreateUser currentRole={profile?.role} />
-      <hr style={{ margin: "24px 0" }} />
-      <Users currentRole={profile?.role} currentUserId={profile?.id} />
-      <hr style={{ margin: "24px 0" }} />
-      <Teams />
-      <hr style={{ margin: "24px 0" }} />
-      <Matches />
+    <div className="min-h-screen bg-muted/30">
+      <header className="border-b bg-background">
+        <div className="mx-auto flex max-w-5xl items-center gap-3 px-4 py-4">
+          <Button asChild size="icon" variant="ghost">
+            <Link to="/profile">
+              <ArrowLeft className="size-4" />
+            </Link>
+          </Button>
+          <div className="min-w-0 flex-1">
+            <h1 className="flex items-center gap-2 truncate text-xl font-extrabold">
+              <ShieldCheck className="size-5 text-brand" />
+              Administração
+            </h1>
+            <p className="text-xs text-muted-foreground">
+              {superadmin ? "Zona superadmin" : "Zona admin operacional"}
+            </p>
+          </div>
+        </div>
+      </header>
+
+      <div className="no-scrollbar mx-auto flex max-w-5xl gap-2 overflow-x-auto px-4 py-3">
+        {sections.map((item) => {
+          const Icon = item.icon;
+          return (
+            <Button
+              key={item.key}
+              size="sm"
+              variant={section === item.key ? "default" : "outline"}
+              className={cn(
+                section === item.key && "bg-brand text-brand-foreground hover:bg-brand/90",
+              )}
+              onClick={() => setSection(item.key)}
+            >
+              <Icon className="size-4" />
+              {item.label}
+            </Button>
+          );
+        })}
+      </div>
+
+      <main className="mx-auto max-w-5xl px-4 pb-12">
+        {section === "matches" && <MatchesAdmin />}
+        {section === "users" && <UsersAdmin currentRole={profile.role} />}
+        {section === "pool" && superadmin && <PoolAdmin />}
+        {section === "import" && superadmin && <ImportAdmin />}
+        {section === "audit" && superadmin && <AuditAdmin />}
+      </main>
     </div>
-  );
-}
-
-function CreateUser({ currentRole }: { currentRole?: Role }) {
-  const [email, setEmail] = useState("");
-  const [displayName, setDisplayName] = useState("");
-  const [nickname, setNickname] = useState("");
-  const [role, setRole] = useState<"player" | "admin">("player");
-  const [initialPassword, setInitialPassword] = useState("");
-  const [out, setOut] = useState<string | null>(null);
-  const [err, setErr] = useState<string | null>(null);
-
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
-    setOut(null); setErr(null);
-    if (initialPassword.length < 8) {
-      setErr("A senha inicial precisa ter pelo menos 8 caracteres.");
-      return;
-    }
-    try {
-      await callEdgeFunction("admin-create-user", {
-        email,
-        display_name: displayName,
-        nickname,
-        role,
-        initial_password: initialPassword,
-      });
-      setOut("Usuário criado. Envie a senha inicial manualmente ao usuário.");
-      setEmail(""); setDisplayName(""); setNickname(""); setInitialPassword("");
-    } catch (e) { setErr((e as Error).message); }
-  }
-
-  return (
-    <section>
-      <h2>Criar usuário</h2>
-      <form onSubmit={submit} style={{ display: "grid", gap: 6, maxWidth: 400 }}>
-        <input placeholder="E-mail" required type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-        <input placeholder="Nome" required value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
-        <input placeholder="Apelido" required value={nickname} onChange={(e) => setNickname(e.target.value)} />
-        <select value={role} onChange={(e) => setRole(e.target.value as "player" | "admin")}>
-          <option value="player">player</option>
-          {currentRole === "superadmin" && <option value="admin">admin</option>}
-        </select>
-        <input
-          placeholder="Senha inicial (mín. 8 caracteres)"
-          required
-          type="text"
-          minLength={8}
-          value={initialPassword}
-          onChange={(e) => setInitialPassword(e.target.value)}
-        />
-        <button type="submit">Criar</button>
-      </form>
-      {out && <p style={{ color: "green" }}>{out}</p>}
-      {err && <p style={{ color: "crimson" }}>{err}</p>}
-    </section>
-  );
-}
-
-function Users({ currentRole, currentUserId }: { currentRole?: Role; currentUserId?: string }) {
-  const [rows, setRows] = useState<ProfRow[]>([]);
-  const [err, setErr] = useState<string | null>(null);
-  const [tempPasswords, setTempPasswords] = useState<Record<string, string>>({});
-  const [tempPasswordMsg, setTempPasswordMsg] = useState<string | null>(null);
-
-  const load = async () => {
-    const baseSelect = "id,email,display_name,nickname,role,status";
-    let query = supabase
-      .from("profiles")
-      .select(`${baseSelect},must_change_password`)
-      .order("created_at");
-    if (currentRole === "admin") query = query.eq("role", "player");
-
-    const { data, error } = await query;
-    if (!error) {
-      setErr(null);
-      setRows((data ?? []) as ProfRow[]);
-      return;
-    }
-
-    let fallbackQuery = supabase.from("profiles").select(baseSelect).order("created_at");
-    if (currentRole === "admin") fallbackQuery = fallbackQuery.eq("role", "player");
-    const { data: fallbackData, error: fallbackError } = await fallbackQuery;
-    setErr(fallbackError?.message ?? null);
-    setRows(((fallbackData ?? []) as Omit<ProfRow, "must_change_password">[]).map((row) => ({
-      ...row,
-      must_change_password: false,
-    })));
-  };
-
-  useEffect(() => { if (currentRole) void load(); }, [currentRole]);
-
-  async function update(id: string, patch: Partial<ProfRow>) {
-    setErr(null);
-    const { error } = await supabase.from("profiles").update(patch).eq("id", id);
-    if (error) setErr(error.message);
-    void load();
-  }
-
-  async function setNewPassword(userId: string) {
-    try {
-      setErr(null); setTempPasswordMsg(null);
-      const newPassword = tempPasswords[userId] ?? "";
-      await callEdgeFunction("admin-set-temp-password", {
-        user_id: userId,
-        temporary_password: newPassword,
-      });
-      setTempPasswords((prev) => ({ ...prev, [userId]: "" }));
-      setTempPasswordMsg("Senha atualizada. O usuário deverá trocar no próximo login.");
-      void load();
-    } catch (e) { setErr((e as Error).message); }
-  }
-
-  return (
-    <section>
-      <h2>Usuários</h2>
-      {err && <p style={{ color: "crimson" }}>{err}</p>}
-      {tempPasswordMsg && <p style={{ color: "green" }}>{tempPasswordMsg}</p>}
-      <table style={{ width: "100%", borderCollapse: "collapse" }}>
-        <thead><tr><th>E-mail</th><th>Nome</th><th>Role</th><th>Status</th><th>Nova senha</th></tr></thead>
-        <tbody>
-          {rows.map((r) => {
-            const manageable = canManageProfile(currentRole, r, currentUserId);
-            const canReset = canResetPassword(currentRole, r, currentUserId);
-            return (
-              <tr key={r.id} style={{ borderTop: "1px solid #ddd" }}>
-                <td>{r.email}</td>
-                <td>{r.display_name}</td>
-                <td>
-                  <select value={r.role} disabled={!manageable || currentRole !== "superadmin"}
-                    onChange={(e) => update(r.id, { role: e.target.value as Role })}>
-                    <option value="player">player</option>
-                    <option value="admin">admin</option>
-                    {r.role === "superadmin" && <option value="superadmin">superadmin</option>}
-                  </select>
-                </td>
-                <td>
-                  <select value={r.status} disabled={!manageable} onChange={(e) => update(r.id, { status: e.target.value as Status })}>
-                    <option value="invited">invited</option>
-                    <option value="active">active</option>
-                    <option value="disabled">disabled</option>
-                  </select>
-                  {r.must_change_password && <div style={{ fontSize: 12, color: "#b45309" }}>troca obrigatória</div>}
-                </td>
-                <td>
-                  <input
-                    type="text"
-                    placeholder="Nova senha"
-                    value={tempPasswords[r.id] ?? ""}
-                    disabled={!canReset}
-                    onChange={(e) => setTempPasswords((prev) => ({ ...prev, [r.id]: e.target.value }))}
-                    style={{ width: 150 }}
-                  />
-                  <button disabled={!canReset || (tempPasswords[r.id] ?? "").length < 8} onClick={() => setNewPassword(r.id)}>
-                    Atualizar senha
-                  </button>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </section>
-  );
-}
-
-function isAdminRole(role?: string) {
-  return role === "superadmin" || role === "admin";
-}
-
-function canManageProfile(currentRole: Role | undefined, target: ProfRow, currentUserId?: string) {
-  if (!currentRole || target.id === currentUserId || target.role === "superadmin") return false;
-  if (currentRole === "superadmin") return target.role === "admin" || target.role === "player";
-  if (currentRole === "admin") return target.role === "player";
-  return false;
-}
-
-function canResetPassword(currentRole: Role | undefined, target: ProfRow, currentUserId?: string) {
-  if (!currentRole || target.id === currentUserId || target.role === "superadmin") return false;
-  if (currentRole === "superadmin") return target.role === "admin" || target.role === "player";
-  if (currentRole === "admin") return target.role === "player";
-  return false;
-}
-
-function Teams() {
-  const [rows, setRows] = useState<TeamRow[]>([]);
-  const [name, setName] = useState("");
-  const [shortName, setShortName] = useState("");
-  const [code, setCode] = useState("");
-  const load = () => supabase.from("teams").select("id,name").order("name").then(({ data }) => setRows((data ?? []) as TeamRow[]));
-  useEffect(() => { void load(); }, []);
-
-  async function create(e: React.FormEvent) {
-    e.preventDefault();
-    await supabase.from("teams").insert({ name, short_name: shortName || null, country_code: code || null });
-    setName(""); setShortName(""); setCode(""); void load();
-  }
-
-  return (
-    <section>
-      <h2>Times</h2>
-      <form onSubmit={create} style={{ display: "flex", gap: 6, marginBottom: 8 }}>
-        <input placeholder="Nome" required value={name} onChange={(e) => setName(e.target.value)} />
-        <input placeholder="Sigla" value={shortName} onChange={(e) => setShortName(e.target.value)} />
-        <input placeholder="País (BR)" value={code} onChange={(e) => setCode(e.target.value)} />
-        <button type="submit">Adicionar</button>
-      </form>
-      <ul>{rows.map((t) => <li key={t.id}>{t.name}</li>)}</ul>
-    </section>
-  );
-}
-
-function Matches() {
-  const [teams, setTeams] = useState<TeamRow[]>([]);
-  const [rows, setRows] = useState<MatchRow[]>([]);
-  const [home, setHome] = useState(""); const [away, setAway] = useState("");
-  const [kickoff, setKickoff] = useState(""); const [stage, setStage] = useState("");
-
-  const load = async () => {
-    const { data: t } = await supabase.from("teams").select("id,name").order("name");
-    setTeams((t ?? []) as TeamRow[]);
-    const { data: m } = await supabase.from("matches").select("*").order("kickoff_at");
-    setRows((m ?? []) as MatchRow[]);
-  };
-  useEffect(() => { void load(); }, []);
-
-  async function create(e: React.FormEvent) {
-    e.preventDefault();
-    await supabase.from("matches").insert({
-      home_team_id: home, away_team_id: away,
-      kickoff_at: new Date(kickoff).toISOString(),
-      stage: stage || null,
-    });
-    setHome(""); setAway(""); setKickoff(""); setStage(""); void load();
-  }
-  async function setScore(id: string, h: number, a: number) {
-    await supabase.from("matches").update({ home_score: h, away_score: a, manual_override: true }).eq("id", id);
-    void load();
-  }
-  async function setStatus(id: string, status: string) {
-    await supabase.from("matches").update({ status }).eq("id", id);
-    void load();
-  }
-  async function closeMatch(id: string) {
-    try {
-      const r = await callEdgeFunction<{ updated: number }>("recalculate-match-points", { match_id: id });
-      alert(`Fechada. Paupites recalculados: ${r.updated}`);
-      void load();
-    } catch (e) { alert((e as Error).message); }
-  }
-
-  return (
-    <section>
-      <h2>Partidas</h2>
-      <form onSubmit={create} style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 6, marginBottom: 12 }}>
-        <select required value={home} onChange={(e) => setHome(e.target.value)}>
-          <option value="">Mandante</option>{teams.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-        </select>
-        <select required value={away} onChange={(e) => setAway(e.target.value)}>
-          <option value="">Visitante</option>{teams.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-        </select>
-        <input type="datetime-local" required value={kickoff} onChange={(e) => setKickoff(e.target.value)} />
-        <input placeholder="Fase (grupos/oitavas...)" value={stage} onChange={(e) => setStage(e.target.value)} />
-        <button type="submit">Criar</button>
-      </form>
-
-      <table style={{ width: "100%", borderCollapse: "collapse" }}>
-        <thead><tr><th>Quando</th><th>Status</th><th>Placar</th><th>Ações</th></tr></thead>
-        <tbody>
-          {rows.map((m) => (
-            <tr key={m.id} style={{ borderTop: "1px solid #ddd" }}>
-              <td>{new Date(m.kickoff_at).toLocaleString()}</td>
-              <td>
-                <select value={m.status} onChange={(e) => setStatus(m.id, e.target.value)}>
-                  <option value="scheduled">scheduled</option>
-                  <option value="live">live</option>
-                  <option value="finished">finished</option>
-                  <option value="closed">closed</option>
-                </select>
-              </td>
-              <td>
-                <input type="number" min={0} value={m.home_score} style={{ width: 50 }}
-                  onChange={(e) => setScore(m.id, Number(e.target.value), m.away_score)} />
-                {" - "}
-                <input type="number" min={0} value={m.away_score} style={{ width: 50 }}
-                  onChange={(e) => setScore(m.id, m.home_score, Number(e.target.value))} />
-              </td>
-              <td><button onClick={() => closeMatch(m.id)}>Fechar + recalcular</button></td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </section>
   );
 }
