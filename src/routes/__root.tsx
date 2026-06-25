@@ -110,6 +110,19 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     ],
     links: [
       {
+        rel: "preconnect",
+        href: "https://fonts.googleapis.com",
+      },
+      {
+        rel: "preconnect",
+        href: "https://fonts.gstatic.com",
+        crossOrigin: "anonymous",
+      },
+      {
+        rel: "stylesheet",
+        href: "https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700;800&display=swap",
+      },
+      {
         rel: "stylesheet",
         href: appCss,
       },
@@ -123,8 +136,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
-    <html lang="pt-BR">
+    <html lang="pt-BR" suppressHydrationWarning>
       <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var r=document.documentElement;var t=localStorage.getItem("paupite-theme");var d=t==="dark"||(t!=="light"&&matchMedia("(prefers-color-scheme: dark)").matches);r.classList.toggle("dark",d);var a=localStorage.getItem("paupite-accent");if(["blue","pink","purple","green","red","brazil"].includes(a)){r.dataset.accent=a}else{r.dataset.accent="blue"}}catch(e){}})();`,
+          }}
+        />
         <HeadContent />
       </head>
       <body>
