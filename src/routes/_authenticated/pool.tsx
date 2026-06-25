@@ -13,6 +13,7 @@ import type { IconType } from "react-icons";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { MobileShell } from "@/components/mobile/MobileShell";
+import { ComingSoonCountdown } from "@/components/mobile/ComingSoonCountdown";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -26,6 +27,9 @@ interface PoolSummary {
   id: string;
   title: string;
   status: string;
+  enrollments_mode: string | null;
+  enrollment_opens_at: string | null;
+  coming_soon_message: string | null;
   entry_fee_cents: number;
   minimum_participants: number;
   prize_percentage: number;
@@ -262,7 +266,13 @@ function PoolPage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <EnrollmentStatus status={enrollment?.status ?? "none"} />
-                {!enrollment && (
+                {!enrollment && summary.enrollments_mode === "coming_soon" && (
+                  <ComingSoonCountdown
+                    opensAt={summary.enrollment_opens_at}
+                    message={summary.coming_soon_message}
+                  />
+                )}
+                {!enrollment && summary.enrollments_mode !== "coming_soon" && (
                   <>
                     <div className="max-h-40 overflow-y-auto rounded-2xl bg-muted/70 p-4 text-xs leading-relaxed text-muted-foreground">
                       {summary.terms}
@@ -279,7 +289,12 @@ function PoolPage() {
                     </div>
                     <Button
                       className="w-full"
-                      disabled={busy || !termsAccepted || summary.status === "closed"}
+                      disabled={
+                        busy ||
+                        !termsAccepted ||
+                        summary.status === "closed" ||
+                        summary.enrollments_mode === "closed"
+                      }
                       onClick={() => void requestEnrollment()}
                     >
                       Solicitar participação
