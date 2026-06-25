@@ -71,13 +71,8 @@ Deno.serve(async (req) => {
     if (error) return j({ error: error.message }, 400);
 
     await admin.from("matches").update({ status: "closed" }).eq("id", match_id);
-    await admin.from("audit_logs").insert({
-      actor_id: userData.user.id,
-      action: "match.closed_and_scored",
-      entity_type: "match",
-      entity_id: match_id,
-      metadata: { bets_updated: data },
-    });
+
+
 
     return j({ updated: data });
   } catch (e) {

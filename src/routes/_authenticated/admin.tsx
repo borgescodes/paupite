@@ -1,8 +1,8 @@
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
-import { ArrowLeft, FileJson, Gamepad2, History, ShieldCheck, Trophy, Users } from "lucide-react";
+import { ArrowLeft, FileJson, Gamepad2, ShieldCheck, Trophy, Users } from "lucide-react";
 import { useState } from "react";
 
-import { AuditAdmin } from "@/components/admin/AuditAdmin";
+
 import { ImportAdmin } from "@/components/admin/ImportAdmin";
 import { MatchesAdmin } from "@/components/admin/MatchesAdmin";
 import { PoolAdmin } from "@/components/admin/PoolAdmin";
@@ -32,7 +32,7 @@ export const Route = createFileRoute("/_authenticated/admin")({
   component: AdminPage,
 });
 
-type Section = "matches" | "users" | "pool" | "import" | "audit";
+type Section = "matches" | "users" | "pool" | "import";
 
 function AdminPage() {
   const { profile, loading } = useAuth();
@@ -48,8 +48,8 @@ function AdminPage() {
     { key: "users" as const, label: "Usuários", icon: Users, show: true },
     { key: "pool" as const, label: "Bolão", icon: Trophy, show: superadmin },
     { key: "import" as const, label: "Importar", icon: FileJson, show: superadmin },
-    { key: "audit" as const, label: "Auditoria", icon: History, show: superadmin },
   ].filter((item) => item.show);
+
 
   return (
     <div className="min-h-screen bg-muted/30">
@@ -97,8 +97,8 @@ function AdminPage() {
         {section === "users" && <UsersAdmin currentRole={profile.role} />}
         {section === "pool" && superadmin && <PoolAdmin />}
         {section === "import" && superadmin && <ImportAdmin />}
-        {section === "audit" && superadmin && <AuditAdmin />}
       </main>
+
     </div>
   );
 }

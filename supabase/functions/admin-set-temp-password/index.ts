@@ -89,13 +89,8 @@ Deno.serve(async (req) => {
       .eq("id", user_id);
     if (profileErr) return json({ error: profileErr.message }, 400);
 
-    await admin.from("audit_logs").insert({
-      actor_id: caller.id,
-      action: "profile.temporary_password_set",
-      entity_type: "profile",
-      entity_id: user_id,
-      metadata: {},
-    });
+
+
 
     return json({ ok: true });
   } catch (e) {
