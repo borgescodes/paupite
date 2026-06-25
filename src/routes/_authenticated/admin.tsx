@@ -32,7 +32,7 @@ export const Route = createFileRoute("/_authenticated/admin")({
   component: AdminPage,
 });
 
-type Section = "matches" | "users" | "pool" | "import" | "audit";
+type Section = "matches" | "users" | "pool" | "import";
 
 function AdminPage() {
   const { profile, loading } = useAuth();
@@ -48,8 +48,8 @@ function AdminPage() {
     { key: "users" as const, label: "Usuários", icon: Users, show: true },
     { key: "pool" as const, label: "Bolão", icon: Trophy, show: superadmin },
     { key: "import" as const, label: "Importar", icon: FileJson, show: superadmin },
-    { key: "audit" as const, label: "Auditoria", icon: History, show: superadmin },
   ].filter((item) => item.show);
+
 
   return (
     <div className="min-h-screen bg-muted/30">
