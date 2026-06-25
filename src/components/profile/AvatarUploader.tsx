@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from "react";
-import { BiCamera, BiImageAdd } from "react-icons/bi";
+import { BiCamera } from "react-icons/bi";
 import { toast } from "sonner";
 
 import { AvatarCropper } from "@/components/profile/AvatarCropper";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 
 const allowedTypes = new Set(["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"]);
+const allowedExtensions = new Set(["jpg", "jpeg", "png", "webp", "heic", "heif"]);
 const maxInputBytes = 10 * 1024 * 1024;
 const maxOutputBytes = 5 * 1024 * 1024;
 
@@ -25,7 +25,6 @@ export function AvatarUploader({
   const inputRef = useRef<HTMLInputElement>(null);
   const [sourceUrl, setSourceUrl] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(
     () => () => {
@@ -41,14 +40,16 @@ export function AvatarUploader({
   }
 
   function choose(file?: File) {
-    setError(null);
     if (!file) return;
-    if (!allowedTypes.has(file.type)) {
-      setError("Formato inválido. Use JPG, JPEG, PNG, WebP ou HEIC/HEIF.");
+    const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+    if (!allowedTypes.has(file.type.toLowerCase()) && !allowedExtensions.has(ext)) {
+      toast.error("Formato inválido. Use JPG, PNG, WebP ou HEIC/HEIF.");
+      if (inputRef.current) inputRef.current.value = "";
       return;
     }
     if (file.size > maxInputBytes) {
-      setError("A imagem original deve ter no máximo 10 MB.");
+      toast.error("Arquivo muito grande. Envie uma imagem de até 10 MB.");
+      if (inputRef.current) inputRef.current.value = "";
       return;
     }
     if (sourceUrl) URL.revokeObjectURL(sourceUrl);
@@ -57,11 +58,10 @@ export function AvatarUploader({
 
   async function upload(blob: Blob) {
     if (blob.size > maxOutputBytes) {
-      setError("A imagem processada excedeu 5 MB.");
+      toast.error("A imagem processada excedeu 5 MB. Tente outra foto.");
       return;
     }
     setBusy(true);
-    setError(null);
     const path = `${userId}/avatar-${Date.now()}.webp`;
 
     try {
@@ -89,9 +89,7 @@ export function AvatarUploader({
       toast.success("Foto de perfil atualizada.");
       cancelCrop();
     } catch (caught) {
-      const message = caught instanceof Error ? caught.message : "Falha no upload.";
-      setError(message);
-      toast.error("Não foi possível atualizar a foto.");
+      toast.error(caught instanceof Error ? caught.message : "Não foi possível atualizar a foto.");
     } finally {
       setBusy(false);
     }
@@ -116,9 +114,11 @@ export function AvatarUploader({
             </AvatarFallback>
           </Avatar>
         </div>
-        <label className="tap-feedback absolute right-0 bottom-1 grid size-11 cursor-pointer place-items-center rounded-2xl border-4 border-background bg-brand text-brand-foreground shadow-lg focus-within:ring-2 focus-within:ring-ring">
-          <BiCamera className="size-5" />
-          <span className="sr-only">Selecionar nova foto</span>
+        <label
+          aria-label="Selecionar nova foto de perfil"
+          className="tap-feedback absolute right-0 bottom-1 grid size-11 cursor-pointer place-items-center rounded-2xl border-4 border-background bg-brand text-brand-foreground shadow-lg focus-within:ring-2 focus-within:ring-ring"
+        >
+          <BiCamera className="size-5" aria-hidden />
           <input
             ref={inputRef}
             type="file"
@@ -128,14 +128,7 @@ export function AvatarUploader({
           />
         </label>
       </div>
-      <Button type="button" size="sm" variant="ghost" onClick={() => inputRef.current?.click()}>
-        <BiImageAdd className="size-5" />
-        {avatarUrl ? "Trocar foto" : "Adicionar foto"}
-      </Button>
-      <p className="text-xs text-muted-foreground">
-        JPG, PNG, WebP ou HEIC/HEIF · original até 10 MB
-      </p>
-      {error && <p className="text-sm text-destructive">{error}</p>}
+      <p className="text-xs text-muted-foreground">JPG, PNG, WebP ou HEIC/HEIF · até 10 MB</p>
 
       <AvatarCropper
         sourceUrl={sourceUrl}

@@ -170,11 +170,20 @@ export function AvatarCropper({
                 src={sourceUrl}
                 alt="Prévia da foto selecionada"
                 draggable={false}
-                className="pointer-events-none absolute top-1/2 left-1/2 max-w-none -translate-x-1/2 -translate-y-1/2"
+                className="pointer-events-none absolute max-w-none"
                 style={{
+                  left: "50%",
+                  top: "50%",
                   width: naturalSize.width ? naturalSize.width * baseScale : "100%",
                   height: naturalSize.height ? naturalSize.height * baseScale : "100%",
-                  transform: `translate(calc(-50% + ${offset.x}px), calc(-50% + ${offset.y}px)) scale(${zoom})`,
+                  marginLeft: naturalSize.width
+                    ? `${-(naturalSize.width * baseScale) / 2}px`
+                    : "-50%",
+                  marginTop: naturalSize.height
+                    ? `${-(naturalSize.height * baseScale) / 2}px`
+                    : "-50%",
+                  transformOrigin: "center",
+                  transform: `matrix(${zoom}, 0, 0, ${zoom}, ${offset.x}, ${offset.y})`,
                 }}
                 onLoad={(event) => {
                   setNaturalSize({

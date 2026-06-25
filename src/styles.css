@@ -170,6 +170,83 @@
   --surface-strong: oklch(0.18 0.026 250 / 96%);
 }
 
+/* ── Accent themes ─────────────────────────────────────────────────────── */
+
+:root[data-accent="pink"] {
+  --primary: oklch(0.62 0.22 350);
+  --brand: oklch(0.62 0.22 350);
+  --ring: oklch(0.67 0.18 350);
+  --accent: oklch(0.93 0.055 350);
+}
+
+html.dark[data-accent="pink"] {
+  --primary: oklch(0.74 0.18 350);
+  --brand: oklch(0.74 0.18 350);
+  --ring: oklch(0.74 0.16 350);
+  --accent: oklch(0.28 0.07 350);
+}
+
+:root[data-accent="purple"] {
+  --primary: oklch(0.57 0.2 295);
+  --brand: oklch(0.57 0.2 295);
+  --ring: oklch(0.63 0.17 295);
+  --accent: oklch(0.93 0.05 295);
+}
+
+html.dark[data-accent="purple"] {
+  --primary: oklch(0.72 0.17 295);
+  --brand: oklch(0.72 0.17 295);
+  --ring: oklch(0.72 0.15 295);
+  --accent: oklch(0.28 0.065 295);
+}
+
+:root[data-accent="green"] {
+  --primary: oklch(0.56 0.16 154);
+  --brand: oklch(0.56 0.16 154);
+  --ring: oklch(0.61 0.14 154);
+  --accent: oklch(0.93 0.05 154);
+}
+
+html.dark[data-accent="green"] {
+  --primary: oklch(0.72 0.15 154);
+  --brand: oklch(0.72 0.15 154);
+  --ring: oklch(0.72 0.13 154);
+  --accent: oklch(0.27 0.055 154);
+}
+
+:root[data-accent="red"] {
+  --primary: oklch(0.58 0.22 27);
+  --brand: oklch(0.58 0.22 27);
+  --ring: oklch(0.63 0.18 27);
+  --accent: oklch(0.93 0.05 27);
+}
+
+html.dark[data-accent="red"] {
+  --primary: oklch(0.7 0.19 27);
+  --brand: oklch(0.7 0.19 27);
+  --ring: oklch(0.7 0.16 27);
+  --accent: oklch(0.28 0.065 27);
+}
+
+/* Brasil: verde primário, amarelo accent, azul ring */
+:root[data-accent="brazil"] {
+  --primary: oklch(0.55 0.17 150);
+  --brand: oklch(0.55 0.17 150);
+  --ring: oklch(0.58 0.16 255);
+  --accent: oklch(0.91 0.14 92);
+  --accent-foreground: oklch(0.25 0.08 150);
+}
+
+html.dark[data-accent="brazil"] {
+  --primary: oklch(0.72 0.15 150);
+  --brand: oklch(0.72 0.15 150);
+  --ring: oklch(0.72 0.14 255);
+  --accent: oklch(0.35 0.1 92);
+  --accent-foreground: oklch(0.97 0.03 92);
+}
+
+/* ────────────────────────────────────────────────────────────────────── */
+
 @layer base {
   * {
     border-color: var(--color-border);

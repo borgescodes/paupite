@@ -16,6 +16,7 @@ import {
   matchDateKey,
   toMatchCard,
   type BetRow,
+  type BetTrend,
   type MatchRow,
 } from "@/lib/matches";
 
@@ -28,6 +29,7 @@ function HomePage() {
   const [matches, setMatches] = useState<MatchRow[]>([]);
   const [bets, setBets] = useState<Record<string, BetRow>>({});
   const [drafts, setDrafts] = useState<Record<string, ScoreValue>>({});
+  const [trends, setTrends] = useState<Record<string, BetTrend>>({});
   const [selectedDate, setSelectedDate] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -59,10 +61,13 @@ function HomePage() {
       matchError = fallbackMatchResult.error;
     }
 
-    const betResult = await supabase
-      .from("bets")
-      .select("match_id,home_score,away_score,points")
-      .eq("user_id", user.id);
+    const [betResult, trendsResult] = await Promise.all([
+      supabase
+        .from("bets")
+        .select("match_id,home_score,away_score,points")
+        .eq("user_id", user.id),
+      supabase.from("match_bet_trends").select("match_id,total_bets,home_pct,draw_pct,away_pct"),
+    ]);
 
     if (matchError || betResult.error) {
       setError(matchError?.message ?? betResult.error?.message ?? "Falha ao carregar partidas.");
@@ -73,8 +78,13 @@ function HomePage() {
     const nextMatches = (matchData ?? []) as MatchRow[];
     const nextBets: Record<string, BetRow> = {};
     for (const row of (betResult.data ?? []) as BetRow[]) nextBets[row.match_id] = row;
+    const nextTrends: Record<string, BetTrend> = {};
+    for (const row of (trendsResult.data ?? []) as BetTrend[]) {
+      if (row.match_id) nextTrends[row.match_id] = row;
+    }
     setMatches(nextMatches);
     setBets(nextBets);
+    setTrends(nextTrends);
     setDrafts((current) => {
       const next = { ...current };
       for (const bet of Object.values(nextBets)) {
@@ -117,8 +127,8 @@ function HomePage() {
     () =>
       matches
         .filter((match) => matchDateKey(match.kickoff_at) === selectedDate)
-        .map((match) => toMatchCard(match, bets[match.id], drafts[match.id])),
-    [bets, drafts, matches, selectedDate],
+        .map((match) => toMatchCard(match, bets[match.id], drafts[match.id], trends[match.id])),
+    [bets, drafts, matches, selectedDate, trends],
   );
 
   async function saveBet(matchId: string) {

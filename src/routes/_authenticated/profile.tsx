@@ -5,6 +5,7 @@ import {
   BiBullseye,
   BiCheckCircle,
   BiLogOut,
+  BiPalette,
   BiSave,
   BiShieldQuarter,
   BiSolidTrophy,
@@ -20,6 +21,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/hooks/use-auth";
+import { useThemeMode, type AccentTheme } from "@/hooks/use-theme";
 import { supabase } from "@/integrations/supabase/client";
 import type { RankingEntry } from "@/lib/ranking";
 
@@ -35,6 +37,7 @@ export const Route = createFileRoute("/_authenticated/profile")({
 function ProfilePage() {
   const { user, profile, loading } = useAuth();
   const navigate = useNavigate();
+  const { accentTheme, setAccentTheme } = useThemeMode(user?.id);
   const [displayName, setDisplayName] = useState("");
   const [nickname, setNickname] = useState("");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
@@ -161,6 +164,45 @@ function ProfilePage() {
           </CardContent>
         </Card>
 
+        <Card className="glass-card">
+          <CardHeader className="pb-3">
+            <p className="eyebrow flex items-center gap-1.5 text-brand">
+              <BiPalette className="size-4" />
+              Aparência
+            </p>
+            <CardTitle className="text-lg">Tema do Pau Pite</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div
+              className="grid grid-cols-2 gap-2 sm:grid-cols-3"
+              role="group"
+              aria-label="Tema visual"
+            >
+              {accentOptions.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  aria-pressed={accentTheme === option.value}
+                  className={`tap-feedback flex min-h-14 items-center gap-3 rounded-2xl border px-3 text-left text-sm font-bold transition-colors ${
+                    accentTheme === option.value
+                      ? "border-brand bg-brand/10 ring-2 ring-brand/20"
+                      : "border-border bg-background/55 hover:bg-accent"
+                  }`}
+                  onClick={() => setAccentTheme(option.value)}
+                >
+                  <span
+                    className={`size-7 shrink-0 rounded-full ${option.swatch} ring-2 ring-background shadow-sm`}
+                  />
+                  {option.label}
+                </button>
+              ))}
+            </div>
+            <p className="mt-3 text-xs text-muted-foreground">
+              Paleta aplicada imediatamente e salva no perfil.
+            </p>
+          </CardContent>
+        </Card>
+
         {isStaff && (
           <Card className="glass-card overflow-hidden border-brand/30">
             <div className="h-1 bg-brand" />
@@ -197,6 +239,19 @@ function ProfilePage() {
     </MobileShell>
   );
 }
+
+const accentOptions: Array<{ value: AccentTheme; label: string; swatch: string }> = [
+  { value: "blue", label: "Azul", swatch: "bg-sky-500" },
+  { value: "pink", label: "Rosa", swatch: "bg-pink-500" },
+  { value: "purple", label: "Roxo", swatch: "bg-violet-500" },
+  { value: "green", label: "Verde", swatch: "bg-emerald-500" },
+  { value: "red", label: "Vermelho", swatch: "bg-red-500" },
+  {
+    value: "brazil",
+    label: "Brasil",
+    swatch: "bg-[linear-gradient(135deg,#16a34a_0_34%,#facc15_34%_66%,#2563eb_66%)]",
+  },
+];
 
 function StatsCard({
   title,

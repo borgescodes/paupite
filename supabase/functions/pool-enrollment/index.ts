@@ -36,6 +36,17 @@ Deno.serve(async (req) => {
       if (settings.status === "closed" || settings.status === "archived") {
         throw new HttpError(400, "As inscrições estão encerradas.");
       }
+      if (settings.enrollments_mode === "closed") {
+        throw new HttpError(400, "As inscrições estão encerradas.");
+      }
+      if (settings.enrollments_mode === "coming_soon") {
+        const opensAt = settings.enrollment_opens_at
+          ? new Date(settings.enrollment_opens_at)
+          : null;
+        if (!opensAt || opensAt > new Date()) {
+          throw new HttpError(400, "As inscrições ainda não estão abertas.");
+        }
+      }
       if (body.terms_accepted !== true) {
         throw new HttpError(400, "Aceite os termos para solicitar participação.");
       }

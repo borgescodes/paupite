@@ -259,7 +259,11 @@ export type Database = {
       };
       pool_settings: {
         Row: {
+          coming_soon_message: string | null;
           created_at: string;
+          enrollment_closes_at: string | null;
+          enrollment_opens_at: string | null;
+          enrollments_mode: string;
           entry_fee_cents: number;
           free_ranking_starts_at: string | null;
           id: string;
@@ -273,7 +277,11 @@ export type Database = {
           updated_at: string;
         };
         Insert: {
+          coming_soon_message?: string | null;
           created_at?: string;
+          enrollment_closes_at?: string | null;
+          enrollment_opens_at?: string | null;
+          enrollments_mode?: string;
           entry_fee_cents?: number;
           free_ranking_starts_at?: string | null;
           id?: string;
@@ -287,7 +295,11 @@ export type Database = {
           updated_at?: string;
         };
         Update: {
+          coming_soon_message?: string | null;
           created_at?: string;
+          enrollment_closes_at?: string | null;
+          enrollment_opens_at?: string | null;
+          enrollments_mode?: string;
           entry_fee_cents?: number;
           free_ranking_starts_at?: string | null;
           id?: string;
@@ -331,6 +343,7 @@ export type Database = {
       };
       profiles: {
         Row: {
+          accent_theme: string | null;
           avatar_url: string | null;
           created_at: string;
           display_name: string | null;
@@ -347,6 +360,7 @@ export type Database = {
           updated_at: string;
         };
         Insert: {
+          accent_theme?: string | null;
           avatar_url?: string | null;
           created_at?: string;
           display_name?: string | null;
@@ -363,6 +377,7 @@ export type Database = {
           updated_at?: string;
         };
         Update: {
+          accent_theme?: string | null;
           avatar_url?: string | null;
           created_at?: string;
           display_name?: string | null;
@@ -444,8 +459,13 @@ export type Database = {
     Views: {
       pool_public_summary: {
         Row: {
+          coming_soon_message: string | null;
+          enrollment_closes_at: string | null;
+          enrollment_opens_at: string | null;
+          enrollments_mode: string | null;
           entry_fee_cents: number | null;
           estimated_prize_cents: number | null;
+          free_ranking_starts_at: string | null;
           id: string | null;
           minimum_participants: number | null;
           participants_count: number | null;
@@ -456,8 +476,13 @@ export type Database = {
           title: string | null;
         };
         Insert: {
+          coming_soon_message?: string | null;
+          enrollment_closes_at?: string | null;
+          enrollment_opens_at?: string | null;
+          enrollments_mode?: string | null;
           entry_fee_cents?: number | null;
           estimated_prize_cents?: never;
+          free_ranking_starts_at?: string | null;
           id?: string | null;
           minimum_participants?: number | null;
           participants_count?: never;
@@ -468,8 +493,13 @@ export type Database = {
           title?: string | null;
         };
         Update: {
+          coming_soon_message?: string | null;
+          enrollment_closes_at?: string | null;
+          enrollment_opens_at?: string | null;
+          enrollments_mode?: string | null;
           entry_fee_cents?: number | null;
           estimated_prize_cents?: never;
+          free_ranking_starts_at?: string | null;
           id?: string | null;
           minimum_participants?: number | null;
           participants_count?: never;
@@ -478,6 +508,30 @@ export type Database = {
           status?: string | null;
           terms?: string | null;
           title?: string | null;
+        };
+        Relationships: [];
+      };
+      match_bet_trends: {
+        Row: {
+          away_pct: number | null;
+          draw_pct: number | null;
+          home_pct: number | null;
+          match_id: string | null;
+          total_bets: number | null;
+        };
+        Insert: {
+          away_pct?: never;
+          draw_pct?: never;
+          home_pct?: never;
+          match_id?: never;
+          total_bets?: never;
+        };
+        Update: {
+          away_pct?: never;
+          draw_pct?: never;
+          home_pct?: never;
+          match_id?: never;
+          total_bets?: never;
         };
         Relationships: [];
       };

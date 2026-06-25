@@ -2,6 +2,7 @@ import * as React from "react";
 import { BiCheckCircle, BiSolidBrain, BiSolidLock, BiSolidTimeFive } from "react-icons/bi";
 
 import { cn } from "@/lib/utils";
+import { getTeamLogoUrl } from "@/lib/team-logos";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Flag } from "@/components/mobile/Flag";
@@ -58,14 +59,30 @@ function MatchContextRow({ data }: { data: MatchCardData }) {
   );
 }
 
+function TeamLogo({ flagCode, shortName }: { flagCode: string; shortName: string }) {
+  const url = getTeamLogoUrl(flagCode);
+  if (url) {
+    return (
+      <img
+        src={url}
+        alt={shortName}
+        className="size-8 object-contain"
+        loading="lazy"
+        decoding="async"
+      />
+    );
+  }
+  return <Flag code={flagCode} label={shortName} size="sm" />;
+}
+
 function TeamsRow({ data }: { data: MatchCardData }) {
   return (
-    <div className="flex items-center justify-center gap-2.5 text-sm font-extrabold uppercase">
-      <Flag code={data.home.flagCode} label={data.home.shortName} size="sm" />
-      {data.home.shortName}
-      <span className="text-xs font-semibold text-muted-foreground">v/s</span>
-      {data.away.shortName}
-      <Flag code={data.away.flagCode} label={data.away.shortName} size="sm" />
+    <div className="flex items-center justify-center gap-2 text-sm font-extrabold uppercase">
+      <span className="w-10 text-right">{data.home.shortName}</span>
+      <TeamLogo flagCode={data.home.flagCode} shortName={data.home.shortName} />
+      <span className="px-1 text-xs font-semibold text-muted-foreground">×</span>
+      <TeamLogo flagCode={data.away.flagCode} shortName={data.away.shortName} />
+      <span className="w-10 text-left">{data.away.shortName}</span>
     </div>
   );
 }
@@ -73,11 +90,11 @@ function TeamsRow({ data }: { data: MatchCardData }) {
 function FinalScoreRow({ data, score }: { data: MatchCardData; score: ScoreValue }) {
   return (
     <div className="flex items-center justify-center gap-4">
-      <Flag code={data.home.flagCode} label={data.home.shortName} size="sm" />
+      <TeamLogo flagCode={data.home.flagCode} shortName={data.home.shortName} />
       <p className="text-3xl font-extrabold tabular-nums text-foreground">
         {score.home} - {score.away}
       </p>
-      <Flag code={data.away.flagCode} label={data.away.shortName} size="sm" />
+      <TeamLogo flagCode={data.away.flagCode} shortName={data.away.shortName} />
     </div>
   );
 }
@@ -95,29 +112,41 @@ function MegaBrainBlock({
     <div className="space-y-2 rounded-2xl border border-border/70 bg-muted/35 p-3">
       <p className="flex items-center gap-1.5 text-xs font-extrabold uppercase text-foreground">
         <BiSolidBrain className="size-3.5 text-brand" />
-        MegaBrain diz
+        MegaBrain
       </p>
       {forecast ? (
         <>
-          <div className="flex h-1.5 overflow-hidden rounded-full">
-            <div className="bg-success" style={{ width: `${forecast.home}%` }} />
-            <div className="bg-muted-foreground/30" style={{ width: `${forecast.draw}%` }} />
-            <div className="bg-danger" style={{ width: `${forecast.away}%` }} />
+          <div className="flex h-2 gap-px overflow-hidden rounded-full">
+            <div
+              className="bg-success transition-all duration-500"
+              style={{ width: `${forecast.home}%` }}
+            />
+            <div
+              className="bg-muted-foreground/25 transition-all duration-500"
+              style={{ width: `${forecast.draw}%` }}
+            />
+            <div
+              className="bg-danger transition-all duration-500"
+              style={{ width: `${forecast.away}%` }}
+            />
           </div>
-          <div className="flex items-center justify-between text-[11px] font-medium text-muted-foreground">
-            <span>
-              {home.shortName} <strong className="text-foreground">{forecast.home}%</strong>
+          <div className="flex items-center justify-between text-[11px] font-semibold text-muted-foreground">
+            <span className="flex items-center gap-1">
+              <span className="size-2 rounded-full bg-success" />
+              {home.shortName} <strong className="ml-0.5 text-foreground">{forecast.home}%</strong>
             </span>
-            <span>
-              Empate <strong className="text-foreground">{forecast.draw}%</strong>
+            <span className="flex items-center gap-1">
+              <span className="size-2 rounded-full bg-muted-foreground/25" />
+              <strong className="text-foreground">{forecast.draw}%</strong>
             </span>
-            <span>
-              {away.shortName} <strong className="text-foreground">{forecast.away}%</strong>
+            <span className="flex items-center gap-1">
+              <span className="size-2 rounded-full bg-danger" />
+              {away.shortName} <strong className="ml-0.5 text-foreground">{forecast.away}%</strong>
             </span>
           </div>
         </>
       ) : (
-        <p className="text-[11px] text-muted-foreground">MegaBrain aguardando paupites</p>
+        <p className="text-[11px] text-muted-foreground">Ainda sem palpites suficientes</p>
       )}
     </div>
   );
