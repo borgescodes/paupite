@@ -42,7 +42,7 @@ function RankingPage() {
       .from(view)
       .select("*")
       .order("rank_position", { ascending: true })
-      .then(async ({ data, error: loadError }) => {
+      .then(async ({ data, error: loadError }: { data: any; error: any }) => {
         if (loadError && mode === "free") {
           const fallback = await supabase
             .from("ranking")
