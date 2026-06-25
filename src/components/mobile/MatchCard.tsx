@@ -2,6 +2,7 @@ import * as React from "react";
 import { BiCheckCircle, BiSolidBrain, BiSolidLock, BiSolidTimeFive } from "react-icons/bi";
 
 import { cn } from "@/lib/utils";
+import { getTeamLogoUrl } from "@/lib/team-logos";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Flag } from "@/components/mobile/Flag";
@@ -58,14 +59,30 @@ function MatchContextRow({ data }: { data: MatchCardData }) {
   );
 }
 
+function TeamLogo({ flagCode, shortName }: { flagCode: string; shortName: string }) {
+  const url = getTeamLogoUrl(flagCode);
+  if (url) {
+    return (
+      <img
+        src={url}
+        alt={shortName}
+        className="size-8 object-contain"
+        loading="lazy"
+        decoding="async"
+      />
+    );
+  }
+  return <Flag code={flagCode} label={shortName} size="sm" />;
+}
+
 function TeamsRow({ data }: { data: MatchCardData }) {
   return (
-    <div className="flex items-center justify-center gap-2.5 text-sm font-extrabold uppercase">
-      <Flag code={data.home.flagCode} label={data.home.shortName} size="sm" />
-      {data.home.shortName}
-      <span className="text-xs font-semibold text-muted-foreground">v/s</span>
-      {data.away.shortName}
-      <Flag code={data.away.flagCode} label={data.away.shortName} size="sm" />
+    <div className="flex items-center justify-center gap-2 text-sm font-extrabold uppercase">
+      <span className="w-10 text-right">{data.home.shortName}</span>
+      <TeamLogo flagCode={data.home.flagCode} shortName={data.home.shortName} />
+      <span className="px-1 text-xs font-semibold text-muted-foreground">×</span>
+      <TeamLogo flagCode={data.away.flagCode} shortName={data.away.shortName} />
+      <span className="w-10 text-left">{data.away.shortName}</span>
     </div>
   );
 }
@@ -73,11 +90,11 @@ function TeamsRow({ data }: { data: MatchCardData }) {
 function FinalScoreRow({ data, score }: { data: MatchCardData; score: ScoreValue }) {
   return (
     <div className="flex items-center justify-center gap-4">
-      <Flag code={data.home.flagCode} label={data.home.shortName} size="sm" />
+      <TeamLogo flagCode={data.home.flagCode} shortName={data.home.shortName} />
       <p className="text-3xl font-extrabold tabular-nums text-foreground">
         {score.home} - {score.away}
       </p>
-      <Flag code={data.away.flagCode} label={data.away.shortName} size="sm" />
+      <TeamLogo flagCode={data.away.flagCode} shortName={data.away.shortName} />
     </div>
   );
 }
