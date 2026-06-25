@@ -112,24 +112,36 @@ function MegaBrainBlock({
     <div className="space-y-2 rounded-2xl border border-border/70 bg-muted/35 p-3">
       <p className="flex items-center gap-1.5 text-xs font-extrabold uppercase text-foreground">
         <BiSolidBrain className="size-3.5 text-brand" />
-        MegaBrain diz
+        MegaBrain
       </p>
       {forecast ? (
         <>
-          <div className="flex h-1.5 overflow-hidden rounded-full">
-            <div className="bg-success" style={{ width: `${forecast.home}%` }} />
-            <div className="bg-muted-foreground/30" style={{ width: `${forecast.draw}%` }} />
-            <div className="bg-danger" style={{ width: `${forecast.away}%` }} />
+          <div className="flex h-2 gap-px overflow-hidden rounded-full">
+            <div
+              className="bg-success transition-all duration-500"
+              style={{ width: `${forecast.home}%` }}
+            />
+            <div
+              className="bg-muted-foreground/25 transition-all duration-500"
+              style={{ width: `${forecast.draw}%` }}
+            />
+            <div
+              className="bg-danger transition-all duration-500"
+              style={{ width: `${forecast.away}%` }}
+            />
           </div>
-          <div className="flex items-center justify-between text-[11px] font-medium text-muted-foreground">
-            <span>
-              {home.shortName} <strong className="text-foreground">{forecast.home}%</strong>
+          <div className="flex items-center justify-between text-[11px] font-semibold text-muted-foreground">
+            <span className="flex items-center gap-1">
+              <span className="size-2 rounded-full bg-success" />
+              {home.shortName} <strong className="ml-0.5 text-foreground">{forecast.home}%</strong>
             </span>
-            <span>
-              Empate <strong className="text-foreground">{forecast.draw}%</strong>
+            <span className="flex items-center gap-1">
+              <span className="size-2 rounded-full bg-muted-foreground/25" />
+              <strong className="text-foreground">{forecast.draw}%</strong>
             </span>
-            <span>
-              {away.shortName} <strong className="text-foreground">{forecast.away}%</strong>
+            <span className="flex items-center gap-1">
+              <span className="size-2 rounded-full bg-danger" />
+              {away.shortName} <strong className="ml-0.5 text-foreground">{forecast.away}%</strong>
             </span>
           </div>
         </>

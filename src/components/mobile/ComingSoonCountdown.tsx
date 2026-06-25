@@ -64,7 +64,7 @@ export function ComingSoonCountdown({
               key={label}
               className="flex min-w-14 flex-col items-center gap-1 rounded-2xl bg-muted px-3 py-2"
             >
-              <span className="text-2xl font-extrabold tabular-nums">{pad(value)}</span>
+              <span className="text-2xl font-extrabold tabular-nums slashed-zero">{pad(value)}</span>
               <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                 {label}
               </span>

@@ -19,6 +19,9 @@ Arquivos em `supabase/migrations/` (ordem cronológica). Não há Supabase CLI l
 - `20260623050000_security_hardening.sql`
 - `20260623053000_fix_profiles_policy_recursion.sql` (mais recente — corrige recursão de policy em `profiles`)
 - `20260625030000_paupite_mvp.sql` (RBAC final, partidas, rankings, bolão, pagamentos, perfil, importação, prêmios e auditoria)
+- `20260625120000_add_accent_theme_to_profiles.sql` — coluna `accent_theme text DEFAULT 'blue'` em `profiles`
+- `20260625130000_pool_enrollment_mode.sql` — `enrollments_mode` e `coming_soon_message` em `pool_settings`; rebuild `get_pool_public_summary()` e view
+- `20260625140000_match_bet_trends.sql` — `private.get_match_bet_trends()` + view `match_bet_trends`
 
 > Quando uma nova migration for criada localmente neste projeto, adicionar o nome dela aqui até que se confirme a aplicação no remoto.
 
