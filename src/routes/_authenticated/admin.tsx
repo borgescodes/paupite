@@ -1,8 +1,8 @@
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
-import { ArrowLeft, FileJson, Gamepad2, History, ShieldCheck, Trophy, Users } from "lucide-react";
+import { ArrowLeft, FileJson, Gamepad2, ShieldCheck, Trophy, Users } from "lucide-react";
 import { useState } from "react";
 
-import { AuditAdmin } from "@/components/admin/AuditAdmin";
+
 import { ImportAdmin } from "@/components/admin/ImportAdmin";
 import { MatchesAdmin } from "@/components/admin/MatchesAdmin";
 import { PoolAdmin } from "@/components/admin/PoolAdmin";
