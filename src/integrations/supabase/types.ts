@@ -511,6 +511,30 @@ export type Database = {
         };
         Relationships: [];
       };
+      match_bet_trends: {
+        Row: {
+          away_pct: number | null;
+          draw_pct: number | null;
+          home_pct: number | null;
+          match_id: string | null;
+          total_bets: number | null;
+        };
+        Insert: {
+          away_pct?: never;
+          draw_pct?: never;
+          home_pct?: never;
+          match_id?: never;
+          total_bets?: never;
+        };
+        Update: {
+          away_pct?: never;
+          draw_pct?: never;
+          home_pct?: never;
+          match_id?: never;
+          total_bets?: never;
+        };
+        Relationships: [];
+      };
       ranking: {
         Row: {
           avatar_url: string | null;

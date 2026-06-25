@@ -1,7 +1,15 @@
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
-import type { DayOption, MatchCardData, ScoreValue } from "@/components/mobile/types";
+import type { DayOption, MatchCardData, MegaBrainForecast, ScoreValue } from "@/components/mobile/types";
+
+export interface BetTrend {
+  match_id: string;
+  total_bets: number;
+  home_pct: number;
+  draw_pct: number;
+  away_pct: number;
+}
 
 export interface MatchTeamRow {
   id: string;
@@ -52,10 +60,18 @@ export function matchDateKey(kickoffAt: string) {
   return format(new Date(kickoffAt), "yyyy-MM-dd");
 }
 
+const MIN_BETS_FOR_MEGABRAIN = 3;
+
+export function trendsToForecast(trend: BetTrend | undefined): MegaBrainForecast | undefined {
+  if (!trend || trend.total_bets < MIN_BETS_FOR_MEGABRAIN) return undefined;
+  return { home: trend.home_pct, draw: trend.draw_pct, away: trend.away_pct };
+}
+
 export function toMatchCard(
   match: MatchRow,
   savedBet: BetRow | undefined,
   draft: ScoreValue | undefined,
+  trend?: BetTrend,
 ): MatchCardData {
   const kickoff = new Date(match.kickoff_at);
   const locked = kickoff.getTime() <= Date.now();
@@ -83,6 +99,7 @@ export function toMatchCard(
       saved: Boolean(savedBet),
       points: savedBet?.points ?? 0,
     },
+    megaBrain: trendsToForecast(trend),
   };
 }
 

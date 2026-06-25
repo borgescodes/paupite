@@ -134,7 +134,7 @@ function MegaBrainBlock({
           </div>
         </>
       ) : (
-        <p className="text-[11px] text-muted-foreground">MegaBrain aguardando paupites</p>
+        <p className="text-[11px] text-muted-foreground">Ainda sem palpites suficientes</p>
       )}
     </div>
   );
