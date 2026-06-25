@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { History } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase as _supabaseTyped } from "@/integrations/supabase/client";
+const supabase = _supabaseTyped as any;
 import type { Json } from "@/integrations/supabase/types";
 
 interface AuditRow {
@@ -24,7 +25,7 @@ export function AuditAdmin() {
       .select("id,action,entity_type,entity_id,metadata,created_at")
       .order("created_at", { ascending: false })
       .limit(100)
-      .then(({ data, error: loadError }) => {
+      .then(({ data, error: loadError }: { data: any; error: any }) => {
         setRows((data ?? []) as AuditRow[]);
         setError(loadError?.message ?? null);
       });

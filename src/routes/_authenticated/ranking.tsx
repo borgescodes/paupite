@@ -7,7 +7,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/hooks/use-auth";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase as _supabaseTyped } from "@/integrations/supabase/client";
+const supabase = _supabaseTyped as any;
 import { cn } from "@/lib/utils";
 
 interface RankingRow {
@@ -41,7 +42,7 @@ function RankingPage() {
       .from(view)
       .select("*")
       .order("rank_position", { ascending: true })
-      .then(async ({ data, error: loadError }) => {
+      .then(async ({ data, error: loadError }: { data: any; error: any }) => {
         if (loadError && mode === "free") {
           const fallback = await supabase
             .from("ranking")
