@@ -92,6 +92,36 @@ export type Database = {
         }
         Relationships: []
       }
+      enrollments: {
+        Row: {
+          created_at: string
+          id: string
+          requested_at: string
+          status: string
+          terms_accepted_at: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          requested_at?: string
+          status?: string
+          terms_accepted_at?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          requested_at?: string
+          status?: string
+          terms_accepted_at?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       matches: {
         Row: {
           api_match_id: string | null
@@ -173,6 +203,122 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      payments: {
+        Row: {
+          amount_cents: number
+          checkout_url: string | null
+          created_at: string
+          enrollment_id: string
+          id: string
+          provider: string
+          receipt_url: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          amount_cents?: number
+          checkout_url?: string | null
+          created_at?: string
+          enrollment_id: string
+          id?: string
+          provider?: string
+          receipt_url?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          amount_cents?: number
+          checkout_url?: string | null
+          created_at?: string
+          enrollment_id?: string
+          id?: string
+          provider?: string
+          receipt_url?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payments_enrollment_id_fkey"
+            columns: ["enrollment_id"]
+            isOneToOne: false
+            referencedRelation: "enrollments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pool_settings: {
+        Row: {
+          created_at: string
+          entry_fee_cents: number
+          free_ranking_starts_at: string | null
+          id: string
+          minimum_participants: number
+          prize_description: string | null
+          prize_percentage: number
+          slug: string
+          status: string
+          terms: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          entry_fee_cents?: number
+          free_ranking_starts_at?: string | null
+          id?: string
+          minimum_participants?: number
+          prize_description?: string | null
+          prize_percentage?: number
+          slug: string
+          status?: string
+          terms?: string
+          title?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          entry_fee_cents?: number
+          free_ranking_starts_at?: string | null
+          id?: string
+          minimum_participants?: number
+          prize_description?: string | null
+          prize_percentage?: number
+          slug?: string
+          status?: string
+          terms?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      prize_requests: {
+        Row: {
+          created_at: string
+          id: string
+          requested_at: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          requested_at?: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          requested_at?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       profiles: {
         Row: {
@@ -284,7 +430,74 @@ export type Database = {
       }
     }
     Views: {
+      pool_public_summary: {
+        Row: {
+          entry_fee_cents: number | null
+          estimated_prize_cents: number | null
+          id: string | null
+          minimum_participants: number | null
+          participants_count: number | null
+          prize_description: string | null
+          prize_percentage: number | null
+          status: string | null
+          terms: string | null
+          title: string | null
+        }
+        Insert: {
+          entry_fee_cents?: number | null
+          estimated_prize_cents?: never
+          id?: string | null
+          minimum_participants?: number | null
+          participants_count?: never
+          prize_description?: string | null
+          prize_percentage?: number | null
+          status?: string | null
+          terms?: string | null
+          title?: string | null
+        }
+        Update: {
+          entry_fee_cents?: number | null
+          estimated_prize_cents?: never
+          id?: string | null
+          minimum_participants?: number | null
+          participants_count?: never
+          prize_description?: string | null
+          prize_percentage?: number | null
+          status?: string | null
+          terms?: string | null
+          title?: string | null
+        }
+        Relationships: []
+      }
       ranking: {
+        Row: {
+          avatar_url: string | null
+          bets_count: number | null
+          display_name: string | null
+          exact_scores_count: number | null
+          nickname: string | null
+          outcome_hits_count: number | null
+          rank_position: number | null
+          total_points: number | null
+          user_id: string | null
+        }
+        Relationships: []
+      }
+      ranking_free: {
+        Row: {
+          avatar_url: string | null
+          bets_count: number | null
+          display_name: string | null
+          exact_scores_count: number | null
+          nickname: string | null
+          outcome_hits_count: number | null
+          rank_position: number | null
+          total_points: number | null
+          user_id: string | null
+        }
+        Relationships: []
+      }
+      ranking_pool: {
         Row: {
           avatar_url: string | null
           bets_count: number | null
