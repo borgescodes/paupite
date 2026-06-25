@@ -18,7 +18,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { useAuth } from "@/hooks/use-auth";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase as _supabaseTyped } from "@/integrations/supabase/client";
+const supabase = _supabaseTyped as any;
 import { callEdgeFunction } from "@/lib/edge";
 
 interface PoolSummary {
@@ -69,14 +70,14 @@ function PoolPage() {
   const load = useCallback(async () => {
     if (!user?.id) return;
     const [summaryResult, enrollmentResult, prizeResult, rankingResult] = await Promise.all([
-      (supabase as any).from("pool_public_summary").select("*").maybeSingle(),
+      supabase.from("pool_public_summary").select("*").maybeSingle(),
       supabase
         .from("enrollments")
         .select("id,status,terms_accepted_at")
         .eq("user_id", user.id)
         .maybeSingle(),
-      (supabase as any).from("prize_requests").select("id,status").eq("user_id", user.id).maybeSingle(),
-      (supabase as any).from("ranking_pool").select("rank_position").eq("user_id", user.id).maybeSingle(),
+      supabase.from("prize_requests").select("id,status").eq("user_id", user.id).maybeSingle(),
+      supabase.from("ranking_pool").select("rank_position").eq("user_id", user.id).maybeSingle(),
     ]);
     const nextSummary = summaryResult.data as PoolSummary | null;
     const nextEnrollment = enrollmentResult.data as Enrollment | null;

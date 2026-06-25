@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { History } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase as _supabaseTyped } from "@/integrations/supabase/client";
+const supabase = _supabaseTyped as any;
 import type { Json } from "@/integrations/supabase/types";
 
 interface AuditRow {

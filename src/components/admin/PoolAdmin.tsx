@@ -6,7 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase as _supabaseTyped } from "@/integrations/supabase/client";
+const supabase = _supabaseTyped as any;
 import { callEdgeFunction } from "@/lib/edge";
 
 interface Settings {
@@ -61,10 +62,10 @@ export function PoolAdmin() {
   const load = useCallback(async () => {
     const [settingsResult, enrollmentsResult, prizesResult, usersResult, scoreResult] =
       await Promise.all([
-        (supabase as any).from("pool_settings").select("*").eq("slug", "world-cup-2026").single(),
-        (supabase as any).from("enrollments").select("*").order("requested_at", { ascending: false }),
-        (supabase as any).from("prize_requests").select("*").order("requested_at", { ascending: false }),
-        (supabase as any).from("profiles").select("id,display_name,nickname,email"),
+        supabase.from("pool_settings").select("*").eq("slug", "world-cup-2026").single(),
+        supabase.from("enrollments").select("*").order("requested_at", { ascending: false }),
+        supabase.from("prize_requests").select("*").order("requested_at", { ascending: false }),
+        supabase.from("profiles").select("id,display_name,nickname,email"),
         supabase
           .from("score_rules")
           .select("exact_score_points,outcome_points,goal_difference_bonus")
