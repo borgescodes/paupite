@@ -1,13 +1,15 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { KeyRound, MessageCircle } from "lucide-react";
+import { BiKey, BiLogoWhatsapp, BiMoon, BiSun } from "react-icons/bi";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useThemeMode } from "@/hooks/use-theme";
 import { supabase } from "@/integrations/supabase/client";
 import { callEdgeFunction } from "@/lib/edge";
-import { getSupportWhatsAppUrl } from "@/lib/support";
+import { getAdminWhatsAppUrl } from "@/lib/whatsapp";
 
 export const Route = createFileRoute("/reset-password")({
   component: ResetPasswordPage,
@@ -22,6 +24,7 @@ function ResetPasswordPage() {
   const [ready, setReady] = useState(false);
   const [saving, setSaving] = useState(false);
   const [requiresPasswordChange, setRequiresPasswordChange] = useState(false);
+  const { theme, toggleTheme } = useThemeMode();
 
   useEffect(() => {
     const detect = async () => {
@@ -79,11 +82,19 @@ function ResetPasswordPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/40 px-4 py-10">
-      <Card className="w-full max-w-sm">
-        <CardHeader className="text-center">
-          <div className="mx-auto mb-2 grid size-12 place-items-center rounded-2xl bg-brand text-brand-foreground">
-            <KeyRound className="size-6" />
+    <div className="app-backdrop relative flex min-h-screen items-center justify-center px-4 py-10">
+      <button
+        type="button"
+        aria-label={theme === "light" ? "Ativar tema escuro" : "Ativar tema claro"}
+        className="tap-feedback absolute top-4 right-4 grid size-10 place-items-center rounded-2xl border border-border bg-surface shadow-md backdrop-blur"
+        onClick={toggleTheme}
+      >
+        {theme === "light" ? <BiMoon className="size-5" /> : <BiSun className="size-5" />}
+      </button>
+      <Card className="glass-card screen-enter w-full max-w-md rounded-3xl">
+        <CardHeader className="space-y-3 px-6 pt-7 text-center">
+          <div className="mx-auto grid size-14 place-items-center rounded-2xl bg-brand text-brand-foreground shadow-lg shadow-brand/20">
+            <BiKey className="size-7" />
           </div>
           <CardTitle>
             {requiresPasswordChange ? "Crie sua senha pessoal" : "Ajuda para acessar"}
@@ -94,34 +105,48 @@ function ResetPasswordPage() {
               : "A recuperação de acesso é feita diretamente pelo administrador."}
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-4 px-6 pb-7">
           {requiresPasswordChange ? (
-            <form onSubmit={onSubmit} className="space-y-3">
-              <Input
-                type="password"
-                required
-                autoComplete="new-password"
-                placeholder="Nova senha"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-              />
-              <Input
-                type="password"
-                required
-                autoComplete="new-password"
-                placeholder="Confirmar senha"
-                value={confirm}
-                onChange={(event) => setConfirm(event.target.value)}
-              />
-              <Button type="submit" disabled={saving} className="w-full">
+            <form onSubmit={onSubmit} className="space-y-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="new-password">Nova senha</Label>
+                <Input
+                  id="new-password"
+                  className="field-control"
+                  type="password"
+                  required
+                  autoComplete="new-password"
+                  placeholder="Mínimo de 8 caracteres"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="confirm-password">Confirmar senha</Label>
+                <Input
+                  id="confirm-password"
+                  className="field-control"
+                  type="password"
+                  required
+                  autoComplete="new-password"
+                  placeholder="Repita a nova senha"
+                  value={confirm}
+                  onChange={(event) => setConfirm(event.target.value)}
+                />
+              </div>
+              <Button type="submit" disabled={saving} className="h-11 w-full rounded-2xl">
                 {saving ? "Salvando..." : "Salvar senha"}
               </Button>
             </form>
           ) : (
             <>
-              <Button asChild className="w-full">
-                <a href={getSupportWhatsAppUrl()} target="_blank" rel="noreferrer">
-                  <MessageCircle className="size-4" />
+              <div className="rounded-2xl border border-border/70 bg-muted/55 p-4 text-sm text-muted-foreground">
+                O Pau Pite não envia links de recuperação por e-mail. Peça ao administrador uma nova
+                senha temporária.
+              </div>
+              <Button asChild className="h-11 w-full rounded-2xl">
+                <a href={getAdminWhatsAppUrl()} target="_blank" rel="noreferrer">
+                  <BiLogoWhatsapp className="size-5" />
                   Pedir ajuda no WhatsApp
                 </a>
               </Button>

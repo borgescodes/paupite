@@ -20,7 +20,7 @@ function DaySelector({ days, selectedDate, onSelect, className }: DaySelectorPro
   return (
     <div
       className={cn(
-        "no-scrollbar flex items-start gap-5 overflow-x-auto bg-muted/60 px-4 py-3",
+        "no-scrollbar sticky top-[65px] z-20 flex items-stretch gap-2 overflow-x-auto border-b border-border/60 bg-background/75 px-3 py-2.5 backdrop-blur-xl",
         className,
       )}
     >
@@ -33,17 +33,24 @@ function DaySelector({ days, selectedDate, onSelect, className }: DaySelectorPro
             type="button"
             onClick={() => onSelect?.(day.date)}
             aria-current={isSelected ? "date" : undefined}
-            className="flex shrink-0 flex-col items-center gap-0.5"
+            className={cn(
+              "tap-feedback flex min-w-[4.5rem] shrink-0 flex-col items-center gap-0.5 rounded-2xl px-3 py-2 transition-colors",
+              isSelected
+                ? "bg-brand text-brand-foreground shadow-lg shadow-brand/20"
+                : "bg-muted/55 text-muted-foreground hover:bg-accent",
+            )}
           >
             <span
               className={cn(
-                "font-extrabold uppercase leading-none tracking-tight transition-all",
-                isSelected ? "text-3xl text-brand" : "text-xl text-muted-foreground/70",
+                "text-lg font-extrabold uppercase leading-none tracking-tight transition-all",
+                isSelected ? "text-brand-foreground" : "text-foreground/75",
               )}
             >
               {day.label}
             </span>
-            <span className="text-[11px] text-muted-foreground">{day.phaseLabel}</span>
+            <span className={cn("text-[10px]", isSelected ? "text-brand-foreground/80" : "")}>
+              {day.phaseLabel}
+            </span>
           </button>
         );
       })}

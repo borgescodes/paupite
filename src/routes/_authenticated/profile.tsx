@@ -1,6 +1,15 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { LogOut, Save, ShieldCheck, Trophy } from "lucide-react";
 import { useEffect, useState } from "react";
+import {
+  BiBarChartAlt2,
+  BiBullseye,
+  BiCheckCircle,
+  BiLogOut,
+  BiSave,
+  BiShieldQuarter,
+  BiSolidTrophy,
+} from "react-icons/bi";
+import { toast } from "sonner";
 
 import { MobileShell } from "@/components/mobile/MobileShell";
 import { AvatarUploader } from "@/components/profile/AvatarUploader";
@@ -9,16 +18,15 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/hooks/use-auth";
-import { supabase as _supabaseTyped } from "@/integrations/supabase/client";
-const supabase = _supabaseTyped as any;
+import { supabase } from "@/integrations/supabase/client";
+import type { RankingEntry } from "@/lib/ranking";
 
-interface Stats {
-  total_points: number | null;
-  rank_position: number | null;
-  exact_scores_count: number | null;
-  bets_count: number | null;
-}
+type Stats = Pick<
+  RankingEntry,
+  "total_points" | "rank_position" | "exact_scores_count" | "outcome_hits_count" | "bets_count"
+>;
 
 export const Route = createFileRoute("/_authenticated/profile")({
   component: ProfilePage,
@@ -32,7 +40,6 @@ function ProfilePage() {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [freeStats, setFreeStats] = useState<Stats | null>(null);
   const [poolStats, setPoolStats] = useState<Stats | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -41,35 +48,50 @@ function ProfilePage() {
     setDisplayName(profile.display_name ?? "");
     setNickname(profile.nickname ?? "");
     setAvatarUrl(profile.avatar_url);
+
     Promise.all([
       supabase.from("ranking_free").select("*").eq("user_id", user.id).maybeSingle(),
       supabase.from("ranking_pool").select("*").eq("user_id", user.id).maybeSingle(),
-    ]).then(([freeResult, poolResult]: [any, any]) => {
-      setFreeStats(freeResult.data as Stats | null);
-      setPoolStats(poolResult.data as Stats | null);
+    ]).then(([freeResult, poolResult]) => {
+      setFreeStats(freeResult.data);
+      setPoolStats(poolResult.data);
       setError(freeResult.error?.message ?? poolResult.error?.message ?? null);
     });
   }, [profile, user]);
 
   if (loading || !profile || !user) {
-    return <p className="p-8 text-center text-sm text-muted-foreground">Carregando...</p>;
+    return (
+      <div className="app-backdrop min-h-screen p-4">
+        <div className="mx-auto max-w-xl space-y-4">
+          <Skeleton className="mx-auto size-32 rounded-full" />
+          <Skeleton className="mx-auto h-8 w-44 rounded-xl" />
+          <Skeleton className="h-36 rounded-3xl" />
+          <Skeleton className="h-72 rounded-3xl" />
+        </div>
+      </div>
+    );
   }
 
   const profileName = nickname || displayName || profile.email;
+  const profileId = profile.id;
+  const isStaff = profile.role === "admin" || profile.role === "superadmin";
 
   async function save(event: React.FormEvent) {
     event.preventDefault();
-    if (!profile) return;
     setBusy(true);
     setError(null);
-    setMessage(null);
     const { error: saveError } = await supabase
       .from("profiles")
       .update({ display_name: displayName.trim() || null, nickname: nickname.trim() || null })
-      .eq("id", profile.id);
+      .eq("id", profileId);
     setBusy(false);
-    if (saveError) setError(saveError.message);
-    else setMessage("Perfil salvo.");
+    if (saveError) {
+      setError(saveError.message);
+      toast.error("Não foi possível salvar o perfil.");
+      return;
+    }
+    window.dispatchEvent(new Event("paupite:profile-updated"));
+    toast.success("Perfil salvo.");
   }
 
   async function signOut() {
@@ -79,65 +101,83 @@ function ProfilePage() {
 
   return (
     <MobileShell active="perfil">
-      <main className="mx-auto max-w-xl space-y-4 px-3 py-5">
-        <AvatarUploader
-          userId={profile.id}
-          name={profileName}
-          avatarUrl={avatarUrl}
-          onUploaded={(url) => {
-            setAvatarUrl(url);
-            setMessage("Avatar atualizado.");
-          }}
-        />
-        <div className="text-center">
-          <h1 className="text-2xl font-extrabold">{profileName}</h1>
+      <main className="screen-enter mx-auto max-w-xl space-y-5 px-3 py-5">
+        <section className="glass-card rounded-3xl p-5 text-center">
+          <AvatarUploader
+            userId={profileId}
+            name={profileName}
+            avatarUrl={avatarUrl}
+            onUploaded={(url) => {
+              setAvatarUrl(url);
+              window.dispatchEvent(new Event("paupite:profile-updated"));
+            }}
+          />
+          <h1 className="mt-3 text-2xl font-extrabold tracking-tight">{profileName}</h1>
           <p className="text-sm text-muted-foreground">{profile.email}</p>
-          <Badge variant="secondary" className="mt-2">
-            {profile.role}
+          <Badge className="mt-2 rounded-full" variant="secondary">
+            {profile.role === "player"
+              ? "Participante"
+              : profile.role === "admin"
+                ? "Administrador"
+                : "Superadministrador"}
           </Badge>
-        </div>
+        </section>
 
-        <div className="grid grid-cols-2 gap-3">
-          <StatsCard title="Resenha" stats={freeStats} />
-          <StatsCard title="Bolão" stats={poolStats} />
-        </div>
+        <section className="grid grid-cols-2 gap-3">
+          <StatsCard title="Resenha" stats={freeStats} accent="brand" />
+          <StatsCard title="Bolão" stats={poolStats} accent="warning" />
+        </section>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Editar perfil</CardTitle>
+        <Card className="glass-card">
+          <CardHeader className="pb-3">
+            <p className="eyebrow text-brand">Dados públicos</p>
+            <CardTitle className="text-lg">Editar perfil</CardTitle>
           </CardHeader>
           <CardContent>
             <form className="space-y-4" onSubmit={save}>
-              <Field label="Nome">
+              <Field id="display-name" label="Nome">
                 <Input
+                  id="display-name"
                   value={displayName}
+                  autoComplete="name"
                   onChange={(event) => setDisplayName(event.target.value)}
                 />
               </Field>
-              <Field label="Apelido no ranking">
+              <Field id="nickname" label="Apelido no ranking">
                 <Input
+                  id="nickname"
                   maxLength={32}
                   value={nickname}
+                  placeholder="Como você quer aparecer"
                   onChange={(event) => setNickname(event.target.value)}
                 />
               </Field>
-              <Button className="w-full" disabled={busy}>
-                <Save className="size-4" />
+              <Button className="h-11 w-full rounded-2xl" disabled={busy}>
+                <BiSave className="size-5" />
                 {busy ? "Salvando..." : "Salvar perfil"}
               </Button>
             </form>
             {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
-            {message && <p className="mt-3 text-sm text-success">{message}</p>}
           </CardContent>
         </Card>
 
-        {(profile.role === "admin" || profile.role === "superadmin") && (
-          <Card className="border-brand/30">
+        {isStaff && (
+          <Card className="glass-card overflow-hidden border-brand/30">
+            <div className="h-1 bg-brand" />
             <CardContent className="space-y-3 p-4">
-              <p className="flex items-center gap-2 font-bold">
-                <ShieldCheck className="size-4 text-brand" />
-                {profile.role === "superadmin" ? "Zona superadmin" : "Zona admin"}
-              </p>
+              <div className="flex items-start gap-3">
+                <div className="grid size-10 shrink-0 place-items-center rounded-2xl bg-brand/12 text-brand">
+                  <BiShieldQuarter className="size-5" />
+                </div>
+                <div>
+                  <p className="font-extrabold">
+                    {profile.role === "superadmin" ? "Zona superadmin" : "Zona admin"}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Gerencie jogos e os recursos permitidos para seu nível de acesso.
+                  </p>
+                </div>
+              </div>
               <Button asChild className="w-full">
                 <Link to="/admin">Abrir administração</Link>
               </Button>
@@ -145,8 +185,12 @@ function ProfilePage() {
           </Card>
         )}
 
-        <Button variant="outline" className="w-full" onClick={() => void signOut()}>
-          <LogOut className="size-4" />
+        <Button
+          variant="outline"
+          className="h-11 w-full rounded-2xl"
+          onClick={() => void signOut()}
+        >
+          <BiLogOut className="size-5" />
           Sair
         </Button>
       </main>
@@ -154,27 +198,54 @@ function ProfilePage() {
   );
 }
 
-function StatsCard({ title, stats }: { title: string; stats: Stats | null }) {
+function StatsCard({
+  title,
+  stats,
+  accent,
+}: {
+  title: string;
+  stats: Stats | null;
+  accent: "brand" | "warning";
+}) {
   return (
-    <Card>
-      <CardContent className="p-3">
-        <Trophy className="size-4 text-warning" />
-        <p className="mt-2 text-xl font-extrabold">{stats?.total_points ?? 0} pts</p>
-        <p className="text-[11px] text-muted-foreground">
+    <Card className="glass-card interactive-card">
+      <CardContent className="p-4">
+        <div
+          className={
+            accent === "brand"
+              ? "grid size-9 place-items-center rounded-xl bg-brand/12 text-brand"
+              : "grid size-9 place-items-center rounded-xl bg-warning/15 text-warning"
+          }
+        >
+          <BiSolidTrophy className="size-5" />
+        </div>
+        <p className="mt-3 text-2xl font-extrabold">{stats?.total_points ?? 0} pts</p>
+        <p className="text-xs font-bold text-muted-foreground">
           {title} · {stats?.rank_position ? `${stats.rank_position}º` : "sem posição"}
         </p>
-        <p className="mt-1 text-[10px] text-muted-foreground">
-          {stats?.exact_scores_count ?? 0} exatos · {stats?.bets_count ?? 0} palpites
-        </p>
+        <div className="mt-2 flex flex-wrap gap-x-2 gap-y-1 text-[10px] text-muted-foreground">
+          <span className="inline-flex items-center gap-1">
+            <BiBullseye className="size-3" />
+            {stats?.exact_scores_count ?? 0} exatos
+          </span>
+          <span className="inline-flex items-center gap-1">
+            <BiCheckCircle className="size-3" />
+            {stats?.outcome_hits_count ?? 0} acertos
+          </span>
+          <span className="inline-flex items-center gap-1">
+            <BiBarChartAlt2 className="size-3" />
+            {stats?.bets_count ?? 0} palpites
+          </span>
+        </div>
       </CardContent>
     </Card>
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({ id, label, children }: { id: string; label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-1.5">
-      <Label>{label}</Label>
+      <Label htmlFor={id}>{label}</Label>
       {children}
     </div>
   );

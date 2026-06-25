@@ -22,8 +22,8 @@ function clamp(value: number, min: number, max: number) {
 
 function TeamTag({ team }: { team: TeamInfo }) {
   return (
-    <div className="flex flex-col items-center gap-1.5 text-center">
-      <Flag code={team.flagCode} label={team.shortName} size="lg" />
+    <div className="flex min-w-0 flex-1 flex-col items-center gap-2 text-center">
+      <Flag code={team.flagCode} label={team.shortName} size="lg" className="shadow-md" />
       <span className="text-sm font-extrabold uppercase text-foreground">{team.shortName}</span>
     </div>
   );
@@ -41,17 +41,17 @@ function ScoreColumn({
   onDecrement: () => void;
 }) {
   return (
-    <div className="flex flex-col items-center gap-1">
+    <div className="flex flex-col items-center gap-1 rounded-2xl bg-muted/65 p-1.5">
       <button
         type="button"
         disabled={disabled}
         onClick={onIncrement}
         aria-label="Aumentar placar"
-        className="text-muted-foreground transition-colors hover:text-foreground disabled:opacity-30"
+        className="tap-feedback grid size-8 place-items-center rounded-xl text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-30"
       >
         <BiSolidUpArrow className="size-3.5" />
       </button>
-      <span className="w-9 text-center text-4xl font-extrabold tabular-nums text-foreground">
+      <span className="w-10 text-center text-4xl font-extrabold tabular-nums text-foreground">
         {value}
       </span>
       <button
@@ -59,7 +59,7 @@ function ScoreColumn({
         disabled={disabled}
         onClick={onDecrement}
         aria-label="Diminuir placar"
-        className="text-muted-foreground transition-colors hover:text-foreground disabled:opacity-30"
+        className="tap-feedback grid size-8 place-items-center rounded-xl text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-30"
       >
         <BiSolidDownArrow className="size-3.5" />
       </button>
@@ -83,7 +83,12 @@ function ScoreStepper({
   }
 
   return (
-    <div className={cn("flex items-center justify-between gap-2", className)}>
+    <div
+      className={cn(
+        "flex items-center justify-between gap-2 rounded-2xl bg-background/45 p-2",
+        className,
+      )}
+    >
       <TeamTag team={home} />
       <ScoreColumn
         value={value.home}

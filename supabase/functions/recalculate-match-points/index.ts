@@ -72,8 +72,6 @@ Deno.serve(async (req) => {
 
     await admin.from("matches").update({ status: "closed" }).eq("id", match_id);
 
-
-
     return j({ updated: data });
   } catch (e) {
     return j({ error: (e as Error).message }, 500);

@@ -89,9 +89,6 @@ Deno.serve(async (req) => {
       .eq("id", user_id);
     if (profileErr) return json({ error: profileErr.message }, 400);
 
-
-
-
     return json({ ok: true });
   } catch (e) {
     return json({ error: (e as Error).message }, 500);

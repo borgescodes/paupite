@@ -83,7 +83,6 @@ export async function writeAudit(
   // Audit logging disabled — audit_logs table not implemented.
 }
 
-
 export class HttpError extends Error {
   status: number;
 

@@ -43,10 +43,15 @@ export function useAuth() {
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
       load(session?.user ?? null);
     });
+    const refreshProfile = () => {
+      void supabase.auth.getUser().then(({ data }) => load(data.user));
+    };
+    window.addEventListener("paupite:profile-updated", refreshProfile);
 
     return () => {
       mounted = false;
       sub.subscription.unsubscribe();
+      window.removeEventListener("paupite:profile-updated", refreshProfile);
     };
   }, []);
 

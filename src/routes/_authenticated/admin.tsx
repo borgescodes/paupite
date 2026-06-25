@@ -1,13 +1,14 @@
-import { createFileRoute, Link, redirect } from "@tanstack/react-router";
-import { ArrowLeft, FileJson, Gamepad2, ShieldCheck, Trophy, Users } from "lucide-react";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useState } from "react";
-
+import { BiFootball, BiGroup, BiImport, BiShieldQuarter, BiUser } from "react-icons/bi";
 
 import { ImportAdmin } from "@/components/admin/ImportAdmin";
 import { MatchesAdmin } from "@/components/admin/MatchesAdmin";
 import { PoolAdmin } from "@/components/admin/PoolAdmin";
 import { UsersAdmin } from "@/components/admin/UsersAdmin";
+import { MobileShell } from "@/components/mobile/MobileShell";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
@@ -39,66 +40,66 @@ function AdminPage() {
   const [section, setSection] = useState<Section>("matches");
 
   if (loading || !profile) {
-    return <p className="p-8 text-center text-sm text-muted-foreground">Carregando...</p>;
+    return (
+      <div className="app-backdrop min-h-screen p-4">
+        <Skeleton className="mx-auto h-96 max-w-5xl rounded-3xl" />
+      </div>
+    );
   }
 
   const superadmin = profile.role === "superadmin";
   const sections = [
-    { key: "matches" as const, label: "Jogos", icon: Gamepad2, show: true },
-    { key: "users" as const, label: "Usuários", icon: Users, show: true },
-    { key: "pool" as const, label: "Bolão", icon: Trophy, show: superadmin },
-    { key: "import" as const, label: "Importar", icon: FileJson, show: superadmin },
+    { key: "matches" as const, label: "Jogos", icon: BiFootball, show: true },
+    { key: "users" as const, label: "Usuários", icon: BiUser, show: true },
+    { key: "pool" as const, label: "Bolão", icon: BiGroup, show: superadmin },
+    { key: "import" as const, label: "Importar", icon: BiImport, show: superadmin },
   ].filter((item) => item.show);
 
-
   return (
-    <div className="min-h-screen bg-muted/30">
-      <header className="border-b bg-background">
-        <div className="mx-auto flex max-w-5xl items-center gap-3 px-4 py-4">
-          <Button asChild size="icon" variant="ghost">
-            <Link to="/profile">
-              <ArrowLeft className="size-4" />
-            </Link>
-          </Button>
-          <div className="min-w-0 flex-1">
-            <h1 className="flex items-center gap-2 truncate text-xl font-extrabold">
-              <ShieldCheck className="size-5 text-brand" />
-              Administração
-            </h1>
+    <MobileShell active="admin">
+      <main className="screen-enter mx-auto max-w-5xl space-y-5 px-3 py-5 sm:px-4">
+        <header className="glass-card flex items-center gap-3 rounded-3xl p-4 sm:p-5">
+          <div className="grid size-12 shrink-0 place-items-center rounded-2xl bg-brand text-brand-foreground shadow-lg shadow-brand/20">
+            <BiShieldQuarter className="size-6" />
+          </div>
+          <div className="min-w-0">
+            <p className="eyebrow text-brand">
+              {superadmin ? "Zona superadmin" : "Zona operacional"}
+            </p>
+            <h1 className="truncate text-2xl font-extrabold tracking-tight">Administração</h1>
             <p className="text-xs text-muted-foreground">
-              {superadmin ? "Zona superadmin" : "Zona admin operacional"}
+              Controles exibidos conforme seu nível de acesso.
             </p>
           </div>
+        </header>
+
+        <div className="no-scrollbar flex gap-2 overflow-x-auto pb-1">
+          {sections.map((item) => {
+            const Icon = item.icon;
+            return (
+              <Button
+                key={item.key}
+                variant={section === item.key ? "default" : "outline"}
+                className={cn(
+                  "shrink-0 rounded-2xl",
+                  section === item.key && "bg-brand text-brand-foreground hover:bg-brand/90",
+                )}
+                onClick={() => setSection(item.key)}
+              >
+                <Icon className="size-5" />
+                {item.label}
+              </Button>
+            );
+          })}
         </div>
-      </header>
 
-      <div className="no-scrollbar mx-auto flex max-w-5xl gap-2 overflow-x-auto px-4 py-3">
-        {sections.map((item) => {
-          const Icon = item.icon;
-          return (
-            <Button
-              key={item.key}
-              size="sm"
-              variant={section === item.key ? "default" : "outline"}
-              className={cn(
-                section === item.key && "bg-brand text-brand-foreground hover:bg-brand/90",
-              )}
-              onClick={() => setSection(item.key)}
-            >
-              <Icon className="size-4" />
-              {item.label}
-            </Button>
-          );
-        })}
-      </div>
-
-      <main className="mx-auto max-w-5xl px-4 pb-12">
-        {section === "matches" && <MatchesAdmin />}
-        {section === "users" && <UsersAdmin currentRole={profile.role} />}
-        {section === "pool" && superadmin && <PoolAdmin />}
-        {section === "import" && superadmin && <ImportAdmin />}
+        <section>
+          {section === "matches" && <MatchesAdmin />}
+          {section === "users" && <UsersAdmin currentRole={profile.role} />}
+          {section === "pool" && superadmin && <PoolAdmin />}
+          {section === "import" && superadmin && <ImportAdmin />}
+        </section>
       </main>
-
-    </div>
+    </MobileShell>
   );
 }
