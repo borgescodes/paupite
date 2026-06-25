@@ -331,6 +331,7 @@ export type Database = {
       };
       profiles: {
         Row: {
+          accent_theme: string | null;
           avatar_url: string | null;
           created_at: string;
           display_name: string | null;
@@ -347,6 +348,7 @@ export type Database = {
           updated_at: string;
         };
         Insert: {
+          accent_theme?: string | null;
           avatar_url?: string | null;
           created_at?: string;
           display_name?: string | null;
@@ -363,6 +365,7 @@ export type Database = {
           updated_at?: string;
         };
         Update: {
+          accent_theme?: string | null;
           avatar_url?: string | null;
           created_at?: string;
           display_name?: string | null;
