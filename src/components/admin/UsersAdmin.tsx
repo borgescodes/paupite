@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { KeyRound, UserPlus } from "lucide-react";
+import { BiKey, BiUserPlus } from "react-icons/bi";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -46,6 +47,7 @@ export function UsersAdmin({ currentRole }: { currentRole: Role }) {
     try {
       await operation();
       setMessage(success);
+      toast.success(success);
       await load();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Falha na operação.");
@@ -57,10 +59,10 @@ export function UsersAdmin({ currentRole }: { currentRole: Role }) {
   return (
     <div className="space-y-4">
       {currentRole === "superadmin" && (
-        <Card>
+        <Card className="glass-card">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
-              <UserPlus className="size-4" />
+              <BiUserPlus className="size-5 text-brand" />
               Criar usuário convidado
             </CardTitle>
           </CardHeader>
@@ -145,7 +147,7 @@ export function UsersAdmin({ currentRole }: { currentRole: Role }) {
 
       <div className="space-y-3">
         {users.map((user) => (
-          <Card key={user.id}>
+          <Card key={user.id} className="glass-card interactive-card">
             <CardContent className="space-y-3 p-4">
               <div>
                 <p className="font-bold">{user.display_name || user.nickname || user.email}</p>
@@ -224,7 +226,7 @@ export function UsersAdmin({ currentRole }: { currentRole: Role }) {
                           )
                         }
                       >
-                        <KeyRound className="size-4" />
+                        <BiKey className="size-5" />
                         <span className="sr-only sm:not-sr-only">Redefinir</span>
                       </Button>
                     </div>

@@ -1,59 +1,37 @@
-import { useCallback, useEffect, useState } from "react";
-import { CalendarClock, ChevronDown, Plus, Save, Trophy } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { BiChevronDown, BiFilterAlt, BiGroup, BiPlus, BiSearch } from "react-icons/bi";
+import { toast } from "sonner";
 
+import { AdminMatchCard } from "@/components/admin/AdminMatchCard";
+import { AdminMatchEditor, NativeSelect } from "@/components/admin/AdminMatchEditor";
+import { AdminResultSheet } from "@/components/admin/AdminResultSheet";
+import type {
+  AdminCompetition,
+  AdminMatch,
+  AdminMatchFormValue,
+  AdminTeam,
+} from "@/components/admin/match-types";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { callEdgeFunction } from "@/lib/edge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
-
-interface Team {
-  id: string;
-  name: string;
-  short_name: string | null;
-  country_code: string | null;
-}
-
-interface Competition {
-  id: string;
-  name: string;
-}
-
-interface Match {
-  id: string;
-  kickoff_at: string;
-  status: string;
-  home_team_id: string | null;
-  away_team_id: string | null;
-  home_score: number;
-  away_score: number;
-  competition_id: string | null;
-  stage: string | null;
-  group_name: string | null;
-  venue: string | null;
-  city: string | null;
-  home_team: { name: string } | null;
-  away_team: { name: string } | null;
-}
+import { callEdgeFunction } from "@/lib/edge";
 
 export function MatchesAdmin() {
-  const [teams, setTeams] = useState<Team[]>([]);
-  const [competitions, setCompetitions] = useState<Competition[]>([]);
-  const [matches, setMatches] = useState<Match[]>([]);
-  const [message, setMessage] = useState<string | null>(null);
+  const [teams, setTeams] = useState<AdminTeam[]>([]);
+  const [competitions, setCompetitions] = useState<AdminCompetition[]>([]);
+  const [matches, setMatches] = useState<AdminMatch[]>([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [newMatch, setNewMatch] = useState({
-    competition_id: "",
-    home_team_id: "",
-    away_team_id: "",
-    kickoff_at: "",
-    stage: "group_stage",
-    group_name: "",
-    venue: "",
-    city: "",
-  });
+  const [editing, setEditing] = useState<AdminMatch | null | "new">(null);
+  const [resultMatch, setResultMatch] = useState<AdminMatch | null>(null);
+  const [search, setSearch] = useState("");
+  const [status, setStatus] = useState("all");
+  const [stage, setStage] = useState("all");
+  const [date, setDate] = useState("");
   const [newTeam, setNewTeam] = useState({
     id: "",
     name: "",
@@ -62,72 +40,129 @@ export function MatchesAdmin() {
   });
 
   const load = useCallback(async () => {
+    setLoading(true);
     const [teamResult, competitionResult, matchResult] = await Promise.all([
       supabase.from("teams").select("id,name,short_name,country_code").order("name"),
       supabase.from("competitions").select("id,name").order("created_at"),
       supabase
         .from("matches")
         .select(
-          "id,kickoff_at,status,home_team_id,away_team_id,home_score,away_score,competition_id,stage,group_name,venue,city,home_team:teams!matches_home_team_id_fkey(name),away_team:teams!matches_away_team_id_fkey(name)",
+          "id,kickoff_at,status,home_team_id,away_team_id,home_score,away_score,competition_id,stage,group_name,venue,city,home_team:teams!matches_home_team_id_fkey(name,short_name,country_code),away_team:teams!matches_away_team_id_fkey(name,short_name,country_code)",
         )
         .order("kickoff_at"),
     ]);
-    setTeams((teamResult.data ?? []) as Team[]);
-    setCompetitions((competitionResult.data ?? []) as Competition[]);
-    setMatches((matchResult.data ?? []) as unknown as Match[]);
+    setTeams((teamResult.data ?? []) as AdminTeam[]);
+    setCompetitions((competitionResult.data ?? []) as AdminCompetition[]);
+    setMatches((matchResult.data ?? []) as unknown as AdminMatch[]);
     setError(
       teamResult.error?.message ??
         competitionResult.error?.message ??
         matchResult.error?.message ??
         null,
     );
+    setLoading(false);
   }, []);
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  async function run<T>(operation: () => Promise<T>, success: string) {
+  const stages = useMemo(
+    () => Array.from(new Set(matches.map((match) => match.stage).filter(Boolean))) as string[],
+    [matches],
+  );
+
+  const filteredMatches = useMemo(() => {
+    const query = search.trim().toLocaleLowerCase("pt-BR");
+    return matches.filter((match) => {
+      const kickoff = new Date(match.kickoff_at);
+      const operationalStatus =
+        match.status === "closed"
+          ? "closed"
+          : match.status === "live"
+            ? "live"
+            : kickoff > new Date()
+              ? "future"
+              : "pending";
+      const names =
+        `${match.home_team?.name ?? ""} ${match.away_team?.name ?? ""}`.toLocaleLowerCase("pt-BR");
+      return (
+        (!query || names.includes(query)) &&
+        (status === "all" || operationalStatus === status) &&
+        (stage === "all" || match.stage === stage) &&
+        (!date || match.kickoff_at.slice(0, 10) === date)
+      );
+    });
+  }, [date, matches, search, stage, status]);
+
+  async function run(operation: () => Promise<unknown>, success: string) {
     setBusy(true);
     setError(null);
-    setMessage(null);
     try {
       await operation();
-      setMessage(success);
+      toast.success(success);
       await load();
+      return true;
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Falha na operação.");
+      const message = caught instanceof Error ? caught.message : "Falha na operação.";
+      setError(message);
+      toast.error(message);
+      return false;
     } finally {
       setBusy(false);
     }
   }
 
-  async function createMatch(event: React.FormEvent) {
-    event.preventDefault();
-    await run(
+  async function saveMatch(value: AdminMatchFormValue) {
+    if (value.home_team_id === value.away_team_id) {
+      setError("Selecione duas equipes diferentes.");
+      return;
+    }
+    const current = editing === "new" ? null : editing;
+    const saved = await run(
       () =>
         callEdgeFunction("admin-save-match", {
-          action: "create",
-          ...newMatch,
-          competition_id: newMatch.competition_id || null,
-          kickoff_at: new Date(newMatch.kickoff_at).toISOString(),
+          action: current ? "update" : "create",
+          ...(current ? { match_id: current.id } : {}),
+          ...value,
+          competition_id: value.competition_id || null,
+          kickoff_at: new Date(value.kickoff_at).toISOString(),
         }),
-      "Partida criada.",
+      current ? "Partida atualizada." : "Partida criada.",
     );
-    setNewMatch((current) => ({
-      ...current,
-      home_team_id: "",
-      away_team_id: "",
-      kickoff_at: "",
-      group_name: "",
-      venue: "",
-      city: "",
-    }));
+    if (saved) setEditing(null);
   }
 
-  async function createTeam(event: React.FormEvent) {
+  async function saveResult(value: { home_score: number; away_score: number; status: string }) {
+    if (!resultMatch) return;
+    const saved = await run(
+      () =>
+        callEdgeFunction("admin-save-match", {
+          action: "result",
+          match_id: resultMatch.id,
+          ...value,
+        }),
+      "Resultado salvo.",
+    );
+    if (saved) setResultMatch(null);
+  }
+
+  async function closeMatch() {
+    if (!resultMatch) return;
+    const closed = await run(
+      () =>
+        callEdgeFunction("admin-save-match", {
+          action: "close",
+          match_id: resultMatch.id,
+        }),
+      "Partida fechada e pontuação recalculada.",
+    );
+    if (closed) setResultMatch(null);
+  }
+
+  async function saveTeam(event: React.FormEvent) {
     event.preventDefault();
-    await run(
+    const saved = await run(
       async () => {
         const row = {
           name: newTeam.name.trim(),
@@ -140,118 +175,125 @@ export function MatchesAdmin() {
         const query = newTeam.id
           ? supabase.from("teams").update(row).eq("id", newTeam.id)
           : supabase.from("teams").insert(row);
-        const { error: createError } = await query;
-        if (createError) throw createError;
+        const { error: saveError } = await query;
+        if (saveError) throw saveError;
       },
       newTeam.id ? "Seleção atualizada." : "Seleção adicionada.",
     );
-    setNewTeam({ id: "", name: "", short_name: "", country_code: "" });
+    if (saved) setNewTeam({ id: "", name: "", short_name: "", country_code: "" });
   }
 
   return (
-    <div className="space-y-4">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Plus className="size-4" />
-            Nova partida futura
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={createMatch} className="grid gap-3 sm:grid-cols-2">
-            <Field label="Competição">
-              <NativeSelect
-                value={newMatch.competition_id}
-                onChange={(value) =>
-                  setNewMatch((current) => ({ ...current, competition_id: value }))
-                }
-              >
-                <option value="">Sem competição</option>
-                {competitions.map((competition) => (
-                  <option key={competition.id} value={competition.id}>
-                    {competition.name}
-                  </option>
-                ))}
-              </NativeSelect>
-            </Field>
-            <Field label="Data e horário">
-              <Input
-                required
-                type="datetime-local"
-                value={newMatch.kickoff_at}
-                onChange={(event) =>
-                  setNewMatch((current) => ({ ...current, kickoff_at: event.target.value }))
-                }
-              />
-            </Field>
-            <Field label="Seleção A">
-              <TeamSelect
-                teams={teams}
-                value={newMatch.home_team_id}
-                onChange={(value) =>
-                  setNewMatch((current) => ({ ...current, home_team_id: value }))
-                }
-              />
-            </Field>
-            <Field label="Seleção B">
-              <TeamSelect
-                teams={teams}
-                value={newMatch.away_team_id}
-                onChange={(value) =>
-                  setNewMatch((current) => ({ ...current, away_team_id: value }))
-                }
-              />
-            </Field>
-            <Field label="Fase">
-              <Input
-                value={newMatch.stage}
-                onChange={(event) =>
-                  setNewMatch((current) => ({ ...current, stage: event.target.value }))
-                }
-              />
-            </Field>
-            <Field label="Grupo">
-              <Input
-                value={newMatch.group_name}
-                onChange={(event) =>
-                  setNewMatch((current) => ({ ...current, group_name: event.target.value }))
-                }
-              />
-            </Field>
-            <Field label="Estádio">
-              <Input
-                value={newMatch.venue}
-                onChange={(event) =>
-                  setNewMatch((current) => ({ ...current, venue: event.target.value }))
-                }
-              />
-            </Field>
-            <Field label="Cidade">
-              <Input
-                value={newMatch.city}
-                onChange={(event) =>
-                  setNewMatch((current) => ({ ...current, city: event.target.value }))
-                }
-              />
-            </Field>
-            <Button disabled={busy} className="sm:col-span-2">
-              Criar partida
-            </Button>
-          </form>
+    <div className="space-y-5">
+      <section className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="eyebrow text-brand">Agenda oficial</p>
+          <h2 className="mt-1 text-2xl font-extrabold tracking-tight">Administrar jogos</h2>
+          <p className="text-sm text-muted-foreground">
+            Edite dados operacionais e lance resultados em fluxos separados.
+          </p>
+        </div>
+        <Button onClick={() => setEditing("new")}>
+          <BiPlus className="size-5" />
+          Nova partida
+        </Button>
+      </section>
+
+      <Card className="glass-card">
+        <CardContent className="grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="relative sm:col-span-2 lg:col-span-1">
+            <BiSearch className="pointer-events-none absolute top-1/2 left-3 size-5 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              aria-label="Buscar por seleção"
+              className="pl-10"
+              placeholder="Buscar seleção"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+            />
+          </div>
+          <NativeSelect id="filter-status" value={status} onChange={setStatus}>
+            <option value="all">Todos os status</option>
+            <option value="future">Futuros</option>
+            <option value="live">Em andamento</option>
+            <option value="pending">Aguardando resultado</option>
+            <option value="closed">Pontuados</option>
+          </NativeSelect>
+          <NativeSelect id="filter-stage" value={stage} onChange={setStage}>
+            <option value="all">Todas as fases</option>
+            {stages.map((item) => (
+              <option key={item} value={item}>
+                {item}
+              </option>
+            ))}
+          </NativeSelect>
+          <div className="relative">
+            <BiFilterAlt className="pointer-events-none absolute top-1/2 left-3 size-5 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              aria-label="Filtrar por data"
+              type="date"
+              className="pl-10"
+              value={date}
+              onChange={(event) => setDate(event.target.value)}
+            />
+          </div>
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Criar ou editar seleção</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={createTeam} className="grid gap-3 sm:grid-cols-4">
-            <select
-              className="h-9 rounded-md border bg-background px-3 text-sm sm:col-span-4"
+      {error && (
+        <p className="rounded-2xl border border-destructive/20 bg-destructive/8 p-3 text-sm text-destructive">
+          {error}
+        </p>
+      )}
+
+      {loading ? (
+        <div className="grid gap-3 md:grid-cols-2">
+          {Array.from({ length: 4 }, (_, index) => (
+            <Skeleton key={index} className="h-64 rounded-3xl" />
+          ))}
+        </div>
+      ) : filteredMatches.length ? (
+        <div className="grid gap-3 md:grid-cols-2">
+          {filteredMatches.map((match) => (
+            <AdminMatchCard
+              key={match.id}
+              match={match}
+              onEdit={() => setEditing(match)}
+              onResult={() => setResultMatch(match)}
+            />
+          ))}
+        </div>
+      ) : (
+        <Card className="glass-card border-dashed">
+          <CardContent className="p-8 text-center text-sm text-muted-foreground">
+            Nenhuma partida encontrada com estes filtros.
+          </CardContent>
+        </Card>
+      )}
+
+      <details className="group glass-card rounded-3xl">
+        <summary className="flex cursor-pointer list-none items-center gap-3 p-4">
+          <div className="grid size-10 place-items-center rounded-2xl bg-brand/12 text-brand">
+            <BiGroup className="size-5" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="font-extrabold">Seleções e bandeiras</p>
+            <p className="text-xs text-muted-foreground">
+              Cadastre ou ajuste uma seleção usada nos confrontos.
+            </p>
+          </div>
+          <BiChevronDown className="size-5 transition-transform group-open:rotate-180" />
+        </summary>
+        <form
+          className="grid gap-3 border-t border-border/70 p-4 sm:grid-cols-2"
+          onSubmit={saveTeam}
+        >
+          <div className="sm:col-span-2">
+            <Label htmlFor="team-existing">Seleção existente</Label>
+            <NativeSelect
+              id="team-existing"
               value={newTeam.id}
-              onChange={(event) => {
-                const selected = teams.find((team) => team.id === event.target.value);
+              onChange={(value) => {
+                const selected = teams.find((team) => team.id === value);
                 setNewTeam(
                   selected
                     ? {
@@ -264,353 +306,77 @@ export function MatchesAdmin() {
                 );
               }}
             >
-              <option value="">Nova seleção</option>
+              <option value="">Criar nova seleção</option>
               {teams.map((team) => (
                 <option key={team.id} value={team.id}>
-                  Editar {team.name}
+                  {team.name}
                 </option>
               ))}
-            </select>
+            </NativeSelect>
+          </div>
+          <Field id="team-name" label="Nome">
             <Input
+              id="team-name"
               required
-              placeholder="Nome"
               value={newTeam.name}
               onChange={(event) =>
                 setNewTeam((current) => ({ ...current, name: event.target.value }))
               }
             />
+          </Field>
+          <Field id="team-short-name" label="Sigla">
             <Input
-              placeholder="Sigla"
+              id="team-short-name"
               maxLength={5}
               value={newTeam.short_name}
               onChange={(event) =>
                 setNewTeam((current) => ({ ...current, short_name: event.target.value }))
               }
             />
+          </Field>
+          <Field id="team-country" label="Código da bandeira">
             <Input
-              placeholder="Código da flag"
+              id="team-country"
               maxLength={6}
+              placeholder="Ex.: br"
               value={newTeam.country_code}
               onChange={(event) =>
                 setNewTeam((current) => ({ ...current, country_code: event.target.value }))
               }
             />
-            <Button disabled={busy} variant="secondary">
-              {newTeam.id ? "Salvar" : "Adicionar"}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+          </Field>
+          <Button disabled={busy} className="self-end">
+            {newTeam.id ? "Salvar seleção" : "Adicionar seleção"}
+          </Button>
+        </form>
+      </details>
 
-      {(message || error) && (
-        <p className={error ? "text-sm text-destructive" : "text-sm text-success"}>
-          {error ?? message}
-        </p>
-      )}
-
-      <div className="space-y-3">
-        {matches.map((match) => (
-          <MatchEditor
-            key={match.id}
-            match={match}
-            teams={teams}
-            competitions={competitions}
-            busy={busy}
-            onRun={run}
-          />
-        ))}
-      </div>
+      <AdminMatchEditor
+        open={Boolean(editing)}
+        match={editing === "new" ? null : editing}
+        teams={teams}
+        competitions={competitions}
+        busy={busy}
+        onOpenChange={(open) => !open && setEditing(null)}
+        onSave={(value) => void saveMatch(value)}
+      />
+      <AdminResultSheet
+        open={Boolean(resultMatch)}
+        match={resultMatch}
+        busy={busy}
+        onOpenChange={(open) => !open && setResultMatch(null)}
+        onSave={(value) => void saveResult(value)}
+        onCloseMatch={() => void closeMatch()}
+      />
     </div>
   );
 }
 
-function MatchEditor({
-  match,
-  teams,
-  competitions,
-  busy,
-  onRun,
-}: {
-  match: Match;
-  teams: Team[];
-  competitions: Competition[];
-  busy: boolean;
-  onRun: <T>(operation: () => Promise<T>, success: string) => Promise<void>;
-}) {
-  const [form, setForm] = useState({
-    competition_id: match.competition_id ?? "",
-    home_team_id: match.home_team_id ?? "",
-    away_team_id: match.away_team_id ?? "",
-    kickoff_at: toLocalInput(match.kickoff_at),
-    stage: match.stage ?? "",
-    group_name: match.group_name ?? "",
-    venue: match.venue ?? "",
-    city: match.city ?? "",
-  });
-  const [score, setScore] = useState({
-    home: match.home_score,
-    away: match.away_score,
-    status: match.status === "live" ? "live" : "finished",
-  });
-  const future = new Date(match.kickoff_at) > new Date();
-
-  return (
-    <details className="group rounded-xl border bg-card">
-      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-4">
-        <div className="min-w-0">
-          <p className="truncate font-bold">
-            {match.home_team?.name ?? "A definir"} × {match.away_team?.name ?? "A definir"}
-          </p>
-          <p className="text-xs text-muted-foreground">
-            {new Date(match.kickoff_at).toLocaleString("pt-BR")} · {match.status}
-          </p>
-        </div>
-        <ChevronDown className="size-4 transition-transform group-open:rotate-180" />
-      </summary>
-      <div className="space-y-5 border-t p-4">
-        <section className="space-y-3">
-          <h3 className="flex items-center gap-2 text-sm font-bold">
-            <CalendarClock className="size-4" />
-            Dados operacionais
-          </h3>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Competição">
-              <NativeSelect
-                value={form.competition_id}
-                onChange={(value) => setForm((current) => ({ ...current, competition_id: value }))}
-              >
-                <option value="">Sem competição</option>
-                {competitions.map((competition) => (
-                  <option key={competition.id} value={competition.id}>
-                    {competition.name}
-                  </option>
-                ))}
-              </NativeSelect>
-            </Field>
-            <Field label="Data e horário">
-              <Input
-                type="datetime-local"
-                value={form.kickoff_at}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, kickoff_at: event.target.value }))
-                }
-              />
-            </Field>
-            <Field label="Seleção A">
-              <TeamSelect
-                teams={teams}
-                value={form.home_team_id}
-                onChange={(value) => setForm((current) => ({ ...current, home_team_id: value }))}
-              />
-            </Field>
-            <Field label="Seleção B">
-              <TeamSelect
-                teams={teams}
-                value={form.away_team_id}
-                onChange={(value) => setForm((current) => ({ ...current, away_team_id: value }))}
-              />
-            </Field>
-            <Field label="Fase">
-              <Input
-                value={form.stage}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, stage: event.target.value }))
-                }
-              />
-            </Field>
-            <Field label="Grupo">
-              <Input
-                value={form.group_name}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, group_name: event.target.value }))
-                }
-              />
-            </Field>
-            <Field label="Estádio">
-              <Input
-                value={form.venue}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, venue: event.target.value }))
-                }
-              />
-            </Field>
-            <Field label="Cidade">
-              <Input
-                value={form.city}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, city: event.target.value }))
-                }
-              />
-            </Field>
-          </div>
-          <Button
-            disabled={busy}
-            variant="secondary"
-            onClick={() =>
-              void onRun(
-                () =>
-                  callEdgeFunction("admin-save-match", {
-                    action: "update",
-                    match_id: match.id,
-                    ...form,
-                    competition_id: form.competition_id || null,
-                    kickoff_at: new Date(form.kickoff_at).toISOString(),
-                  }),
-                "Dados da partida salvos.",
-              )
-            }
-          >
-            <Save className="size-4" />
-            Salvar dados
-          </Button>
-        </section>
-
-        <section className="space-y-3 rounded-lg bg-muted/50 p-3">
-          <h3 className="flex items-center gap-2 text-sm font-bold">
-            <Trophy className="size-4" />
-            Resultado oficial
-          </h3>
-          {future ? (
-            <p className="text-sm text-muted-foreground">
-              O placar fica bloqueado até o horário de início.
-            </p>
-          ) : (
-            <>
-              <div className="flex items-end gap-3">
-                <Field label="Casa">
-                  <Input
-                    type="number"
-                    min={0}
-                    max={99}
-                    className="w-20"
-                    value={score.home}
-                    onChange={(event) =>
-                      setScore((current) => ({ ...current, home: Number(event.target.value) }))
-                    }
-                  />
-                </Field>
-                <span className="pb-2 font-bold">×</span>
-                <Field label="Fora">
-                  <Input
-                    type="number"
-                    min={0}
-                    max={99}
-                    className="w-20"
-                    value={score.away}
-                    onChange={(event) =>
-                      setScore((current) => ({ ...current, away: Number(event.target.value) }))
-                    }
-                  />
-                </Field>
-                <Field label="Status">
-                  <NativeSelect
-                    value={score.status}
-                    onChange={(value) => setScore((current) => ({ ...current, status: value }))}
-                  >
-                    <option value="live">Em andamento</option>
-                    <option value="finished">Encerrado</option>
-                  </NativeSelect>
-                </Field>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  disabled={busy || match.status === "closed"}
-                  onClick={() =>
-                    void onRun(
-                      () =>
-                        callEdgeFunction("admin-save-match", {
-                          action: "result",
-                          match_id: match.id,
-                          home_score: score.home,
-                          away_score: score.away,
-                          status: score.status,
-                        }),
-                      "Resultado salvo.",
-                    )
-                  }
-                >
-                  Salvar resultado
-                </Button>
-                <Button
-                  disabled={busy || match.status === "scheduled" || match.status === "closed"}
-                  variant="outline"
-                  onClick={() =>
-                    void onRun(
-                      () =>
-                        callEdgeFunction("admin-save-match", {
-                          action: "close",
-                          match_id: match.id,
-                        }),
-                      "Partida fechada e pontuação recalculada.",
-                    )
-                  }
-                >
-                  Fechar e recalcular
-                </Button>
-              </div>
-            </>
-          )}
-        </section>
-      </div>
-    </details>
-  );
-}
-
-function TeamSelect({
-  teams,
-  value,
-  onChange,
-}: {
-  teams: Team[];
-  value: string;
-  onChange: (value: string) => void;
-}) {
-  return (
-    <NativeSelect value={value} onChange={onChange} required>
-      <option value="">Selecione</option>
-      {teams.map((team) => (
-        <option key={team.id} value={team.id}>
-          {team.name}
-        </option>
-      ))}
-    </NativeSelect>
-  );
-}
-
-function NativeSelect({
-  children,
-  value,
-  onChange,
-  required,
-}: {
-  children: React.ReactNode;
-  value: string;
-  onChange: (value: string) => void;
-  required?: boolean;
-}) {
-  return (
-    <select
-      required={required}
-      value={value}
-      onChange={(event) => onChange(event.target.value)}
-      className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-    >
-      {children}
-    </select>
-  );
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({ id, label, children }: { id: string; label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-1.5">
-      <Label>{label}</Label>
+      <Label htmlFor={id}>{label}</Label>
       {children}
     </div>
   );
-}
-
-function toLocalInput(value: string) {
-  const date = new Date(value);
-  const offset = date.getTimezoneOffset() * 60_000;
-  return new Date(date.getTime() - offset).toISOString().slice(0, 16);
 }

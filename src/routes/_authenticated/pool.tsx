@@ -1,14 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
 import {
-  CheckCircle2,
-  Clock3,
-  ExternalLink,
-  ReceiptText,
-  ShieldCheck,
-  Trophy,
-  Users,
-  WalletCards,
-} from "lucide-react";
+  BiCheckCircle,
+  BiCreditCard,
+  BiGroup,
+  BiLinkExternal,
+  BiReceipt,
+  BiShieldQuarter,
+  BiSolidTrophy,
+  BiTimeFive,
+} from "react-icons/bi";
+import type { IconType } from "react-icons";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { MobileShell } from "@/components/mobile/MobileShell";
@@ -18,8 +19,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { useAuth } from "@/hooks/use-auth";
-import { supabase as _supabaseTyped } from "@/integrations/supabase/client";
-const supabase = _supabaseTyped as any;
+import { supabase } from "@/integrations/supabase/client";
 import { callEdgeFunction } from "@/lib/edge";
 
 interface PoolSummary {
@@ -196,10 +196,15 @@ function PoolPage() {
 
   return (
     <MobileShell active="bolao">
-      <main className="mx-auto max-w-xl space-y-4 px-3 py-5">
+      <main className="screen-enter mx-auto max-w-xl space-y-5 px-3 py-5">
         <div className="text-center">
-          <Trophy className="mx-auto size-9 text-warning" />
-          <h1 className="mt-2 text-2xl font-extrabold">{summary?.title ?? "Bolão da Copa 2026"}</h1>
+          <div className="mx-auto grid size-14 place-items-center rounded-2xl bg-warning/15 text-warning">
+            <BiSolidTrophy className="size-8" />
+          </div>
+          <p className="eyebrow mt-3 text-brand">Competição oficial</p>
+          <h1 className="mt-1 text-3xl font-extrabold tracking-tight">
+            {summary?.title ?? "Bolão da Copa 2026"}
+          </h1>
           <p className="text-sm text-muted-foreground">
             {summary?.status === "open"
               ? "Inscrições abertas"
@@ -209,23 +214,33 @@ function PoolPage() {
 
         {loading && <p className="text-center text-sm text-muted-foreground">Carregando...</p>}
         {error && (
-          <p className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{error}</p>
+          <p className="rounded-2xl border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive">
+            {error}
+          </p>
         )}
-        {message && <p className="rounded-lg bg-success/10 p-3 text-sm text-success">{message}</p>}
+        {message && (
+          <p className="rounded-2xl border border-success/20 bg-success/10 p-3 text-sm text-success">
+            {message}
+          </p>
+        )}
 
         {summary && (
           <>
             <div className="grid grid-cols-2 gap-3">
-              <Metric icon={Users} label="Inscritos" value={String(summary.participants_count)} />
-              <Metric icon={WalletCards} label="Entrada" value={money(summary.entry_fee_cents)} />
+              <Metric icon={BiGroup} label="Inscritos" value={String(summary.participants_count)} />
+              <Metric icon={BiCreditCard} label="Entrada" value={money(summary.entry_fee_cents)} />
               <Metric
-                icon={Trophy}
+                icon={BiSolidTrophy}
                 label="Prêmio estimado"
                 value={money(summary.estimated_prize_cents)}
               />
-              <Metric icon={ShieldCheck} label="Premiação" value={`${summary.prize_percentage}%`} />
+              <Metric
+                icon={BiShieldQuarter}
+                label="Premiação"
+                value={`${summary.prize_percentage}%`}
+              />
             </div>
-            <Card>
+            <Card className="glass-card">
               <CardContent className="space-y-2 p-4">
                 <div className="flex justify-between text-xs">
                   <span>Meta mínima</span>
@@ -240,7 +255,8 @@ function PoolPage() {
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="glass-card overflow-hidden">
+              <div className="h-1 bg-brand" />
               <CardHeader>
                 <CardTitle className="text-base">Sua inscrição</CardTitle>
               </CardHeader>
@@ -248,7 +264,7 @@ function PoolPage() {
                 <EnrollmentStatus status={enrollment?.status ?? "none"} />
                 {!enrollment && (
                   <>
-                    <div className="max-h-36 overflow-y-auto rounded-lg bg-muted p-3 text-xs text-muted-foreground">
+                    <div className="max-h-40 overflow-y-auto rounded-2xl bg-muted/70 p-4 text-xs leading-relaxed text-muted-foreground">
                       {summary.terms}
                     </div>
                     <div className="flex items-start gap-2">
@@ -278,7 +294,7 @@ function PoolPage() {
                         disabled={busy}
                         onClick={() => void createCheckout()}
                       >
-                        <WalletCards className="size-4" />
+                        <BiCreditCard className="size-5" />
                         Pagar com Pix/cartão
                       </Button>
                     )}
@@ -292,7 +308,7 @@ function PoolPage() {
             </Card>
 
             {payments.length > 0 && (
-              <Card>
+              <Card className="glass-card">
                 <CardHeader>
                   <CardTitle className="text-base">Pagamentos</CardTitle>
                 </CardHeader>
@@ -300,7 +316,7 @@ function PoolPage() {
                   {payments.map((payment) => (
                     <div
                       key={payment.id}
-                      className="flex items-center justify-between rounded-lg bg-muted p-3"
+                      className="flex items-center justify-between rounded-2xl bg-muted/70 p-3"
                     >
                       <div>
                         <p className="text-sm font-bold">
@@ -312,14 +328,14 @@ function PoolPage() {
                         {payment.checkout_url && payment.status === "pending" && (
                           <Button asChild size="icon" variant="ghost">
                             <a href={payment.checkout_url} target="_blank" rel="noreferrer">
-                              <ExternalLink className="size-4" />
+                              <BiLinkExternal className="size-5" />
                             </a>
                           </Button>
                         )}
                         {payment.receipt_url && (
                           <Button asChild size="icon" variant="ghost">
                             <a href={payment.receipt_url} target="_blank" rel="noreferrer">
-                              <ReceiptText className="size-4" />
+                              <BiReceipt className="size-5" />
                             </a>
                           </Button>
                         )}
@@ -331,7 +347,7 @@ function PoolPage() {
             )}
 
             {eligibleForPrize && (
-              <Card>
+              <Card className="glass-card border-warning/30">
                 <CardContent className="space-y-3 p-4">
                   <p className="font-bold">Você está elegível para solicitar prêmio.</p>
                   <Button
@@ -355,19 +371,13 @@ function PoolPage() {
   );
 }
 
-function Metric({
-  icon: Icon,
-  label,
-  value,
-}: {
-  icon: typeof Trophy;
-  label: string;
-  value: string;
-}) {
+function Metric({ icon: Icon, label, value }: { icon: IconType; label: string; value: string }) {
   return (
-    <Card>
-      <CardContent className="p-3">
-        <Icon className="size-4 text-brand" />
+    <Card className="glass-card interactive-card">
+      <CardContent className="p-4">
+        <div className="grid size-9 place-items-center rounded-xl bg-brand/12 text-brand">
+          <Icon className="size-5" />
+        </div>
         <p className="mt-2 text-xl font-extrabold">{value}</p>
         <p className="text-[11px] text-muted-foreground">{label}</p>
       </CardContent>
@@ -376,13 +386,19 @@ function Metric({
 }
 
 function EnrollmentStatus({ status }: { status: string }) {
-  const map: Record<string, { icon: typeof CheckCircle2; label: string; className: string }> = {
-    none: { icon: Clock3, label: "Não inscrito", className: "text-muted-foreground" },
-    requested: { icon: Clock3, label: "Solicitação enviada", className: "text-warning" },
-    payment_pending: { icon: Clock3, label: "Pagamento pendente", className: "text-warning" },
-    active: { icon: CheckCircle2, label: "Inscrição confirmada", className: "text-success" },
-    rejected: { icon: Clock3, label: "Solicitação recusada", className: "text-destructive" },
-    cancelled: { icon: Clock3, label: "Inscrição cancelada", className: "text-muted-foreground" },
+  const map: Record<string, { icon: IconType; label: string; className: string }> = {
+    none: { icon: BiTimeFive, label: "Não inscrito", className: "text-muted-foreground" },
+    requested: { icon: BiTimeFive, label: "Solicitação enviada", className: "text-warning" },
+    payment_pending: { icon: BiTimeFive, label: "Pagamento pendente", className: "text-warning" },
+    active: { icon: BiCheckCircle, label: "Inscrição confirmada", className: "text-success" },
+    confirmed: { icon: BiCheckCircle, label: "Inscrição confirmada", className: "text-success" },
+    paid: { icon: BiCheckCircle, label: "Pagamento confirmado", className: "text-success" },
+    rejected: { icon: BiTimeFive, label: "Solicitação recusada", className: "text-destructive" },
+    cancelled: {
+      icon: BiTimeFive,
+      label: "Inscrição cancelada",
+      className: "text-muted-foreground",
+    },
   };
   const item = map[status] ?? map.none;
   const Icon = item.icon;

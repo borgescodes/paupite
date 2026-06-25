@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { FileJson, Upload } from "lucide-react";
+import { BiFile, BiUpload } from "react-icons/bi";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -30,6 +31,7 @@ export function ImportAdmin() {
       const payload = JSON.parse(text) as unknown;
       const output = await callEdgeFunction<ImportResult>("import-matches", payload);
       setResult(output);
+      toast.success("Agenda processada.");
     } catch (caught) {
       setError(
         caught instanceof SyntaxError
@@ -44,17 +46,17 @@ export function ImportAdmin() {
   }
 
   return (
-    <Card>
+    <Card className="glass-card">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
-          <FileJson className="size-4" />
+          <BiFile className="size-5 text-brand" />
           Importar agenda por JSON
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <p className="text-sm text-muted-foreground">
-          O import cria ou atualiza partidas por `id`, valida seleções e nunca apaga partidas ou
-          palpites existentes.
+          O import cria ou atualiza partidas pelo identificador do arquivo, valida seleções e nunca
+          apaga partidas ou palpites existentes.
         </p>
         <Input
           type="file"
@@ -62,12 +64,12 @@ export function ImportAdmin() {
           onChange={(event) => setFile(event.target.files?.[0] ?? null)}
         />
         <Button disabled={!file || busy} onClick={() => void upload()}>
-          <Upload className="size-4" />
+          <BiUpload className="size-5" />
           {busy ? "Importando..." : "Validar e importar"}
         </Button>
         {error && <p className="text-sm text-destructive">{error}</p>}
         {result && (
-          <div className="space-y-2 rounded-lg bg-muted p-3 text-sm">
+          <div className="space-y-2 rounded-2xl bg-muted/70 p-4 text-sm">
             <p>
               Criadas: <strong>{result.created_count}</strong> · Atualizadas:{" "}
               <strong>{result.updated_count}</strong> · Ignoradas:{" "}

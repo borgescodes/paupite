@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
-import { CheckCircle2, Coins, Save } from "lucide-react";
+import { BiCheckCircle, BiCoinStack, BiSave } from "react-icons/bi";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { supabase as _supabaseTyped } from "@/integrations/supabase/client";
-const supabase = _supabaseTyped as any;
+import { supabase } from "@/integrations/supabase/client";
 import { callEdgeFunction } from "@/lib/edge";
 
 interface Settings {
@@ -101,6 +101,7 @@ export function PoolAdmin() {
     try {
       await operation();
       setMessage(success);
+      toast.success(success);
       await load();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Falha na operação.");
@@ -114,10 +115,10 @@ export function PoolAdmin() {
 
   return (
     <div className="space-y-4">
-      <Card>
+      <Card className="glass-card">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
-            <Coins className="size-4" />
+            <BiCoinStack className="size-5 text-brand" />
             Configuração do bolão
           </CardTitle>
         </CardHeader>
@@ -231,7 +232,7 @@ export function PoolAdmin() {
               )
             }
           >
-            <Save className="size-4" />
+            <BiSave className="size-5" />
             Salvar configurações
           </Button>
         </CardContent>
@@ -244,7 +245,7 @@ export function PoolAdmin() {
       )}
 
       {scoreRules && (
-        <Card>
+        <Card className="glass-card">
           <CardHeader>
             <CardTitle className="text-base">Regras de pontuação</CardTitle>
           </CardHeader>
@@ -303,7 +304,7 @@ export function PoolAdmin() {
         </Card>
       )}
 
-      <Card>
+      <Card className="glass-card">
         <CardHeader>
           <CardTitle className="text-base">Inscrições</CardTitle>
         </CardHeader>
@@ -314,7 +315,7 @@ export function PoolAdmin() {
           {enrollments.map((enrollment) => (
             <div
               key={enrollment.id}
-              className="flex flex-col gap-2 rounded-lg border p-3 sm:flex-row sm:items-center"
+              className="flex flex-col gap-2 rounded-2xl border border-border/70 bg-muted/35 p-3 sm:flex-row sm:items-center"
             >
               <div className="min-w-0 flex-1">
                 <p className="truncate font-bold">{nameOf(users[enrollment.user_id])}</p>
@@ -335,7 +336,7 @@ export function PoolAdmin() {
                     )
                   }
                 >
-                  <CheckCircle2 className="size-4" />
+                  <BiCheckCircle className="size-5" />
                   Confirmar manualmente
                 </Button>
               )}
@@ -344,7 +345,7 @@ export function PoolAdmin() {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="glass-card">
         <CardHeader>
           <CardTitle className="text-base">Solicitações de prêmio</CardTitle>
         </CardHeader>
@@ -353,7 +354,10 @@ export function PoolAdmin() {
             <p className="text-sm text-muted-foreground">Nenhuma solicitação.</p>
           )}
           {prizes.map((prize) => (
-            <div key={prize.id} className="flex items-center gap-3 rounded-lg border p-3">
+            <div
+              key={prize.id}
+              className="flex items-center gap-3 rounded-2xl border border-border/70 bg-muted/35 p-3"
+            >
               <div className="min-w-0 flex-1">
                 <p className="truncate font-bold">{nameOf(users[prize.user_id])}</p>
                 <p className="text-xs text-muted-foreground">{prize.status}</p>

@@ -1,11 +1,11 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { AlertCircle, RefreshCw } from "lucide-react";
+import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { BiErrorCircle, BiRefresh, BiWorld } from "react-icons/bi";
+import { toast } from "sonner";
 
-import { AppHeader, type ThemeMode } from "@/components/mobile/AppHeader";
 import { DaySelector } from "@/components/mobile/DaySelector";
 import { MatchCard } from "@/components/mobile/MatchCard";
-import { TabBar } from "@/components/mobile/TabBar";
+import { MobileShell } from "@/components/mobile/MobileShell";
 import type { ScoreValue } from "@/components/mobile/types";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -18,30 +18,13 @@ import {
   type BetRow,
   type MatchRow,
 } from "@/lib/matches";
-import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/home")({
-  head: () => ({
-    links: [
-      {
-        rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700;800&display=swap",
-      },
-    ],
-  }),
   component: HomePage,
 });
 
-const tabs = [
-  { key: "partidas", label: "Partidas" },
-  { key: "bolao", label: "Bolão" },
-  { key: "ranking", label: "Ranking" },
-  { key: "perfil", label: "Perfil" },
-];
-
 function HomePage() {
   const { user, profile, loading: authLoading } = useAuth();
-  const navigate = useNavigate();
   const [matches, setMatches] = useState<MatchRow[]>([]);
   const [bets, setBets] = useState<Record<string, BetRow>>({});
   const [drafts, setDrafts] = useState<Record<string, ScoreValue>>({});
@@ -50,10 +33,6 @@ function HomePage() {
   const [error, setError] = useState<string | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [savedId, setSavedId] = useState<string | null>(null);
-  const [theme, setTheme] = useState<ThemeMode>(() => {
-    if (typeof window === "undefined") return "light";
-    return window.localStorage.getItem("paupite-theme") === "dark" ? "dark" : "light";
-  });
 
   const load = useCallback(async () => {
     if (!user?.id) return;
@@ -142,20 +121,6 @@ function HomePage() {
     [bets, drafts, matches, selectedDate],
   );
 
-  function handleTabSelect(key: string) {
-    if (key === "bolao") navigate({ to: "/pool" });
-    if (key === "ranking") navigate({ to: "/ranking" });
-    if (key === "perfil") navigate({ to: "/profile" });
-  }
-
-  function toggleTheme() {
-    setTheme((current) => {
-      const next = current === "light" ? "dark" : "light";
-      window.localStorage.setItem("paupite-theme", next);
-      return next;
-    });
-  }
-
   async function saveBet(matchId: string) {
     if (!user?.id) return;
     const match = matches.find((item) => item.id === matchId);
@@ -194,6 +159,7 @@ function HomePage() {
     setSavingId(null);
     if (saveError) {
       setError(saveError.message);
+      toast.error("Não foi possível salvar o palpite.");
       return;
     }
     setBets((current) => ({
@@ -201,60 +167,64 @@ function HomePage() {
       [matchId]: { match_id: matchId, home_score: value.home, away_score: value.away, points: 0 },
     }));
     setSavedId(matchId);
+    toast.success("Palpite salvo.");
     window.setTimeout(() => setSavedId((current) => (current === matchId ? null : current)), 2500);
   }
 
   if (authLoading || loading) {
     return (
-      <div className="mx-auto min-h-screen max-w-xl space-y-3 p-4">
-        <Skeleton className="h-16 w-full" />
-        <Skeleton className="h-16 w-full" />
-        <Skeleton className="h-72 w-full" />
-        <Skeleton className="h-72 w-full" />
+      <div className="app-backdrop min-h-screen">
+        <div className="mx-auto max-w-xl space-y-4 p-4">
+          <Skeleton className="h-16 w-full rounded-2xl" />
+          <Skeleton className="h-20 w-full rounded-2xl" />
+          <Skeleton className="h-80 w-full rounded-3xl" />
+          <Skeleton className="h-80 w-full rounded-3xl" />
+        </div>
       </div>
     );
   }
 
-  const userName = profile?.nickname || profile?.display_name || profile?.email || "Jogador";
-
   return (
-    <div
-      className={cn(
-        "flex min-h-screen flex-col bg-background [font-family:'Space_Grotesk',sans-serif]",
-        theme === "dark" && "dark",
-      )}
-    >
-      <AppHeader
-        userName={userName}
-        avatarUrl={profile?.avatar_url}
-        theme={theme}
-        onRankingShortcutClick={() => navigate({ to: "/ranking" })}
-        onToggleTheme={toggleTheme}
-      />
-      <TabBar items={tabs} activeKey="partidas" onSelect={handleTabSelect} />
+    <MobileShell active="partidas">
       {days.length > 0 && (
         <DaySelector days={days} selectedDate={selectedDate} onSelect={setSelectedDate} />
       )}
 
-      <div className="relative flex-1 overflow-hidden">
+      <div className="relative overflow-hidden">
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
           <div className="animate-blob-drift absolute -top-12 -left-10 size-56 rounded-full bg-brand/20 blur-3xl" />
           <div className="animate-blob-drift absolute top-1/3 -right-12 size-64 rounded-full bg-success/15 blur-3xl [animation-delay:-9s]" />
         </div>
 
-        <main className="relative z-10 mx-auto h-full max-w-xl space-y-3 px-3 py-3">
+        <main className="screen-enter relative z-10 mx-auto max-w-xl space-y-4 px-3 py-4">
+          <div className="px-1">
+            <p className="eyebrow text-brand">Copa do Mundo 2026</p>
+            <h1 className="mt-1 text-2xl font-extrabold tracking-tight">Partidas e palpites</h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Escolha o placar antes do início de cada jogo.
+            </p>
+          </div>
           {error && (
-            <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
-              <AlertCircle className="mt-0.5 size-4 shrink-0" />
+            <div className="glass-card flex items-start gap-2 rounded-2xl border-destructive/30 p-3 text-sm text-destructive">
+              <BiErrorCircle className="mt-0.5 size-5 shrink-0" />
               <span className="flex-1">{error}</span>
-              <Button size="icon" variant="ghost" className="size-7" onClick={() => void load()}>
-                <RefreshCw className="size-4" />
+              <Button
+                size="icon"
+                variant="ghost"
+                className="size-8 rounded-xl"
+                aria-label="Tentar carregar novamente"
+                onClick={() => void load()}
+              >
+                <BiRefresh className="size-5" />
               </Button>
             </div>
           )}
 
           {!error && matches.length === 0 && (
-            <div className="rounded-xl border border-dashed bg-card p-8 text-center">
+            <div className="glass-card rounded-3xl border-dashed p-9 text-center">
+              <div className="mx-auto grid size-14 place-items-center rounded-2xl bg-brand/12 text-brand">
+                <BiWorld className="size-7" />
+              </div>
               <p className="font-bold">Nenhuma partida cadastrada</p>
               <p className="mt-1 text-sm text-muted-foreground">
                 Um superadmin pode importar o JSON oficial na área administrativa.
@@ -263,9 +233,9 @@ function HomePage() {
           )}
 
           {matches.length > 0 && visibleMatches.length === 0 && (
-            <p className="pt-12 text-center text-sm text-muted-foreground">
+            <div className="glass-card rounded-3xl p-8 text-center text-sm text-muted-foreground">
               Nenhuma partida nesta data.
-            </p>
+            </div>
           )}
 
           {visibleMatches.map((match) => (
@@ -280,6 +250,6 @@ function HomePage() {
           ))}
         </main>
       </div>
-    </div>
+    </MobileShell>
   );
 }

@@ -1,5 +1,5 @@
 import * as React from "react";
-import { BiSolidBrain, BiSolidLock, BiSolidTimeFive } from "react-icons/bi";
+import { BiCheckCircle, BiSolidBrain, BiSolidLock, BiSolidTimeFive } from "react-icons/bi";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -27,8 +27,8 @@ function MatchContextRow({ data }: { data: MatchCardData }) {
   return (
     <div className="flex items-start justify-between gap-2">
       <div>
-        <p className="text-sm font-extrabold uppercase leading-tight">Paupite o placar</p>
-        <p className="text-xs text-muted-foreground">
+        <p className="eyebrow text-brand">Paupite o placar</p>
+        <p className="mt-1 text-xs text-muted-foreground">
           {data.group} · {data.venue} · {time}
         </p>
       </div>
@@ -92,7 +92,7 @@ function MegaBrainBlock({
   away: MatchCardData["away"];
 }) {
   return (
-    <div className="space-y-2 rounded-md border border-border p-2.5">
+    <div className="space-y-2 rounded-2xl border border-border/70 bg-muted/35 p-3">
       <p className="flex items-center gap-1.5 text-xs font-extrabold uppercase text-foreground">
         <BiSolidBrain className="size-3.5 text-brand" />
         MegaBrain diz
@@ -125,7 +125,7 @@ function MegaBrainBlock({
 
 function LockedBar({ label }: { label: string }) {
   return (
-    <div className="flex h-11 w-full items-center justify-center gap-1.5 rounded-md bg-muted text-sm font-extrabold text-muted-foreground">
+    <div className="flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl bg-muted/80 px-3 text-center text-sm font-bold text-muted-foreground">
       <BiSolidLock className="size-3.5" />
       {label}
     </div>
@@ -141,8 +141,16 @@ function MatchCard({
   className,
 }: MatchCardProps) {
   return (
-    <Card className={cn("rounded-lg border-border shadow-none", className)}>
-      <CardContent className="space-y-2.5 p-3.5">
+    <Card
+      className={cn(
+        "glass-card interactive-card overflow-hidden rounded-3xl border-border/80 shadow-xl shadow-foreground/5",
+        data.status === "live" && "border-live/35",
+        className,
+      )}
+    >
+      {data.status === "live" && <div className="h-1 bg-live" />}
+      {data.status === "finished" && <div className="h-1 bg-success" />}
+      <CardContent className="space-y-3.5 p-4 sm:p-5">
         <MatchContextRow data={data} />
 
         {data.status === "scheduled" && (
@@ -161,7 +169,7 @@ function MatchCard({
               <Button
                 variant={data.guess.value ? "secondary" : "default"}
                 className={cn(
-                  "h-11 w-full rounded-md shadow-none",
+                  "h-11 w-full rounded-2xl",
                   !data.guess.value && "bg-brand text-brand-foreground hover:bg-brand/90",
                 )}
                 onClick={onSubmitGuess}
@@ -191,7 +199,7 @@ function MatchCard({
           <div className="space-y-2">
             <FinalScoreRow data={data} score={data.finalScore} />
             {data.guess.value && (
-              <div className="rounded-md bg-muted px-3 py-2 text-center text-xs text-muted-foreground">
+              <div className="rounded-2xl bg-muted/70 px-3 py-2.5 text-center text-xs text-muted-foreground">
                 Você palpitou{" "}
                 <strong className="text-foreground">
                   {data.guess.value.home} - {data.guess.value.away}
@@ -203,7 +211,12 @@ function MatchCard({
             )}
           </div>
         )}
-        {saveMessage && <p className="text-center text-xs text-success">{saveMessage}</p>}
+        {saveMessage && (
+          <p className="flex items-center justify-center gap-1.5 text-center text-xs font-bold text-success">
+            <BiCheckCircle className="size-4" />
+            {saveMessage}
+          </p>
+        )}
       </CardContent>
     </Card>
   );

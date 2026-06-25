@@ -120,9 +120,6 @@ Deno.serve(async (req) => {
     });
     if (profileErr) return json({ error: profileErr.message }, 400);
 
-
-
-
     return json({
       user_id: created.user!.id,
       email,
