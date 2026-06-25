@@ -56,20 +56,21 @@ export function useThemeMode(userId?: string | null) {
   // After userId is known, fetch accent from DB — DB wins over localStorage
   useEffect(() => {
     if (!userId) return;
-    supabase
-      .from("profiles")
-      .select("accent_theme")
-      .eq("id", userId)
-      .maybeSingle()
-      .then(({ data }) => {
+    void (async () => {
+      try {
+        const { data } = await supabase
+          .from("profiles")
+          .select("accent_theme")
+          .eq("id", userId)
+          .maybeSingle();
         if (data && isAccentTheme(data.accent_theme)) {
           applyAccentLocally(data.accent_theme, userId);
           setAccentThemeState(data.accent_theme);
         }
-      })
-      .catch(() => {
+      } catch {
         // column may not exist yet in remote; localStorage value stands
-      });
+      }
+    })();
   }, [userId]);
 
   useEffect(() => {
@@ -108,14 +109,10 @@ export function useThemeMode(userId?: string | null) {
     applyAccentLocally(next, userId);
     setAccentThemeState(next);
     if (userId) {
-      supabase
+      void supabase
         .from("profiles")
         .update({ accent_theme: next })
-        .eq("id", userId)
-        .then()
-        .catch(() => {
-          // silent; localStorage already saved
-        });
+        .eq("id", userId);
     }
   }
 
