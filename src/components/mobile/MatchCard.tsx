@@ -242,8 +242,8 @@ function MatchCard({
                 </Button>
               ) : (
                 <Button
-                  variant="secondary"
-                  className="h-11 w-full rounded-2xl"
+                  variant="outline"
+                  className="h-11 w-full rounded-2xl border-brand/35 bg-brand/10 text-brand hover:bg-brand/15 hover:text-brand"
                   onClick={onEditGuess}
                   disabled={saving}
                 >

@@ -14,6 +14,12 @@ import {
 import { MobileShell } from "@/components/mobile/MobileShell";
 import { RankingPodium } from "@/components/mobile/RankingPodium";
 import { RankingRow } from "@/components/mobile/RankingRow";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -101,6 +107,8 @@ function RankingPage() {
           </p>
         </header>
 
+        <ScoreExplanationCard rules={scoreRulesQuery.data ?? null} />
+
         <Tabs value={mode} onValueChange={(value) => setMode(value as "free" | "pool")}>
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="free">Da Resenha</TabsTrigger>
@@ -165,7 +173,6 @@ function RankingPage() {
 
         {!loading && !error && (
           <>
-            <ScoreExplanationCard rules={scoreRulesQuery.data ?? null} />
             <RankingPodium
               rows={podium}
               currentUserId={user?.id}
@@ -283,17 +290,23 @@ function ScoreExplanationCard({ rules }: { rules: ScoreRules | null }) {
 
   return (
     <Card className="glass-card border-brand/20">
-      <CardContent className="space-y-2 p-4 text-sm">
-        <p className="flex items-center gap-2 font-extrabold">
-          <BiInfoCircle className="size-5 text-brand" />
-          Como funciona a pontuação
-        </p>
-        <p className="text-muted-foreground">
-          O ranking usa somente pontos já apurados em jogos encerrados. Placar exato vale{" "}
-          <strong className="text-foreground">{exact}</strong> ponto(s); resultado correto vale{" "}
-          <strong className="text-foreground">{outcome}</strong>. Quando o saldo de gols também
-          bate, há bônus de <strong className="text-foreground">{bonus}</strong> ponto(s).
-        </p>
+      <CardContent className="p-0">
+        <Accordion type="single" collapsible>
+          <AccordionItem value="scoring" className="border-b-0 px-4">
+            <AccordionTrigger className="py-3 text-sm font-extrabold hover:no-underline">
+              <span className="flex items-center gap-2">
+                <BiInfoCircle className="size-5 text-brand" />
+                Como funciona a pontuação
+              </span>
+            </AccordionTrigger>
+            <AccordionContent className="pb-4 text-sm text-muted-foreground">
+              O ranking usa somente pontos já apurados em jogos encerrados. Placar exato vale{" "}
+              <strong className="text-foreground">{exact}</strong> ponto(s); resultado correto vale{" "}
+              <strong className="text-foreground">{outcome}</strong>. Quando o saldo de gols também
+              bate, há bônus de <strong className="text-foreground">{bonus}</strong> ponto(s).
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
       </CardContent>
     </Card>
   );
