@@ -348,15 +348,20 @@ html.dark[data-accent="brazil"] {
 
 @keyframes brazil-confetti-fall {
   0% {
-    opacity: 0;
-    transform: translate3d(var(--x), -12vh, 0) rotate(0deg);
-  }
-  10% {
     opacity: 1;
+    transform: translate(-50%, -50%) rotate(0deg) scale(1);
   }
   100% {
     opacity: 0;
-    transform: translate3d(calc(var(--x) + var(--drift)), 105vh, 0) rotate(var(--rotate));
+    transform: translate(calc(var(--tx) - 50%), calc(var(--ty) - 50%)) rotate(var(--rotate))
+      scale(0.35);
+  }
+}
+
+@keyframes brazil-confetti-ripple {
+  to {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(2.15);
   }
 }
 
@@ -435,24 +440,24 @@ html.dark[data-accent="brazil"] {
 
   html[data-accent="brazil"] .bg-brand,
   html[data-accent="brazil"] .bg-primary {
-    background-color: oklch(0.58 0.17 150);
+    background-color: oklch(0.66 0.17 150);
     background-image: linear-gradient(
       135deg,
-      oklch(0.5 0.17 150) 0%,
-      oklch(0.58 0.18 150) 44%,
-      oklch(0.9 0.14 92) 100%
+      oklch(0.62 0.16 150) 0%,
+      oklch(0.69 0.16 150) 46%,
+      oklch(0.94 0.13 92) 100%
     );
     color: var(--brand-foreground);
   }
 
   html.dark[data-accent="brazil"] .bg-brand,
   html.dark[data-accent="brazil"] .bg-primary {
-    background-color: oklch(0.68 0.16 150);
+    background-color: oklch(0.74 0.14 150);
     background-image: linear-gradient(
       135deg,
-      oklch(0.58 0.16 150) 0%,
-      oklch(0.67 0.16 150) 42%,
-      oklch(0.84 0.14 92) 100%
+      oklch(0.68 0.14 150) 0%,
+      oklch(0.76 0.14 150) 44%,
+      oklch(0.9 0.13 92) 100%
     );
   }
 
@@ -466,15 +471,22 @@ html.dark[data-accent="brazil"] {
 
   .brazil-confetti span {
     position: absolute;
-    top: 0;
-    left: 0;
-    width: 0.55rem;
-    height: 0.9rem;
+  }
+
+  .brazil-confetti-ripple {
+    border: 1px solid color-mix(in oklab, oklch(0.52 0.18 255) 42%, transparent);
     border-radius: 999px;
+    background: color-mix(in oklab, white 30%, transparent);
+    opacity: 0.55;
+    transform: translate(-50%, -50%) scale(1);
+    animation: brazil-confetti-ripple 0.95s ease-out both;
+  }
+
+  .brazil-confetti-piece {
     background: var(--confetti-color);
-    box-shadow: 0 0 18px color-mix(in oklab, var(--confetti-color) 45%, transparent);
-    animation: brazil-confetti-fall var(--duration) cubic-bezier(0.22, 0.72, 0.26, 1) var(--delay)
-      both;
+    box-shadow: 0 0 14px color-mix(in oklab, var(--confetti-color) 36%, transparent);
+    transform: translate(-50%, -50%);
+    animation: brazil-confetti-fall var(--duration) var(--ease) both;
   }
 }
 

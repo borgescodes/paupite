@@ -4,6 +4,12 @@ import type { ThemeMode } from "@/components/mobile/AppHeader";
 import { supabase } from "@/integrations/supabase/client";
 
 export type AccentTheme = "blue" | "pink" | "purple" | "green" | "red" | "brazil";
+export type BrazilThemeEventDetail = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
 
 const THEME_KEY = "paupite-theme";
 const ACCENT_KEY = "paupite-accent";
@@ -41,6 +47,25 @@ function applyAccentLocally(next: AccentTheme, userId?: string | null) {
   window.localStorage.setItem(accentStorageKey(userId), next);
   document.documentElement.dataset.accent = next;
   window.dispatchEvent(new CustomEvent<AccentTheme>(ACCENT_EVENT, { detail: next }));
+}
+
+function getBrazilThemeEventDetail(origin?: HTMLElement | null): BrazilThemeEventDetail {
+  if (origin) {
+    const rect = origin.getBoundingClientRect();
+    return {
+      x: rect.left + rect.width / 2,
+      y: rect.top + rect.height / 2,
+      width: rect.width,
+      height: rect.height,
+    };
+  }
+
+  return {
+    x: window.innerWidth / 2,
+    y: window.innerHeight / 2,
+    width: 120,
+    height: 52,
+  };
 }
 
 function fetchAccentTheme(userId: string) {
@@ -152,11 +177,15 @@ export function useThemeMode(userId?: string | null) {
     window.dispatchEvent(new CustomEvent<ThemeMode>(THEME_EVENT, { detail: next }));
   }
 
-  function setAccentTheme(next: AccentTheme) {
+  function setAccentTheme(next: AccentTheme, origin?: HTMLElement | null) {
     applyAccentLocally(next, userId);
     setAccentThemeState(next);
     if (next === "brazil") {
-      window.dispatchEvent(new Event(BRAZIL_THEME_EVENT));
+      window.dispatchEvent(
+        new CustomEvent<BrazilThemeEventDetail>(BRAZIL_THEME_EVENT, {
+          detail: getBrazilThemeEventDetail(origin),
+        }),
+      );
     }
     if (userId) {
       accentFetches.set(userId, Promise.resolve(next));

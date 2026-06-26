@@ -232,7 +232,7 @@ function ProfilePage() {
                       ? "border-brand bg-brand/10 ring-2 ring-brand/20"
                       : "border-border bg-background/55 hover:bg-accent"
                   }`}
-                  onClick={() => setAccentTheme(option.value)}
+                  onClick={(event) => setAccentTheme(option.value, event.currentTarget)}
                 >
                   <span
                     className={`size-7 shrink-0 rounded-full ${option.swatch} ring-2 ring-background shadow-sm`}
