@@ -128,7 +128,6 @@ export function AvatarUploader({
           />
         </label>
       </div>
-      <p className="text-xs text-muted-foreground">JPG, PNG, WebP ou HEIC/HEIF · até 10 MB</p>
 
       <AvatarCropper
         sourceUrl={sourceUrl}

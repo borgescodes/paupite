@@ -18,7 +18,7 @@ export function MobileShell({
 }) {
   const navigate = useNavigate();
   const { profile } = useAuth();
-  const { theme, toggleTheme } = useThemeMode();
+  const { theme, toggleTheme } = useThemeMode(profile?.id);
 
   const userName = profile?.nickname || profile?.display_name || profile?.email || "Jogador";
   const tabs = [

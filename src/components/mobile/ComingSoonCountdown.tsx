@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { BiTime } from "react-icons/bi";
 
 interface TimeLeft {
@@ -30,10 +30,8 @@ export function ComingSoonCountdown({
   opensAt: string | null;
   message: string | null;
 }) {
-  const target = opensAt ? new Date(opensAt) : null;
-  const [timeLeft, setTimeLeft] = useState<TimeLeft | null>(
-    target ? calcTimeLeft(target) : null,
-  );
+  const target = useMemo(() => (opensAt ? new Date(opensAt) : null), [opensAt]);
+  const [timeLeft, setTimeLeft] = useState<TimeLeft | null>(target ? calcTimeLeft(target) : null);
 
   useEffect(() => {
     if (!target) return;
@@ -64,7 +62,9 @@ export function ComingSoonCountdown({
               key={label}
               className="flex min-w-14 flex-col items-center gap-1 rounded-2xl bg-muted px-3 py-2"
             >
-              <span className="text-2xl font-extrabold tabular-nums slashed-zero">{pad(value)}</span>
+              <span className="text-2xl font-extrabold tabular-nums slashed-zero">
+                {pad(value)}
+              </span>
               <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                 {label}
               </span>
@@ -77,9 +77,7 @@ export function ComingSoonCountdown({
         <p className="text-sm font-bold text-success">As inscrições estão abertas! Recarregue.</p>
       )}
 
-      {!target && (
-        <p className="text-sm text-muted-foreground">Data de abertura a definir.</p>
-      )}
+      {!target && <p className="text-sm text-muted-foreground">Data de abertura a definir.</p>}
     </div>
   );
 }

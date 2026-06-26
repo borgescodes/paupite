@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { BiGroup, BiInfoCircle, BiRefresh, BiSolidTrophy } from "react-icons/bi";
 
 import { MobileShell } from "@/components/mobile/MobileShell";
@@ -17,42 +18,29 @@ export const Route = createFileRoute("/_authenticated/ranking")({
   component: RankingPage,
 });
 
+type RankingMode = "free" | "pool";
+
+type RankingData = {
+  rows: RankingEntry[];
+  enrollmentStatus: string | null;
+};
+
+const rankingQueryKey = (mode: RankingMode, userId: string | null | undefined) =>
+  ["ranking", mode, userId] as const;
+
 function RankingPage() {
   const { user } = useAuth();
-  const [mode, setMode] = useState<"free" | "pool">("free");
-  const [rows, setRows] = useState<RankingEntry[]>([]);
-  const [enrollmentStatus, setEnrollmentStatus] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [reloadKey, setReloadKey] = useState(0);
+  const [mode, setMode] = useState<RankingMode>("free");
 
-  useEffect(() => {
-    let cancelled = false;
+  const rankingQuery = useQuery({
+    queryKey: rankingQueryKey(mode, user?.id),
+    queryFn: () => fetchRanking(mode, user?.id ?? null),
+  });
 
-    async function load() {
-      setLoading(true);
-      setError(null);
-      const view = mode === "free" ? "ranking_free" : "ranking_pool";
-      const rankingPromise = supabase.from(view).select("*").order("rank_position");
-      const enrollmentPromise = user?.id
-        ? supabase.from("enrollments").select("status").eq("user_id", user.id).maybeSingle()
-        : Promise.resolve({ data: null, error: null });
-      const [rankingResult, enrollmentResult] = await Promise.all([
-        rankingPromise,
-        enrollmentPromise,
-      ]);
-      if (cancelled) return;
-      setRows((rankingResult.data ?? []) as RankingEntry[]);
-      setEnrollmentStatus(enrollmentResult.data?.status ?? null);
-      setError(rankingResult.error?.message ?? enrollmentResult.error?.message ?? null);
-      setLoading(false);
-    }
-
-    void load();
-    return () => {
-      cancelled = true;
-    };
-  }, [mode, reloadKey, user?.id]);
+  const rows = rankingQuery.data?.rows ?? [];
+  const enrollmentStatus = rankingQuery.data?.enrollmentStatus ?? null;
+  const loading = rankingQuery.isLoading && !rankingQuery.data;
+  const error = rankingQuery.error instanceof Error ? rankingQuery.error.message : null;
 
   const podium = rows.filter((row) => (row.rank_position ?? 99) <= 3);
   const remaining = rows.filter((row) => (row.rank_position ?? 0) > 3);
@@ -115,7 +103,7 @@ function RankingPage() {
                 size="icon"
                 variant="ghost"
                 aria-label="Recarregar ranking"
-                onClick={() => setReloadKey((value) => value + 1)}
+                onClick={() => void rankingQuery.refetch()}
               >
                 <BiRefresh className="size-5" />
               </Button>
@@ -147,4 +135,21 @@ function RankingPage() {
       </main>
     </MobileShell>
   );
+}
+
+async function fetchRanking(mode: RankingMode, userId: string | null): Promise<RankingData> {
+  const view = mode === "free" ? "ranking_free" : "ranking_pool";
+  const rankingPromise = supabase.from(view).select("*").order("rank_position");
+  const enrollmentPromise = userId
+    ? supabase.from("enrollments").select("status").eq("user_id", userId).maybeSingle()
+    : Promise.resolve({ data: null, error: null });
+  const [rankingResult, enrollmentResult] = await Promise.all([rankingPromise, enrollmentPromise]);
+
+  const error = rankingResult.error?.message ?? enrollmentResult.error?.message ?? null;
+  if (error) throw new Error(error);
+
+  return {
+    rows: (rankingResult.data ?? []) as RankingEntry[],
+    enrollmentStatus: enrollmentResult.data?.status ?? null,
+  };
 }

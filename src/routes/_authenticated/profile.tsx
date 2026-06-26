@@ -1,4 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import {
   BiBarChartAlt2,
@@ -34,6 +35,15 @@ export const Route = createFileRoute("/_authenticated/profile")({
   component: ProfilePage,
 });
 
+type ProfileStatsData = {
+  freeStats: Stats | null;
+  poolStats: Stats | null;
+  error: string | null;
+};
+
+const profileStatsQueryKey = (userId: string | null | undefined) =>
+  ["profile-stats", userId] as const;
+
 function ProfilePage() {
   const { user, profile, loading } = useAuth();
   const navigate = useNavigate();
@@ -41,25 +51,20 @@ function ProfilePage() {
   const [displayName, setDisplayName] = useState("");
   const [nickname, setNickname] = useState("");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
-  const [freeStats, setFreeStats] = useState<Stats | null>(null);
-  const [poolStats, setPoolStats] = useState<Stats | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  const statsQuery = useQuery({
+    queryKey: profileStatsQueryKey(user?.id),
+    enabled: Boolean(user?.id && profile),
+    queryFn: () => fetchProfileStats(user!.id),
+  });
 
   useEffect(() => {
     if (!profile || !user) return;
     setDisplayName(profile.display_name ?? "");
     setNickname(profile.nickname ?? "");
     setAvatarUrl(profile.avatar_url);
-
-    Promise.all([
-      supabase.from("ranking_free").select("*").eq("user_id", user.id).maybeSingle(),
-      supabase.from("ranking_pool").select("*").eq("user_id", user.id).maybeSingle(),
-    ]).then(([freeResult, poolResult]) => {
-      setFreeStats(freeResult.data);
-      setPoolStats(poolResult.data);
-      setError(freeResult.error?.message ?? poolResult.error?.message ?? null);
-    });
   }, [profile, user]);
 
   if (loading || !profile || !user) {
@@ -78,6 +83,10 @@ function ProfilePage() {
   const profileName = nickname || displayName || profile.email;
   const profileId = profile.id;
   const isStaff = profile.role === "admin" || profile.role === "superadmin";
+  const freeStats = statsQuery.data?.freeStats ?? null;
+  const poolStats = statsQuery.data?.poolStats ?? null;
+  const statsError =
+    statsQuery.data?.error ?? (statsQuery.error instanceof Error ? statsQuery.error.message : null);
 
   async function save(event: React.FormEvent) {
     event.preventDefault();
@@ -160,7 +169,9 @@ function ProfilePage() {
                 {busy ? "Salvando..." : "Salvar perfil"}
               </Button>
             </form>
-            {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
+            {(error || statsError) && (
+              <p className="mt-3 text-sm text-destructive">{error ?? statsError}</p>
+            )}
           </CardContent>
         </Card>
 
@@ -238,6 +249,19 @@ function ProfilePage() {
       </main>
     </MobileShell>
   );
+}
+
+async function fetchProfileStats(userId: string): Promise<ProfileStatsData> {
+  const [freeResult, poolResult] = await Promise.all([
+    supabase.from("ranking_free").select("*").eq("user_id", userId).maybeSingle(),
+    supabase.from("ranking_pool").select("*").eq("user_id", userId).maybeSingle(),
+  ]);
+
+  return {
+    freeStats: freeResult.data,
+    poolStats: poolResult.data,
+    error: freeResult.error?.message ?? poolResult.error?.message ?? null,
+  };
 }
 
 const accentOptions: Array<{ value: AccentTheme; label: string; swatch: string }> = [

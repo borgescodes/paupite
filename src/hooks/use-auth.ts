@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useSyncExternalStore } from "react";
+import { useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { User } from "@supabase/supabase-js";
 
@@ -17,43 +18,103 @@ export interface Profile {
   temporary_password_set_at: string | null;
 }
 
+type AuthSnapshot = {
+  user: User | null;
+  loading: boolean;
+};
+
+const authListeners = new Set<() => void>();
+let authSnapshot: AuthSnapshot = { user: null, loading: true };
+let authListenerStarted = false;
+
+export const authProfileQueryKey = (userId: string | null | undefined) =>
+  ["auth-profile", userId ?? null] as const;
+
+export async function fetchProfile(userId: string): Promise<Profile | null> {
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("id", userId)
+    .maybeSingle();
+  if (error) return null;
+  return (data as Profile | null) ?? null;
+}
+
+function emitAuthChange() {
+  for (const listener of authListeners) listener();
+}
+
+function setAuthSnapshot(next: AuthSnapshot) {
+  authSnapshot = next;
+  emitAuthChange();
+}
+
+function subscribeAuth(listener: () => void) {
+  authListeners.add(listener);
+  return () => authListeners.delete(listener);
+}
+
+function getAuthSnapshot() {
+  return authSnapshot;
+}
+
+function ensureAuthListener(queryClient: QueryClient) {
+  if (authListenerStarted) return;
+  authListenerStarted = true;
+
+  supabase.auth.getUser().then(({ data }) => {
+    setAuthSnapshot({ user: data.user, loading: false });
+  });
+
+  const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+    const previousUserId = authSnapshot.user?.id;
+    const nextUser = session?.user ?? null;
+    setAuthSnapshot({ user: nextUser, loading: false });
+
+    if (previousUserId && previousUserId !== nextUser?.id) {
+      queryClient.removeQueries({ queryKey: authProfileQueryKey(previousUserId) });
+    }
+    if (nextUser?.id) {
+      void queryClient.invalidateQueries({ queryKey: authProfileQueryKey(nextUser.id) });
+    }
+  });
+
+  window.addEventListener("beforeunload", () => sub.subscription.unsubscribe(), { once: true });
+}
+
 export function useAuth() {
-  const [user, setUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
 
   useEffect(() => {
-    let mounted = true;
+    ensureAuthListener(queryClient);
+  }, [queryClient]);
 
-    const load = async (u: User | null) => {
-      setUser(u);
-      if (!u) {
-        setProfile(null);
-        setLoading(false);
-        return;
-      }
-      const { data } = await supabase.from("profiles").select("*").eq("id", u.id).maybeSingle();
-      if (mounted) {
-        setProfile((data as Profile | null) ?? null);
-        setLoading(false);
-      }
-    };
+  const { user, loading: authLoading } = useSyncExternalStore(
+    subscribeAuth,
+    getAuthSnapshot,
+    getAuthSnapshot,
+  );
 
-    supabase.auth.getUser().then(({ data }) => load(data.user));
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
-      load(session?.user ?? null);
-    });
+  const profileQuery = useQuery({
+    queryKey: authProfileQueryKey(user?.id),
+    enabled: Boolean(user?.id),
+    queryFn: () => fetchProfile(user!.id),
+  });
+
+  useEffect(() => {
+    if (!user?.id) return;
     const refreshProfile = () => {
-      void supabase.auth.getUser().then(({ data }) => load(data.user));
+      void queryClient.invalidateQueries({ queryKey: authProfileQueryKey(user.id) });
     };
     window.addEventListener("paupite:profile-updated", refreshProfile);
 
     return () => {
-      mounted = false;
-      sub.subscription.unsubscribe();
       window.removeEventListener("paupite:profile-updated", refreshProfile);
     };
-  }, []);
+  }, [queryClient, user?.id]);
+
+  const profile = user ? (profileQuery.data ?? null) : null;
+  const loading = authLoading || Boolean(user?.id && profileQuery.isLoading);
 
   return {
     user,

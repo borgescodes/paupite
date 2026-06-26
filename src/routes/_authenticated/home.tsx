@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useMemo, useState } from "react";
 import { BiErrorCircle, BiRefresh, BiWorld } from "react-icons/bi";
 import { toast } from "sonner";
 
@@ -24,95 +25,71 @@ export const Route = createFileRoute("/_authenticated/home")({
   component: HomePage,
 });
 
+type HomeMatchesData = {
+  matches: MatchRow[];
+  bets: Record<string, BetRow>;
+  trends: Record<string, BetTrend>;
+};
+
+const emptyMatches: MatchRow[] = [];
+const emptyBets: Record<string, BetRow> = {};
+const emptyTrends: Record<string, BetTrend> = {};
+const homeMatchesQueryKey = (userId: string | null | undefined) =>
+  ["home-matches", userId] as const;
+
 function HomePage() {
-  const { user, profile, loading: authLoading } = useAuth();
-  const [matches, setMatches] = useState<MatchRow[]>([]);
-  const [bets, setBets] = useState<Record<string, BetRow>>({});
+  const { user, loading: authLoading } = useAuth();
+  const queryClient = useQueryClient();
   const [drafts, setDrafts] = useState<Record<string, ScoreValue>>({});
-  const [trends, setTrends] = useState<Record<string, BetTrend>>({});
   const [selectedDate, setSelectedDate] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [localError, setLocalError] = useState<string | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [savedId, setSavedId] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    if (!user?.id) return;
-    setError(null);
+  const homeQuery = useQuery({
+    queryKey: homeMatchesQueryKey(user?.id),
+    enabled: Boolean(user?.id),
+    queryFn: () => fetchHomeMatches(user!.id),
+  });
 
-    const primaryMatchResult = await supabase
-      .from("matches")
-      .select(
-        "id,kickoff_at,status,stage,group_name,venue,city,country,home_score,away_score,home_team:teams!matches_home_team_id_fkey(id,name,short_name,country_code,flag_url),away_team:teams!matches_away_team_id_fkey(id,name,short_name,country_code,flag_url)",
-      )
-      .order("kickoff_at", { ascending: true });
-    let matchData: unknown[] | null = primaryMatchResult.data;
-    let matchError = primaryMatchResult.error;
+  const matches = homeQuery.data?.matches ?? emptyMatches;
+  const bets = homeQuery.data?.bets ?? emptyBets;
+  const trends = homeQuery.data?.trends ?? emptyTrends;
+  const error = localError ?? (homeQuery.error instanceof Error ? homeQuery.error.message : null);
+  const loading = authLoading || (homeQuery.isLoading && !homeQuery.data);
 
-    // Transição segura caso o frontend chegue antes da migration aditiva.
-    if (matchError?.message.includes("venue")) {
-      const fallbackMatchResult = await supabase
-        .from("matches")
-        .select(
-          "id,kickoff_at,status,stage,group_name,home_score,away_score,home_team:teams!matches_home_team_id_fkey(id,name,short_name,country_code,flag_url),away_team:teams!matches_away_team_id_fkey(id,name,short_name,country_code,flag_url)",
-        )
-        .order("kickoff_at", { ascending: true });
-      matchData = fallbackMatchResult.data;
-      matchError = fallbackMatchResult.error;
-    }
-
-    const [betResult, trendsResult] = await Promise.all([
-      supabase
-        .from("bets")
-        .select("match_id,home_score,away_score,points")
-        .eq("user_id", user.id),
-      supabase.from("match_bet_trends").select("match_id,total_bets,home_pct,draw_pct,away_pct"),
-    ]);
-
-    if (matchError || betResult.error) {
-      setError(matchError?.message ?? betResult.error?.message ?? "Falha ao carregar partidas.");
-      setLoading(false);
-      return;
-    }
-
-    const nextMatches = (matchData ?? []) as MatchRow[];
-    const nextBets: Record<string, BetRow> = {};
-    for (const row of (betResult.data ?? []) as BetRow[]) nextBets[row.match_id] = row;
-    const nextTrends: Record<string, BetTrend> = {};
-    for (const row of (trendsResult.data ?? []) as BetTrend[]) {
-      if (row.match_id) nextTrends[row.match_id] = row;
-    }
-    setMatches(nextMatches);
-    setBets(nextBets);
-    setTrends(nextTrends);
+  useEffect(() => {
+    if (!homeQuery.data?.bets) return;
     setDrafts((current) => {
       const next = { ...current };
-      for (const bet of Object.values(nextBets)) {
+      for (const bet of Object.values(homeQuery.data.bets)) {
         if (!next[bet.match_id]) {
           next[bet.match_id] = { home: bet.home_score, away: bet.away_score };
         }
       }
       return next;
     });
-    setLoading(false);
-  }, [user?.id]);
+  }, [homeQuery.data?.bets]);
 
   useEffect(() => {
-    void load();
     if (!user?.id) return;
     const channel = supabase
       .channel(`home-matches-${user.id}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "matches" }, () => void load())
+      .on("postgres_changes", { event: "*", schema: "public", table: "matches" }, () => {
+        void queryClient.invalidateQueries({ queryKey: homeMatchesQueryKey(user.id) });
+      })
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "bets", filter: `user_id=eq.${user.id}` },
-        () => void load(),
+        () => {
+          void queryClient.invalidateQueries({ queryKey: homeMatchesQueryKey(user.id) });
+        },
       )
       .subscribe();
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [load, user?.id]);
+  }, [queryClient, user?.id]);
 
   const days = useMemo(() => buildMatchDays(matches), [matches]);
 
@@ -135,7 +112,7 @@ function HomePage() {
     if (!user?.id) return;
     const match = matches.find((item) => item.id === matchId);
     if (!match || new Date(match.kickoff_at) <= new Date() || match.status !== "scheduled") {
-      setError("O prazo para este palpite já terminou.");
+      setLocalError("O prazo para este palpite já terminou.");
       return;
     }
     const value = drafts[matchId] ?? {
@@ -150,13 +127,13 @@ function HomePage() {
       value.home > 99 ||
       value.away > 99
     ) {
-      setError("Informe um placar válido entre 0 e 99.");
+      setLocalError("Informe um placar válido entre 0 e 99.");
       return;
     }
 
     setSavingId(matchId);
     setSavedId(null);
-    setError(null);
+    setLocalError(null);
     const { error: saveError } = await supabase.from("bets").upsert(
       {
         user_id: user.id,
@@ -168,14 +145,27 @@ function HomePage() {
     );
     setSavingId(null);
     if (saveError) {
-      setError(saveError.message);
+      setLocalError(saveError.message);
       toast.error("Não foi possível salvar o palpite.");
       return;
     }
-    setBets((current) => ({
-      ...current,
-      [matchId]: { match_id: matchId, home_score: value.home, away_score: value.away, points: 0 },
-    }));
+    queryClient.setQueryData<HomeMatchesData>(homeMatchesQueryKey(user.id), (current) =>
+      current
+        ? {
+            ...current,
+            bets: {
+              ...current.bets,
+              [matchId]: {
+                match_id: matchId,
+                home_score: value.home,
+                away_score: value.away,
+                points: current.bets[matchId]?.points ?? 0,
+              },
+            },
+          }
+        : current,
+    );
+    void queryClient.invalidateQueries({ queryKey: homeMatchesQueryKey(user.id) });
     setSavedId(matchId);
     toast.success("Palpite salvo.");
     window.setTimeout(() => setSavedId((current) => (current === matchId ? null : current)), 2500);
@@ -223,7 +213,10 @@ function HomePage() {
                 variant="ghost"
                 className="size-8 rounded-xl"
                 aria-label="Tentar carregar novamente"
-                onClick={() => void load()}
+                onClick={() => {
+                  setLocalError(null);
+                  void homeQuery.refetch();
+                }}
               >
                 <BiRefresh className="size-5" />
               </Button>
@@ -262,4 +255,52 @@ function HomePage() {
       </div>
     </MobileShell>
   );
+}
+
+async function fetchHomeMatches(userId: string): Promise<HomeMatchesData> {
+  const primaryMatchResult = await supabase
+    .from("matches")
+    .select(
+      "id,kickoff_at,status,stage,group_name,venue,city,country,home_score,away_score,home_team:teams!matches_home_team_id_fkey(id,name,short_name,country_code,flag_url),away_team:teams!matches_away_team_id_fkey(id,name,short_name,country_code,flag_url)",
+    )
+    .order("kickoff_at", { ascending: true });
+  let matchData: unknown[] | null = primaryMatchResult.data;
+  let matchError = primaryMatchResult.error;
+
+  // Transição segura caso o frontend chegue antes da migration aditiva.
+  if (matchError?.message.includes("venue")) {
+    const fallbackMatchResult = await supabase
+      .from("matches")
+      .select(
+        "id,kickoff_at,status,stage,group_name,home_score,away_score,home_team:teams!matches_home_team_id_fkey(id,name,short_name,country_code,flag_url),away_team:teams!matches_away_team_id_fkey(id,name,short_name,country_code,flag_url)",
+      )
+      .order("kickoff_at", { ascending: true });
+    matchData = fallbackMatchResult.data;
+    matchError = fallbackMatchResult.error;
+  }
+
+  const [betResult, trendsResult] = await Promise.all([
+    supabase.from("bets").select("match_id,home_score,away_score,points").eq("user_id", userId),
+    supabase.from("match_bet_trends").select("match_id,total_bets,home_pct,draw_pct,away_pct"),
+  ]);
+
+  if (matchError || betResult.error) {
+    throw new Error(
+      matchError?.message ?? betResult.error?.message ?? "Falha ao carregar partidas.",
+    );
+  }
+
+  const bets: Record<string, BetRow> = {};
+  for (const row of (betResult.data ?? []) as BetRow[]) bets[row.match_id] = row;
+
+  const trends: Record<string, BetTrend> = {};
+  for (const row of (trendsResult.data ?? []) as BetTrend[]) {
+    if (row.match_id) trends[row.match_id] = row;
+  }
+
+  return {
+    matches: (matchData ?? []) as MatchRow[],
+    bets,
+    trends,
+  };
 }

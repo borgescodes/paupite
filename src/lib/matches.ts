@@ -1,7 +1,12 @@
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
-import type { DayOption, MatchCardData, MegaBrainForecast, ScoreValue } from "@/components/mobile/types";
+import type {
+  DayOption,
+  MatchCardData,
+  MegaBrainForecast,
+  ScoreValue,
+} from "@/components/mobile/types";
 
 export interface BetTrend {
   match_id: string;
