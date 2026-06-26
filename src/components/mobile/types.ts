@@ -27,6 +27,7 @@ export interface MatchCardData {
   status: MatchTemporalStatus;
   home: TeamInfo;
   away: TeamInfo;
+  teamsDefined?: boolean;
   liveScore?: ScoreValue;
   finalScore?: ScoreValue;
   /** Whether the paupite window is currently open for this match. */

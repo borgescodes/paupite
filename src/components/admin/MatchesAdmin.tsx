@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { AdminMatchCard } from "@/components/admin/AdminMatchCard";
 import { AdminMatchEditor, NativeSelect } from "@/components/admin/AdminMatchEditor";
 import { AdminResultSheet } from "@/components/admin/AdminResultSheet";
+import { matchStageLabel } from "@/components/admin/match-labels";
 import type {
   AdminCompetition,
   AdminMatch,
@@ -81,9 +82,11 @@ export function MatchesAdmin() {
           ? "closed"
           : match.status === "live"
             ? "live"
-            : kickoff > new Date()
-              ? "future"
-              : "pending";
+            : match.status === "finished"
+              ? "finished"
+              : kickoff > new Date()
+                ? "future"
+                : "pending";
       const names =
         `${match.home_team?.name ?? ""} ${match.away_team?.name ?? ""}`.toLocaleLowerCase("pt-BR");
       return (
@@ -114,17 +117,25 @@ export function MatchesAdmin() {
   }
 
   async function saveMatch(value: AdminMatchFormValue) {
-    if (value.home_team_id === value.away_team_id) {
+    const current = editing === "new" ? null : editing;
+    const hasHomeTeam = Boolean(value.home_team_id);
+    const hasAwayTeam = Boolean(value.away_team_id);
+    if (!current && (!hasHomeTeam || !hasAwayTeam)) {
+      setError("Selecione as duas equipes para criar a partida.");
+      return;
+    }
+    if (hasHomeTeam && hasAwayTeam && value.home_team_id === value.away_team_id) {
       setError("Selecione duas equipes diferentes.");
       return;
     }
-    const current = editing === "new" ? null : editing;
     const saved = await run(
       () =>
         callEdgeFunction("admin-save-match", {
           action: current ? "update" : "create",
           ...(current ? { match_id: current.id } : {}),
           ...value,
+          home_team_id: value.home_team_id || null,
+          away_team_id: value.away_team_id || null,
           competition_id: value.competition_id || null,
           kickoff_at: new Date(value.kickoff_at).toISOString(),
         }),
@@ -213,16 +224,17 @@ export function MatchesAdmin() {
           </div>
           <NativeSelect id="filter-status" value={status} onChange={setStatus}>
             <option value="all">Todos os status</option>
-            <option value="future">Futuros</option>
+            <option value="future">Aberto para palpite</option>
             <option value="live">Em andamento</option>
-            <option value="pending">Aguardando resultado</option>
-            <option value="closed">Pontuados</option>
+            <option value="finished">Encerrado</option>
+            <option value="pending">Agendado</option>
+            <option value="closed">Pontuação calculada</option>
           </NativeSelect>
           <NativeSelect id="filter-stage" value={stage} onChange={setStage}>
             <option value="all">Todas as fases</option>
             {stages.map((item) => (
               <option key={item} value={item}>
-                {item}
+                {matchStageLabel(item)}
               </option>
             ))}
           </NativeSelect>

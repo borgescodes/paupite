@@ -62,6 +62,16 @@ function MatchContextRow({ data }: { data: MatchCardData }) {
 }
 
 function TeamLogo({ flagCode, shortName }: { flagCode: string; shortName: string }) {
+  if (flagCode === "un") {
+    return (
+      <div
+        className="grid size-8 place-items-center rounded-full border border-dashed border-border bg-muted text-[10px] font-extrabold text-muted-foreground"
+        aria-label={shortName}
+      >
+        ?
+      </div>
+    );
+  }
   const url = getTeamLogoUrl(flagCode);
   if (url) {
     return (
@@ -251,7 +261,13 @@ function MatchCard({
                 </Button>
               )
             ) : (
-              <LockedBar label="Palpite bloqueado" />
+              <LockedBar
+                label={
+                  data.teamsDefined === false
+                    ? "Palpites abrem quando os confrontos forem definidos"
+                    : "Palpite bloqueado"
+                }
+              />
             )}
           </div>
         )}

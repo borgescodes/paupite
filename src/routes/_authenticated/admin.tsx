@@ -51,7 +51,7 @@ function AdminPage() {
   const sections = [
     { key: "matches" as const, label: "Jogos", icon: BiFootball, show: true },
     { key: "users" as const, label: "Usuários", icon: BiUser, show: true },
-    { key: "pool" as const, label: "Bolão", icon: BiGroup, show: superadmin },
+    { key: "pool" as const, label: "Bolão", icon: BiGroup, show: true },
     { key: "import" as const, label: "Importar", icon: BiImport, show: superadmin },
   ].filter((item) => item.show);
 
@@ -96,7 +96,7 @@ function AdminPage() {
         <section>
           {section === "matches" && <MatchesAdmin />}
           {section === "users" && <UsersAdmin currentRole={profile.role} />}
-          {section === "pool" && superadmin && <PoolAdmin />}
+          {section === "pool" && <PoolAdmin currentRole={profile.role} />}
           {section === "import" && superadmin && <ImportAdmin />}
         </section>
       </main>

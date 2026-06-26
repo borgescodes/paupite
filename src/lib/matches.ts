@@ -87,6 +87,7 @@ export function toMatchCard(
   const locked = kickoff.getTime() <= Date.now();
   const status = normalizeStatus(match.status);
   const score = { home: match.home_score, away: match.away_score };
+  const teamsDefined = Boolean(match.home_team && match.away_team);
 
   return {
     id: match.id,
@@ -96,9 +97,10 @@ export function toMatchCard(
     status,
     home: toTeam(match.home_team),
     away: toTeam(match.away_team),
+    teamsDefined,
     liveScore: status === "live" ? score : undefined,
     finalScore: status === "finished" ? score : undefined,
-    paupiteOpen: status === "scheduled" && !locked,
+    paupiteOpen: status === "scheduled" && !locked && teamsDefined,
     paupiteClosedLabel: "Paupites encerrados",
     paupiteClosesAtLabel:
       status === "scheduled" && !locked
@@ -120,15 +122,14 @@ function normalizeStatus(status: string): MatchCardData["status"] {
 }
 
 function toTeam(team: MatchTeamRow | null) {
-  const fallback = "??";
   const flagFromUrl = team?.flag_url?.match(/\/flags\/([^/.]+)\./)?.[1];
   return {
-    shortName: team?.short_name || team?.name?.slice(0, 3).toUpperCase() || fallback,
+    shortName: team?.short_name || team?.name?.slice(0, 3).toUpperCase() || "A definir",
     flagCode: (flagFromUrl || team?.country_code || "un").toLowerCase(),
   };
 }
 
-function formatStage(stage: string | null) {
+export function formatStage(stage: string | null) {
   if (!stage) return "Copa 2026";
   const labels: Record<string, string> = {
     group_stage: "Fase de grupos",

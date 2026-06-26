@@ -1,5 +1,6 @@
 import { BiCalendar, BiEditAlt, BiMap, BiPlayCircle, BiSolidLock, BiTrophy } from "react-icons/bi";
 
+import { matchStageLabel, matchStatusLabel } from "@/components/admin/match-labels";
 import type { AdminMatch } from "@/components/admin/match-types";
 import { Flag } from "@/components/mobile/Flag";
 import { StatusBadge } from "@/components/mobile/StatusBadge";
@@ -34,7 +35,7 @@ export function AdminMatchCard({
       <CardContent className="space-y-4 p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="eyebrow text-brand">{match.group_name || match.stage || "Partida"}</p>
+            <p className="eyebrow text-brand">{match.group_name || matchStageLabel(match.stage)}</p>
             <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
               <BiCalendar className="size-4" />
               {new Date(match.kickoff_at).toLocaleString("pt-BR", {
@@ -55,7 +56,7 @@ export function AdminMatchCard({
             }
             pulse={match.status === "live"}
           >
-            {statusLabel(match.status, future)}
+            {matchStatusLabel(match.status, future)}
           </StatusBadge>
         </div>
 
@@ -127,24 +128,26 @@ function Team({
 }) {
   return (
     <div className={align === "right" ? "min-w-0 text-right" : "min-w-0"}>
-      {countryCode && (
+      {countryCode ? (
         <Flag
           code={countryCode.toLowerCase()}
           label={name}
           size="sm"
           className={align === "right" ? "ml-auto mb-1" : "mb-1"}
         />
+      ) : (
+        <div
+          className={
+            align === "right"
+              ? "ml-auto mb-1 grid h-5 w-7 place-items-center rounded-md border border-dashed border-border bg-muted text-[10px] text-muted-foreground"
+              : "mb-1 grid h-5 w-7 place-items-center rounded-md border border-dashed border-border bg-muted text-[10px] text-muted-foreground"
+          }
+        >
+          ?
+        </div>
       )}
       <p className="truncate text-sm font-extrabold">{shortName || name}</p>
       <p className="truncate text-[10px] text-muted-foreground">{name}</p>
     </div>
   );
-}
-
-function statusLabel(status: string, future: boolean) {
-  if (status === "closed") return "Pontuado";
-  if (status === "finished") return "Encerrado";
-  if (status === "live") return "Ao vivo";
-  if (future) return "Futuro";
-  return "Aguardando resultado";
 }
