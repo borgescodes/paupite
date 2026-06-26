@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import {
   BiCheckCircle,
   BiCreditCard,
@@ -10,7 +11,7 @@ import {
   BiTimeFive,
 } from "react-icons/bi";
 import type { IconType } from "react-icons";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { MobileShell } from "@/components/mobile/MobileShell";
 import { ComingSoonCountdown } from "@/components/mobile/ComingSoonCountdown";
@@ -54,69 +55,49 @@ interface Payment {
   amount_cents: number;
 }
 
+type PoolData = {
+  summary: PoolSummary | null;
+  enrollment: Enrollment | null;
+  payments: Payment[];
+  eligibleForPrize: boolean;
+  prizeRequested: boolean;
+  error: string | null;
+};
+
 export const Route = createFileRoute("/_authenticated/pool")({
   component: PoolPage,
 });
 
+const emptyPayments: Payment[] = [];
+const poolQueryKey = (userId: string | null | undefined) => ["pool", userId] as const;
+
 function PoolPage() {
   const { user } = useAuth();
-  const [summary, setSummary] = useState<PoolSummary | null>(null);
-  const [enrollment, setEnrollment] = useState<Enrollment | null>(null);
-  const [payments, setPayments] = useState<Payment[]>([]);
   const [termsAccepted, setTermsAccepted] = useState(false);
-  const [eligibleForPrize, setEligibleForPrize] = useState(false);
-  const [prizeRequested, setPrizeRequested] = useState(false);
-  const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [localError, setLocalError] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    if (!user?.id) return;
-    const [summaryResult, enrollmentResult, prizeResult, rankingResult] = await Promise.all([
-      supabase.from("pool_public_summary").select("*").maybeSingle(),
-      supabase
-        .from("enrollments")
-        .select("id,status,terms_accepted_at")
-        .eq("user_id", user.id)
-        .maybeSingle(),
-      supabase.from("prize_requests").select("id,status").eq("user_id", user.id).maybeSingle(),
-      supabase.from("ranking_pool").select("rank_position").eq("user_id", user.id).maybeSingle(),
-    ]);
-    const nextSummary = summaryResult.data as PoolSummary | null;
-    const nextEnrollment = enrollmentResult.data as Enrollment | null;
-    setSummary(nextSummary);
-    setEnrollment(nextEnrollment);
-    setTermsAccepted(Boolean(nextEnrollment?.terms_accepted_at));
-    setPrizeRequested(Boolean(prizeResult.data));
-    setEligibleForPrize(
-      nextSummary?.status === "closed" &&
-        Boolean(rankingResult.data && Number(rankingResult.data.rank_position) <= 3),
-    );
+  const poolQuery = useQuery({
+    queryKey: poolQueryKey(user?.id),
+    enabled: Boolean(user?.id),
+    queryFn: () => fetchPool(user!.id),
+  });
 
-    if (nextEnrollment) {
-      const { data } = await supabase
-        .from("payments")
-        .select("id,status,provider,checkout_url,receipt_url,amount_cents")
-        .eq("enrollment_id", nextEnrollment.id)
-        .order("created_at", { ascending: false });
-      setPayments((data ?? []) as Payment[]);
-    } else {
-      setPayments([]);
-    }
-    setError(
-      summaryResult.error?.message ??
-        enrollmentResult.error?.message ??
-        prizeResult.error?.message ??
-        rankingResult.error?.message ??
-        null,
-    );
-    setLoading(false);
-  }, [user?.id]);
+  const summary = poolQuery.data?.summary ?? null;
+  const enrollment = poolQuery.data?.enrollment ?? null;
+  const payments = poolQuery.data?.payments ?? emptyPayments;
+  const eligibleForPrize = poolQuery.data?.eligibleForPrize ?? false;
+  const prizeRequested = poolQuery.data?.prizeRequested ?? false;
+  const loading = poolQuery.isLoading && !poolQuery.data;
+  const queryError = poolQuery.error instanceof Error ? poolQuery.error.message : null;
+  const error = localError ?? poolQuery.data?.error ?? queryError;
+  const refetchPool = poolQuery.refetch;
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    if (!enrollment) return;
+    setTermsAccepted(Boolean(enrollment.terms_accepted_at));
+  }, [enrollment]);
 
   useEffect(() => {
     if (typeof window === "undefined" || !enrollment) return;
@@ -139,11 +120,11 @@ function PoolPage() {
           result.paid ? "Pagamento confirmado com segurança." : "Pagamento ainda pendente.",
         );
         window.history.replaceState({}, "", "/pool");
-        return load();
+        return refetchPool();
       })
-      .catch((caught: Error) => setError(caught.message))
+      .catch((caught: Error) => setLocalError(caught.message))
       .finally(() => setBusy(false));
-  }, [enrollment, load, payments]);
+  }, [enrollment, payments, refetchPool]);
 
   const progress = useMemo(() => {
     if (!summary?.minimum_participants) return 0;
@@ -152,14 +133,14 @@ function PoolPage() {
 
   async function run(operation: () => Promise<unknown>, success: string) {
     setBusy(true);
-    setError(null);
+    setLocalError(null);
     setMessage(null);
     try {
       await operation();
       setMessage(success);
-      await load();
+      await refetchPool();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Falha na operação.");
+      setLocalError(caught instanceof Error ? caught.message : "Falha na operação.");
     } finally {
       setBusy(false);
     }
@@ -175,7 +156,7 @@ function PoolPage() {
 
   async function createCheckout() {
     setBusy(true);
-    setError(null);
+    setLocalError(null);
     try {
       const result = await callEdgeFunction<{ checkout_url?: string; already_active?: boolean }>(
         "pool-create-checkout",
@@ -183,16 +164,18 @@ function PoolPage() {
       );
       if (result.already_active) {
         setMessage("Sua inscrição já está ativa.");
-        await load();
+        await refetchPool();
         return;
       }
       if (result.checkout_url) {
         window.open(result.checkout_url, "_blank", "noopener,noreferrer");
         setMessage("Checkout aberto. A inscrição será liberada após confirmação server-side.");
-        await load();
+        await refetchPool();
       }
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Não foi possível criar o checkout.");
+      setLocalError(
+        caught instanceof Error ? caught.message : "Não foi possível criar o checkout.",
+      );
     } finally {
       setBusy(false);
     }
@@ -427,4 +410,45 @@ function EnrollmentStatus({ status }: { status: string }) {
 
 function money(cents: number) {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(cents / 100);
+}
+
+async function fetchPool(userId: string): Promise<PoolData> {
+  const [summaryResult, enrollmentResult, prizeResult, rankingResult] = await Promise.all([
+    supabase.from("pool_public_summary").select("*").maybeSingle(),
+    supabase
+      .from("enrollments")
+      .select("id,status,terms_accepted_at")
+      .eq("user_id", userId)
+      .maybeSingle(),
+    supabase.from("prize_requests").select("id,status").eq("user_id", userId).maybeSingle(),
+    supabase.from("ranking_pool").select("rank_position").eq("user_id", userId).maybeSingle(),
+  ]);
+  const summary = summaryResult.data as PoolSummary | null;
+  const enrollment = enrollmentResult.data as Enrollment | null;
+  let payments: Payment[] = [];
+
+  if (enrollment) {
+    const { data } = await supabase
+      .from("payments")
+      .select("id,status,provider,checkout_url,receipt_url,amount_cents")
+      .eq("enrollment_id", enrollment.id)
+      .order("created_at", { ascending: false });
+    payments = (data ?? []) as Payment[];
+  }
+
+  return {
+    summary,
+    enrollment,
+    payments,
+    eligibleForPrize:
+      summary?.status === "closed" &&
+      Boolean(rankingResult.data && Number(rankingResult.data.rank_position) <= 3),
+    prizeRequested: Boolean(prizeResult.data),
+    error:
+      summaryResult.error?.message ??
+      enrollmentResult.error?.message ??
+      prizeResult.error?.message ??
+      rankingResult.error?.message ??
+      null,
+  };
 }

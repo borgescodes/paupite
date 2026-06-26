@@ -172,11 +172,28 @@
 
 /* ── Accent themes ─────────────────────────────────────────────────────── */
 
+:root[data-accent="blue"] {
+  --primary: oklch(0.58 0.16 224);
+  --brand: oklch(0.58 0.16 224);
+  --ring: oklch(0.62 0.145 224);
+  --accent: oklch(0.915 0.04 219);
+  --accent-foreground: oklch(0.24 0.055 243);
+}
+
+html.dark[data-accent="blue"] {
+  --primary: oklch(0.7 0.145 220);
+  --brand: oklch(0.7 0.145 220);
+  --ring: oklch(0.7 0.14 220);
+  --accent: oklch(0.26 0.045 232);
+  --accent-foreground: oklch(0.97 0.01 240);
+}
+
 :root[data-accent="pink"] {
   --primary: oklch(0.62 0.22 350);
   --brand: oklch(0.62 0.22 350);
   --ring: oklch(0.67 0.18 350);
   --accent: oklch(0.93 0.055 350);
+  --accent-foreground: oklch(0.24 0.075 350);
 }
 
 html.dark[data-accent="pink"] {
@@ -184,6 +201,7 @@ html.dark[data-accent="pink"] {
   --brand: oklch(0.74 0.18 350);
   --ring: oklch(0.74 0.16 350);
   --accent: oklch(0.28 0.07 350);
+  --accent-foreground: oklch(0.97 0.012 350);
 }
 
 :root[data-accent="purple"] {
@@ -191,6 +209,7 @@ html.dark[data-accent="pink"] {
   --brand: oklch(0.57 0.2 295);
   --ring: oklch(0.63 0.17 295);
   --accent: oklch(0.93 0.05 295);
+  --accent-foreground: oklch(0.25 0.075 295);
 }
 
 html.dark[data-accent="purple"] {
@@ -198,6 +217,7 @@ html.dark[data-accent="purple"] {
   --brand: oklch(0.72 0.17 295);
   --ring: oklch(0.72 0.15 295);
   --accent: oklch(0.28 0.065 295);
+  --accent-foreground: oklch(0.97 0.012 295);
 }
 
 :root[data-accent="green"] {
@@ -205,6 +225,7 @@ html.dark[data-accent="purple"] {
   --brand: oklch(0.56 0.16 154);
   --ring: oklch(0.61 0.14 154);
   --accent: oklch(0.93 0.05 154);
+  --accent-foreground: oklch(0.23 0.075 154);
 }
 
 html.dark[data-accent="green"] {
@@ -212,6 +233,7 @@ html.dark[data-accent="green"] {
   --brand: oklch(0.72 0.15 154);
   --ring: oklch(0.72 0.13 154);
   --accent: oklch(0.27 0.055 154);
+  --accent-foreground: oklch(0.97 0.012 154);
 }
 
 :root[data-accent="red"] {
@@ -219,6 +241,7 @@ html.dark[data-accent="green"] {
   --brand: oklch(0.58 0.22 27);
   --ring: oklch(0.63 0.18 27);
   --accent: oklch(0.93 0.05 27);
+  --accent-foreground: oklch(0.26 0.075 27);
 }
 
 html.dark[data-accent="red"] {
@@ -226,6 +249,7 @@ html.dark[data-accent="red"] {
   --brand: oklch(0.7 0.19 27);
   --ring: oklch(0.7 0.16 27);
   --accent: oklch(0.28 0.065 27);
+  --accent-foreground: oklch(0.97 0.012 27);
 }
 
 /* Brasil: verde primário, amarelo accent, azul ring */
@@ -246,6 +270,11 @@ html.dark[data-accent="brazil"] {
 }
 
 /* ────────────────────────────────────────────────────────────────────── */
+
+#lovable-badge {
+  display: none !important;
+  pointer-events: none !important;
+}
 
 @layer base {
   * {

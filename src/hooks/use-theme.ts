@@ -10,6 +10,7 @@ const ACCENT_KEY = "paupite-accent";
 const THEME_EVENT = "paupite:theme-changed";
 const ACCENT_EVENT = "paupite:accent-changed";
 const accents: AccentTheme[] = ["blue", "pink", "purple", "green", "red", "brazil"];
+const accentFetches = new Map<string, Promise<AccentTheme | null>>();
 
 function initialTheme(): ThemeMode {
   if (typeof window === "undefined") return "light";
@@ -41,9 +42,25 @@ function applyAccentLocally(next: AccentTheme, userId?: string | null) {
   window.dispatchEvent(new CustomEvent<AccentTheme>(ACCENT_EVENT, { detail: next }));
 }
 
+function fetchAccentTheme(userId: string) {
+  const existing = accentFetches.get(userId);
+  if (existing) return existing;
+
+  const request = supabase
+    .from("profiles")
+    .select("accent_theme")
+    .eq("id", userId)
+    .maybeSingle()
+    .then(({ data }) => (isAccentTheme(data?.accent_theme ?? null) ? data.accent_theme : null))
+    .catch(() => null);
+
+  accentFetches.set(userId, request);
+  return request;
+}
+
 export function useThemeMode(userId?: string | null) {
-  const [theme, setTheme] = useState<ThemeMode>("light");
-  const [accentTheme, setAccentThemeState] = useState<AccentTheme>("blue");
+  const [theme, setTheme] = useState<ThemeMode>(() => initialTheme());
+  const [accentTheme, setAccentThemeState] = useState<AccentTheme>(() => initialAccent(userId));
 
   useEffect(() => {
     setTheme(initialTheme());
@@ -56,21 +73,43 @@ export function useThemeMode(userId?: string | null) {
   // After userId is known, fetch accent from DB — DB wins over localStorage
   useEffect(() => {
     if (!userId) return;
-    void (async () => {
-      try {
-        const { data } = await supabase
-          .from("profiles")
-          .select("accent_theme")
-          .eq("id", userId)
-          .maybeSingle();
-        if (data && isAccentTheme(data.accent_theme)) {
-          applyAccentLocally(data.accent_theme, userId);
-          setAccentThemeState(data.accent_theme);
-        }
-      } catch {
-        // column may not exist yet in remote; localStorage value stands
+    let cancelled = false;
+
+    void fetchAccentTheme(userId).then((next) => {
+      if (cancelled || !next) return;
+      applyAccentLocally(next, userId);
+      setAccentThemeState(next);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
+
+  useEffect(() => {
+    if (!userId || !accentTheme) return;
+    const key = accentStorageKey(userId);
+    const stored = window.localStorage.getItem(key);
+    if (!isAccentTheme(stored)) {
+      window.localStorage.setItem(key, accentTheme);
+    }
+  }, [accentTheme, userId]);
+
+  useEffect(() => {
+    const syncStorage = (event: StorageEvent) => {
+      if (event.key === THEME_KEY && (event.newValue === "dark" || event.newValue === "light")) {
+        setTheme(event.newValue);
       }
-    })();
+      if (
+        event.key &&
+        [ACCENT_KEY, accentStorageKey(userId)].includes(event.key) &&
+        isAccentTheme(event.newValue)
+      ) {
+        setAccentThemeState(event.newValue);
+      }
+    };
+    window.addEventListener("storage", syncStorage);
+    return () => window.removeEventListener("storage", syncStorage);
   }, [userId]);
 
   useEffect(() => {
@@ -109,10 +148,8 @@ export function useThemeMode(userId?: string | null) {
     applyAccentLocally(next, userId);
     setAccentThemeState(next);
     if (userId) {
-      void supabase
-        .from("profiles")
-        .update({ accent_theme: next })
-        .eq("id", userId);
+      accentFetches.set(userId, Promise.resolve(next));
+      void supabase.from("profiles").update({ accent_theme: next }).eq("id", userId);
     }
   }
 
