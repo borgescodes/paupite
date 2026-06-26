@@ -80,20 +80,20 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "PauPite" },
+      { title: "PauPite | byBorgez" },
       {
         name: "description",
         content: "Bolão privado da Copa 2026 com palpites, ranking e gestão segura.",
       },
       { name: "author", content: "Pau Pite" },
-      { property: "og:title", content: "PauPite" },
+      { property: "og:title", content: "PauPite | byBorgez" },
       {
         property: "og:description",
         content: "Bolão privado da Copa 2026 com palpites, ranking e gestão segura.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
-      { name: "twitter:title", content: "PauPite" },
+      { name: "twitter:title", content: "PauPite | byBorgez" },
       {
         name: "twitter:description",
         content: "Bolão privado da Copa 2026 com palpites, ranking e gestão segura.",
@@ -108,6 +108,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         content:
           "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/9a1280de-0f5d-47ad-b0d3-9c40535ca9ec/id-preview-e91061d1--62969498-ea4b-4fea-8238-f2cccb5aeac2.lovable.app-1782192623911.png",
       },
+      { name: "description", content: "Aposta não é renda extra!" },
+      { property: "og:description", content: "Aposta não é renda extra!" },
+      { name: "twitter:description", content: "Aposta não é renda extra!" },
+      { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/ySEy62ePY7TAmyksCtpa2YsdZxg1/social-images/social-1782473407681-social-img.webp" },
+      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/ySEy62ePY7TAmyksCtpa2YsdZxg1/social-images/social-1782473407681-social-img.webp" },
     ],
     links: [
       {
