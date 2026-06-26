@@ -13,9 +13,11 @@ const positionStyles: Record<number, string> = {
 export function RankingPodium({
   rows,
   currentUserId,
+  onOpenProfile,
 }: {
   rows: RankingEntry[];
   currentUserId?: string;
+  onOpenProfile?: (row: RankingEntry) => void;
 }) {
   if (!rows.length) return null;
 
@@ -24,6 +26,8 @@ export function RankingPodium({
       {rows.slice(0, 3).map((row) => {
         const position = row.rank_position ?? 0;
         const name = rankingName(row);
+        const isMe = row.user_id === currentUserId;
+        const canOpenProfile = Boolean(row.user_id && !isMe && onOpenProfile);
         return (
           <article
             key={row.user_id}
@@ -48,18 +52,32 @@ export function RankingPodium({
             >
               {position}º
             </div>
-            <Avatar
+            <button
+              type="button"
               className={cn(
-                "border-2 border-background shadow-lg",
-                position === 1 ? "size-16" : "size-13",
+                "flex w-full min-w-0 flex-col items-center rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                canOpenProfile ? "hover:text-brand" : "cursor-default",
               )}
+              onClick={() => canOpenProfile && onOpenProfile?.(row)}
+              disabled={!canOpenProfile}
+              aria-label={canOpenProfile ? `Abrir perfil público de ${name}` : undefined}
             >
-              {row.avatar_url && <AvatarImage src={row.avatar_url} alt={name} />}
-              <AvatarFallback className="bg-brand/15 font-extrabold text-brand">
-                {rankingInitials(row)}
-              </AvatarFallback>
-            </Avatar>
-            <p className="mt-2 w-full truncate text-sm font-extrabold">{name}</p>
+              <Avatar
+                className={cn(
+                  "border-2 border-background shadow-lg",
+                  position === 1 ? "size-16" : "size-13",
+                )}
+              >
+                {row.avatar_url && <AvatarImage src={row.avatar_url} alt={name} />}
+                <AvatarFallback className="bg-brand/15 font-extrabold text-brand">
+                  {rankingInitials(row)}
+                </AvatarFallback>
+              </Avatar>
+              <p className="mt-2 w-full truncate text-sm font-extrabold">
+                {name}
+                {isMe && <span className="ml-1 text-[10px] font-bold text-brand">VOCÊ</span>}
+              </p>
+            </button>
             <p className="text-lg font-extrabold tabular-nums text-brand">
               {row.total_points ?? 0} pts
             </p>

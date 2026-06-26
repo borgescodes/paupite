@@ -45,6 +45,7 @@ function HomePage() {
   const [localError, setLocalError] = useState<string | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [savedId, setSavedId] = useState<string | null>(null);
+  const [editingIds, setEditingIds] = useState<Record<string, boolean>>({});
 
   const homeQuery = useQuery({
     queryKey: homeMatchesQueryKey(user?.id),
@@ -165,6 +166,7 @@ function HomePage() {
           }
         : current,
     );
+    setEditingIds((current) => ({ ...current, [matchId]: false }));
     void queryClient.invalidateQueries({ queryKey: homeMatchesQueryKey(user.id) });
     setSavedId(matchId);
     toast.success("Palpite salvo.");
@@ -245,9 +247,11 @@ function HomePage() {
             <MatchCard
               key={match.id}
               data={match}
+              editing={editingIds[match.id] ?? !match.guess.saved}
               saving={savingId === match.id}
               saveMessage={savedId === match.id ? "Palpite salvo." : null}
               onGuessChange={(value) => setDrafts((current) => ({ ...current, [match.id]: value }))}
+              onEditGuess={() => setEditingIds((current) => ({ ...current, [match.id]: true }))}
               onSubmitGuess={() => void saveBet(match.id)}
             />
           ))}

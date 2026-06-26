@@ -16,6 +16,7 @@ export interface MegaBrainForecast {
   home: number;
   draw: number;
   away: number;
+  totalBets?: number;
 }
 
 export interface MatchCardData {

@@ -70,10 +70,17 @@ export function useThemeMode(userId?: string | null) {
     setAccentThemeState(initialAccent(userId));
   }, [userId]);
 
-  // After userId is known, fetch accent from DB — DB wins over localStorage
+  // After userId is known, hydrate from DB only when this browser has no explicit user accent.
   useEffect(() => {
     if (!userId) return;
     let cancelled = false;
+    const localAccent = window.localStorage.getItem(accentStorageKey(userId));
+
+    if (isAccentTheme(localAccent)) {
+      document.documentElement.dataset.accent = localAccent;
+      setAccentThemeState(localAccent);
+      return;
+    }
 
     void fetchAccentTheme(userId).then((next) => {
       if (cancelled || !next) return;

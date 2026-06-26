@@ -14,6 +14,8 @@ export interface MatchCardProps {
   data: MatchCardData;
   onGuessChange?: (value: ScoreValue) => void;
   onSubmitGuess?: () => void;
+  onEditGuess?: () => void;
+  editing?: boolean;
   saving?: boolean;
   saveMessage?: string | null;
   className?: string;
@@ -144,6 +146,11 @@ function MegaBrainBlock({
               {away.shortName} <strong className="ml-0.5 text-foreground">{forecast.away}%</strong>
             </span>
           </div>
+          {typeof forecast.totalBets === "number" && (
+            <p className="text-[11px] text-muted-foreground">
+              {forecast.totalBets} palpite(s) considerado(s)
+            </p>
+          )}
         </>
       ) : (
         <p className="text-[11px] text-muted-foreground">Ainda sem palpites suficientes</p>
@@ -161,14 +168,27 @@ function LockedBar({ label }: { label: string }) {
   );
 }
 
+function ScoreText({ score }: { score: ScoreValue }) {
+  return (
+    <strong className="text-foreground">
+      {score.home} - {score.away}
+    </strong>
+  );
+}
+
 function MatchCard({
   data,
   onGuessChange,
   onSubmitGuess,
+  onEditGuess,
+  editing,
   saving,
   saveMessage,
   className,
 }: MatchCardProps) {
+  const hasSavedGuess = Boolean(data.guess.saved && data.guess.value);
+  const showEditor = data.paupiteOpen && (!hasSavedGuess || editing);
+
   return (
     <Card
       className={cn(
@@ -184,30 +204,53 @@ function MatchCard({
 
         {data.status === "scheduled" && (
           <div className="space-y-2">
-            <div className={cn(!data.paupiteOpen && "opacity-60")}>
-              <ScoreStepper
-                home={data.home}
-                away={data.away}
-                value={data.guess.value ?? { home: 0, away: 0 }}
-                onChange={onGuessChange}
-                disabled={!data.paupiteOpen}
-              />
-            </div>
-            <MegaBrainBlock forecast={data.megaBrain} home={data.home} away={data.away} />
+            {hasSavedGuess && data.guess.value && (
+              <div className="flex items-center justify-between gap-2 rounded-2xl bg-success/10 px-3 py-2 text-xs">
+                <StatusBadge variant="success">
+                  <BiCheckCircle className="size-3" />
+                  Palpite enviado
+                </StatusBadge>
+                <span className="text-muted-foreground">
+                  Seu palpite: <ScoreText score={data.guess.value} />
+                </span>
+              </div>
+            )}
+            {showEditor && (
+              <div className={cn(!data.paupiteOpen && "opacity-60")}>
+                <ScoreStepper
+                  home={data.home}
+                  away={data.away}
+                  value={data.guess.value ?? { home: 0, away: 0 }}
+                  onChange={onGuessChange}
+                  disabled={!data.paupiteOpen}
+                />
+              </div>
+            )}
             {data.paupiteOpen ? (
-              <Button
-                variant={data.guess.value ? "secondary" : "default"}
-                className={cn(
-                  "h-11 w-full rounded-2xl",
-                  !data.guess.value && "bg-brand text-brand-foreground hover:bg-brand/90",
-                )}
-                onClick={onSubmitGuess}
-                disabled={saving}
-              >
-                {saving ? "Salvando..." : data.guess.saved ? "Salvar alteração" : "Enviar paupite"}
-              </Button>
+              showEditor ? (
+                <Button
+                  className="h-11 w-full rounded-2xl bg-brand text-brand-foreground hover:bg-brand/90"
+                  onClick={onSubmitGuess}
+                  disabled={saving}
+                >
+                  {saving
+                    ? "Salvando..."
+                    : hasSavedGuess
+                      ? "Salvar novo palpite"
+                      : "Enviar palpite"}
+                </Button>
+              ) : (
+                <Button
+                  variant="secondary"
+                  className="h-11 w-full rounded-2xl"
+                  onClick={onEditGuess}
+                  disabled={saving}
+                >
+                  Alterar palpite
+                </Button>
+              )
             ) : (
-              <LockedBar label={data.paupiteClosedLabel} />
+              <LockedBar label="Palpite bloqueado" />
             )}
           </div>
         )}
@@ -217,27 +260,30 @@ function MatchCard({
             <FinalScoreRow data={data} score={data.liveScore} />
             {data.guess.value && (
               <p className="text-center text-xs text-muted-foreground">
-                Seu paupite: {data.guess.value.home} - {data.guess.value.away}
+                Seu palpite: <ScoreText score={data.guess.value} />
               </p>
             )}
-            <LockedBar label={data.paupiteClosedLabel} />
+            <LockedBar label="Palpite bloqueado" />
           </div>
         )}
 
         {data.status === "finished" && data.finalScore && (
-          <div className="space-y-2">
+          <div className="space-y-3">
+            <p className="eyebrow text-center text-muted-foreground">Resultado oficial</p>
             <FinalScoreRow data={data} score={data.finalScore} />
-            {data.guess.value && (
+            {data.guess.value ? (
               <div className="rounded-2xl bg-muted/70 px-3 py-2.5 text-center text-xs text-muted-foreground">
-                Você palpitou{" "}
-                <strong className="text-foreground">
-                  {data.guess.value.home} - {data.guess.value.away}
-                </strong>
+                Seu palpite: <ScoreText score={data.guess.value} />
                 {typeof data.guess.points === "number" && (
-                  <span> · {data.guess.points} ponto(s)</span>
+                  <span> · Pontos: {data.guess.points}</span>
                 )}
               </div>
+            ) : (
+              <div className="rounded-2xl bg-muted/70 px-3 py-2.5 text-center text-xs font-bold text-muted-foreground">
+                Você não palpitou
+              </div>
             )}
+            <MegaBrainBlock forecast={data.megaBrain} home={data.home} away={data.away} />
           </div>
         )}
         {saveMessage && (

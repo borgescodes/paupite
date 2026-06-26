@@ -10,10 +10,10 @@ import type {
 
 export interface BetTrend {
   match_id: string;
-  total_bets: number;
-  home_pct: number;
-  draw_pct: number;
-  away_pct: number;
+  total_bets: number | null;
+  home_pct: number | null;
+  draw_pct: number | null;
+  away_pct: number | null;
 }
 
 export interface MatchTeamRow {
@@ -68,8 +68,13 @@ export function matchDateKey(kickoffAt: string) {
 const MIN_BETS_FOR_MEGABRAIN = 3;
 
 export function trendsToForecast(trend: BetTrend | undefined): MegaBrainForecast | undefined {
-  if (!trend || trend.total_bets < MIN_BETS_FOR_MEGABRAIN) return undefined;
-  return { home: trend.home_pct, draw: trend.draw_pct, away: trend.away_pct };
+  if (!trend || !trend.total_bets || trend.total_bets < MIN_BETS_FOR_MEGABRAIN) return undefined;
+  return {
+    home: Math.round(trend.home_pct ?? 0),
+    draw: Math.round(trend.draw_pct ?? 0),
+    away: Math.round(trend.away_pct ?? 0),
+    totalBets: trend.total_bets,
+  };
 }
 
 export function toMatchCard(
@@ -104,7 +109,7 @@ export function toMatchCard(
       saved: Boolean(savedBet),
       points: savedBet?.points ?? 0,
     },
-    megaBrain: trendsToForecast(trend),
+    megaBrain: status === "finished" ? trendsToForecast(trend) : undefined,
   };
 }
 
