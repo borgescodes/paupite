@@ -72,13 +72,19 @@ function fetchAccentTheme(userId: string) {
   const existing = accentFetches.get(userId);
   if (existing) return existing;
 
-  const request = supabase
-    .from("profiles")
-    .select("accent_theme")
-    .eq("id", userId)
-    .maybeSingle()
-    .then(({ data }) => (isAccentTheme(data?.accent_theme ?? null) ? data.accent_theme : null))
-    .catch(() => null);
+  const request = (async () => {
+    try {
+      const { data } = await supabase
+        .from("profiles")
+        .select("accent_theme")
+        .eq("id", userId)
+        .maybeSingle();
+      const accent = (data as { accent_theme?: string | null } | null)?.accent_theme ?? null;
+      return isAccentTheme(accent) ? accent : null;
+    } catch {
+      return null;
+    }
+  })();
 
   accentFetches.set(userId, request);
   return request;
