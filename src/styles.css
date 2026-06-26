@@ -511,3 +511,7 @@ html.dark[data-accent="brazil"] {
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
+
+#lovable-badge { 
+  display: none !important; 
+}
