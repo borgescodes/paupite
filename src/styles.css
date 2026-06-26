@@ -123,7 +123,7 @@
   --surface-strong: oklch(1 0 0 / 96%);
 }
 
-.dark {
+html.dark {
   --background: oklch(0.105 0.022 250);
   --foreground: oklch(0.965 0.012 238);
   --card: oklch(0.17 0.025 250 / 94%);

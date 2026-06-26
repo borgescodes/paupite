@@ -204,6 +204,7 @@ function MatchCard({
 
         {data.status === "scheduled" && (
           <div className="space-y-2">
+            {(!showEditor || !data.paupiteOpen) && <TeamsRow data={data} />}
             {hasSavedGuess && data.guess.value && (
               <div className="flex items-center justify-between gap-2 rounded-2xl bg-success/10 px-3 py-2 text-xs">
                 <StatusBadge variant="success">

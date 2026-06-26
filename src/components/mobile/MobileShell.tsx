@@ -38,11 +38,12 @@ export function MobileShell({
   }
 
   return (
-    <div className={cn("app-backdrop min-h-screen pb-24", theme === "dark" && "dark", className)}>
+    <div className={cn("app-backdrop min-h-screen pb-24", className)}>
       <AppHeader
         userName={userName}
         avatarUrl={profile?.avatar_url}
         theme={theme}
+        onProfileClick={() => navigate({ to: "/profile" })}
         onRankingShortcutClick={() => navigate({ to: "/ranking" })}
         onToggleTheme={toggleTheme}
       />
