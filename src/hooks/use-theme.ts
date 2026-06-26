@@ -9,6 +9,7 @@ const THEME_KEY = "paupite-theme";
 const ACCENT_KEY = "paupite-accent";
 const THEME_EVENT = "paupite:theme-changed";
 const ACCENT_EVENT = "paupite:accent-changed";
+export const BRAZIL_THEME_EVENT = "paupite:brazil-theme-selected";
 const accents: AccentTheme[] = ["blue", "pink", "purple", "green", "red", "brazil"];
 const accentFetches = new Map<string, Promise<AccentTheme | null>>();
 
@@ -154,6 +155,9 @@ export function useThemeMode(userId?: string | null) {
   function setAccentTheme(next: AccentTheme) {
     applyAccentLocally(next, userId);
     setAccentThemeState(next);
+    if (next === "brazil") {
+      window.dispatchEvent(new Event(BRAZIL_THEME_EVENT));
+    }
     if (userId) {
       accentFetches.set(userId, Promise.resolve(next));
       void supabase.from("profiles").update({ accent_theme: next }).eq("id", userId);

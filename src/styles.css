@@ -252,21 +252,25 @@ html.dark[data-accent="red"] {
   --accent-foreground: oklch(0.97 0.012 27);
 }
 
-/* Brasil: azul premium como base, amarelo como accent e verde como apoio. */
+/* Brasil: fundos principais em verde/amarelo; azul como apoio, texto e ring. */
 :root[data-accent="brazil"] {
-  --primary: oklch(0.48 0.16 255);
-  --brand: oklch(0.48 0.16 255);
-  --ring: oklch(0.62 0.16 150);
-  --accent: oklch(0.91 0.13 92);
-  --accent-foreground: oklch(0.22 0.08 255);
+  --primary: oklch(0.47 0.17 255);
+  --primary-foreground: oklch(0.18 0.075 255);
+  --brand: oklch(0.47 0.17 255);
+  --brand-foreground: oklch(0.18 0.075 255);
+  --ring: oklch(0.52 0.18 255);
+  --accent: oklch(0.92 0.045 255);
+  --accent-foreground: oklch(0.2 0.085 255);
 }
 
 html.dark[data-accent="brazil"] {
-  --primary: oklch(0.68 0.14 255);
-  --brand: oklch(0.68 0.14 255);
-  --ring: oklch(0.78 0.14 92);
-  --accent: oklch(0.3 0.08 150);
-  --accent-foreground: oklch(0.94 0.08 92);
+  --primary: oklch(0.74 0.14 255);
+  --primary-foreground: oklch(0.16 0.07 255);
+  --brand: oklch(0.74 0.14 255);
+  --brand-foreground: oklch(0.16 0.07 255);
+  --ring: oklch(0.74 0.15 255);
+  --accent: oklch(0.28 0.075 255);
+  --accent-foreground: oklch(0.96 0.02 255);
 }
 
 /* ────────────────────────────────────────────────────────────────────── */
@@ -342,6 +346,20 @@ html.dark[data-accent="brazil"] {
   }
 }
 
+@keyframes brazil-confetti-fall {
+  0% {
+    opacity: 0;
+    transform: translate3d(var(--x), -12vh, 0) rotate(0deg);
+  }
+  10% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(calc(var(--x) + var(--drift)), 105vh, 0) rotate(var(--rotate));
+  }
+}
+
 .animate-blob-drift {
   animation: blob-drift 18s ease-in-out infinite;
 }
@@ -414,11 +432,56 @@ html.dark[data-accent="brazil"] {
     border-radius: 0.875rem;
     background: color-mix(in oklab, var(--background) 80%, transparent);
   }
+
+  html[data-accent="brazil"] .bg-brand,
+  html[data-accent="brazil"] .bg-primary {
+    background-color: oklch(0.58 0.17 150);
+    background-image: linear-gradient(
+      135deg,
+      oklch(0.5 0.17 150) 0%,
+      oklch(0.58 0.18 150) 44%,
+      oklch(0.9 0.14 92) 100%
+    );
+    color: var(--brand-foreground);
+  }
+
+  html.dark[data-accent="brazil"] .bg-brand,
+  html.dark[data-accent="brazil"] .bg-primary {
+    background-color: oklch(0.68 0.16 150);
+    background-image: linear-gradient(
+      135deg,
+      oklch(0.58 0.16 150) 0%,
+      oklch(0.67 0.16 150) 42%,
+      oklch(0.84 0.14 92) 100%
+    );
+  }
+
+  .brazil-confetti {
+    pointer-events: none;
+    position: fixed;
+    inset: 0;
+    z-index: 80;
+    overflow: hidden;
+  }
+
+  .brazil-confetti span {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 0.55rem;
+    height: 0.9rem;
+    border-radius: 999px;
+    background: var(--confetti-color);
+    box-shadow: 0 0 18px color-mix(in oklab, var(--confetti-color) 45%, transparent);
+    animation: brazil-confetti-fall var(--duration) cubic-bezier(0.22, 0.72, 0.26, 1) var(--delay)
+      both;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .animate-blob-drift,
-  .screen-enter {
+  .screen-enter,
+  .brazil-confetti span {
     animation: none;
   }
 
