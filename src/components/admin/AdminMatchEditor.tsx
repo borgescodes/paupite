@@ -7,6 +7,7 @@ import type {
   AdminMatchFormValue,
   AdminTeam,
 } from "@/components/admin/match-types";
+import { matchStageOptions } from "@/components/admin/match-labels";
 import { Button } from "@/components/ui/button";
 import {
   Drawer,
@@ -104,14 +105,17 @@ export function AdminMatchEditor({
             />
           </Field>
           <Field id="match-stage" label="Fase">
-            <Input
+            <NativeSelect
               id="match-stage"
               value={form.stage}
-              placeholder="Ex.: fase de grupos"
-              onChange={(event) =>
-                setForm((current) => ({ ...current, stage: event.target.value }))
-              }
-            />
+              onChange={(value) => setForm((current) => ({ ...current, stage: value }))}
+            >
+              {matchStageOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </NativeSelect>
           </Field>
           <Field id="match-group" label="Grupo ou rodada">
             <Input

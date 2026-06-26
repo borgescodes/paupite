@@ -19,7 +19,6 @@ interface Settings {
   prize_percentage: number;
   prize_description: string | null;
   terms: string;
-  free_ranking_starts_at: string | null;
 }
 
 interface Enrollment {
@@ -49,7 +48,7 @@ interface ScoreRules {
   goal_difference_bonus: number;
 }
 
-export function PoolAdmin() {
+export function PoolAdmin({ currentRole }: { currentRole: string }) {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
   const [prizes, setPrizes] = useState<PrizeRequest[]>([]);
@@ -112,131 +111,127 @@ export function PoolAdmin() {
 
   if (!settings)
     return <p className="text-sm text-muted-foreground">Carregando configurações...</p>;
+  const superadmin = currentRole === "superadmin";
 
   return (
     <div className="space-y-4">
-      <Card className="glass-card">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <BiCoinStack className="size-5 text-brand" />
-            Configuração do bolão
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-3 sm:grid-cols-2">
-          <Field label="Título">
-            <Input
-              value={settings.title}
-              onChange={(event) => setSettings({ ...settings, title: event.target.value })}
-            />
-          </Field>
-          <Field label="Status">
-            <select
-              className="h-9 w-full rounded-md border bg-background px-3 text-sm"
-              value={settings.status}
-              onChange={(event) => setSettings({ ...settings, status: event.target.value })}
-            >
-              <option value="draft">Rascunho</option>
-              <option value="open">Aberto</option>
-              <option value="closed">Encerrado</option>
-              <option value="archived">Arquivado</option>
-            </select>
-          </Field>
-          <Field label="Entrada (R$)">
-            <Input
-              type="number"
-              min={0}
-              step="0.01"
-              value={(settings.entry_fee_cents / 100).toFixed(2)}
-              onChange={(event) =>
-                setSettings({
-                  ...settings,
-                  entry_fee_cents: Math.round(Number(event.target.value) * 100),
-                })
-              }
-            />
-          </Field>
-          <Field label="Meta de participantes">
-            <Input
-              type="number"
-              min={1}
-              value={settings.minimum_participants}
-              onChange={(event) =>
-                setSettings({ ...settings, minimum_participants: Number(event.target.value) })
-              }
-            />
-          </Field>
-          <Field label="% destinado à premiação">
-            <Input
-              type="number"
-              min={0}
-              max={100}
-              value={settings.prize_percentage}
-              onChange={(event) =>
-                setSettings({ ...settings, prize_percentage: Number(event.target.value) })
-              }
-            />
-          </Field>
-          <Field label="Início do Ranking da Resenha">
-            <Input
-              type="datetime-local"
-              value={
-                settings.free_ranking_starts_at ? toLocalInput(settings.free_ranking_starts_at) : ""
-              }
-              onChange={(event) =>
-                setSettings({
-                  ...settings,
-                  free_ranking_starts_at: event.target.value
-                    ? new Date(event.target.value).toISOString()
-                    : null,
-                })
-              }
-            />
-          </Field>
-          <div className="sm:col-span-2">
-            <Field label="Informação da premiação">
+      {superadmin ? (
+        <Card className="glass-card">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <BiCoinStack className="size-5 text-brand" />
+              Configuração do bolão
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-3 sm:grid-cols-2">
+            <Field label="Título">
               <Input
-                value={settings.prize_description ?? ""}
+                value={settings.title}
+                onChange={(event) => setSettings({ ...settings, title: event.target.value })}
+              />
+            </Field>
+            <Field label="Status">
+              <select
+                className="h-9 w-full rounded-md border bg-background px-3 text-sm"
+                value={settings.status}
+                onChange={(event) => setSettings({ ...settings, status: event.target.value })}
+              >
+                <option value="draft">Rascunho</option>
+                <option value="open">Aberto</option>
+                <option value="closed">Encerrado</option>
+                <option value="archived">Arquivado</option>
+              </select>
+            </Field>
+            <Field label="Entrada (R$)">
+              <Input
+                type="number"
+                min={0}
+                step="0.01"
+                value={(settings.entry_fee_cents / 100).toFixed(2)}
                 onChange={(event) =>
-                  setSettings({ ...settings, prize_description: event.target.value || null })
+                  setSettings({
+                    ...settings,
+                    entry_fee_cents: Math.round(Number(event.target.value) * 100),
+                  })
                 }
               />
             </Field>
-          </div>
-          <div className="sm:col-span-2">
-            <Field label="Termos">
-              <Textarea
-                rows={6}
-                value={settings.terms}
-                onChange={(event) => setSettings({ ...settings, terms: event.target.value })}
+            <Field label="Meta de participantes">
+              <Input
+                type="number"
+                min={1}
+                value={settings.minimum_participants}
+                onChange={(event) =>
+                  setSettings({ ...settings, minimum_participants: Number(event.target.value) })
+                }
               />
             </Field>
-          </div>
-          <Button
-            disabled={busy}
-            className="sm:col-span-2"
-            onClick={() =>
-              void run(
-                () =>
-                  callEdgeFunction("pool-enrollment", {
-                    action: "update_settings",
-                    title: settings.title,
-                    status: settings.status,
-                    entry_fee_cents: settings.entry_fee_cents,
-                    minimum_participants: settings.minimum_participants,
-                    prize_percentage: settings.prize_percentage,
-                    prize_description: settings.prize_description,
-                    terms: settings.terms,
-                    free_ranking_starts_at: settings.free_ranking_starts_at,
-                  }),
-                "Configurações salvas.",
-              )
-            }
-          >
-            <BiSave className="size-5" />
-            Salvar configurações
-          </Button>
-        </CardContent>
-      </Card>
+            <Field label="% destinado à premiação">
+              <Input
+                type="number"
+                min={0}
+                max={100}
+                value={settings.prize_percentage}
+                onChange={(event) =>
+                  setSettings({ ...settings, prize_percentage: Number(event.target.value) })
+                }
+              />
+            </Field>
+            <div className="sm:col-span-2">
+              <Field label="Informação da premiação">
+                <Input
+                  value={settings.prize_description ?? ""}
+                  onChange={(event) =>
+                    setSettings({ ...settings, prize_description: event.target.value || null })
+                  }
+                />
+              </Field>
+            </div>
+            <div className="sm:col-span-2">
+              <Field label="Termos">
+                <Textarea
+                  rows={6}
+                  value={settings.terms}
+                  onChange={(event) => setSettings({ ...settings, terms: event.target.value })}
+                />
+              </Field>
+            </div>
+            <Button
+              disabled={busy}
+              className="sm:col-span-2"
+              onClick={() =>
+                void run(
+                  () =>
+                    callEdgeFunction("pool-enrollment", {
+                      action: "update_settings",
+                      title: settings.title,
+                      status: settings.status,
+                      entry_fee_cents: settings.entry_fee_cents,
+                      minimum_participants: settings.minimum_participants,
+                      prize_percentage: settings.prize_percentage,
+                      prize_description: settings.prize_description,
+                      terms: settings.terms,
+                    }),
+                  "Configurações salvas.",
+                )
+              }
+            >
+              <BiSave className="size-5" />
+              Salvar configurações
+            </Button>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card className="glass-card border-brand/25">
+          <CardContent className="p-4 text-sm text-muted-foreground">
+            <p className="font-extrabold text-foreground">Operação do bolão</p>
+            <p className="mt-1">
+              Admins acompanham inscrições e pendências. Configuração, pontuação e confirmação
+              manual seguem restritas ao superadmin.
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       {(message || error) && (
         <p className={error ? "text-sm text-destructive" : "text-sm text-success"}>
@@ -244,7 +239,7 @@ export function PoolAdmin() {
         </p>
       )}
 
-      {scoreRules && (
+      {superadmin && scoreRules && (
         <Card className="glass-card">
           <CardHeader>
             <CardTitle className="text-base">Regras de pontuação</CardTitle>
@@ -319,9 +314,11 @@ export function PoolAdmin() {
             >
               <div className="min-w-0 flex-1">
                 <p className="truncate font-bold">{nameOf(users[enrollment.user_id])}</p>
-                <p className="text-xs text-muted-foreground">{enrollment.status}</p>
+                <p className="text-xs text-muted-foreground">
+                  {enrollmentStatusLabel(enrollment.status)}
+                </p>
               </div>
-              {enrollment.status !== "active" && (
+              {superadmin && enrollment.status !== "active" && (
                 <Button
                   size="sm"
                   disabled={busy}
@@ -362,7 +359,7 @@ export function PoolAdmin() {
                 <p className="truncate font-bold">{nameOf(users[prize.user_id])}</p>
                 <p className="text-xs text-muted-foreground">{prize.status}</p>
               </div>
-              {prize.status !== "paid" && (
+              {superadmin && prize.status !== "paid" && (
                 <Button
                   size="sm"
                   disabled={busy}
@@ -401,8 +398,15 @@ function nameOf(user?: UserName) {
   return user?.nickname || user?.display_name || user?.email || "Usuário";
 }
 
-function toLocalInput(value: string) {
-  const date = new Date(value);
-  const offset = date.getTimezoneOffset() * 60_000;
-  return new Date(date.getTime() - offset).toISOString().slice(0, 16);
+function enrollmentStatusLabel(status: string) {
+  const map: Record<string, string> = {
+    requested: "Solicitação enviada",
+    payment_pending: "Aguardando pagamento",
+    active: "Inscrição ativa",
+    confirmed: "Inscrição confirmada",
+    paid: "Pagamento recebido",
+    rejected: "Solicitação recusada",
+    cancelled: "Inscrição cancelada",
+  };
+  return map[status] ?? "Status em análise";
 }

@@ -10,10 +10,10 @@ import type {
 
 export interface BetTrend {
   match_id: string;
-  total_bets: number;
-  home_pct: number;
-  draw_pct: number;
-  away_pct: number;
+  total_bets: number | null;
+  home_pct: number | null;
+  draw_pct: number | null;
+  away_pct: number | null;
 }
 
 export interface MatchTeamRow {
@@ -68,8 +68,13 @@ export function matchDateKey(kickoffAt: string) {
 const MIN_BETS_FOR_MEGABRAIN = 3;
 
 export function trendsToForecast(trend: BetTrend | undefined): MegaBrainForecast | undefined {
-  if (!trend || trend.total_bets < MIN_BETS_FOR_MEGABRAIN) return undefined;
-  return { home: trend.home_pct, draw: trend.draw_pct, away: trend.away_pct };
+  if (!trend || !trend.total_bets || trend.total_bets < MIN_BETS_FOR_MEGABRAIN) return undefined;
+  return {
+    home: Math.round(trend.home_pct ?? 0),
+    draw: Math.round(trend.draw_pct ?? 0),
+    away: Math.round(trend.away_pct ?? 0),
+    totalBets: trend.total_bets,
+  };
 }
 
 export function toMatchCard(
@@ -82,6 +87,7 @@ export function toMatchCard(
   const locked = kickoff.getTime() <= Date.now();
   const status = normalizeStatus(match.status);
   const score = { home: match.home_score, away: match.away_score };
+  const teamsDefined = Boolean(match.home_team && match.away_team);
 
   return {
     id: match.id,
@@ -91,9 +97,10 @@ export function toMatchCard(
     status,
     home: toTeam(match.home_team),
     away: toTeam(match.away_team),
+    teamsDefined,
     liveScore: status === "live" ? score : undefined,
     finalScore: status === "finished" ? score : undefined,
-    paupiteOpen: status === "scheduled" && !locked,
+    paupiteOpen: status === "scheduled" && !locked && teamsDefined,
     paupiteClosedLabel: "Paupites encerrados",
     paupiteClosesAtLabel:
       status === "scheduled" && !locked
@@ -104,7 +111,7 @@ export function toMatchCard(
       saved: Boolean(savedBet),
       points: savedBet?.points ?? 0,
     },
-    megaBrain: trendsToForecast(trend),
+    megaBrain: status === "finished" ? trendsToForecast(trend) : undefined,
   };
 }
 
@@ -115,15 +122,14 @@ function normalizeStatus(status: string): MatchCardData["status"] {
 }
 
 function toTeam(team: MatchTeamRow | null) {
-  const fallback = "??";
   const flagFromUrl = team?.flag_url?.match(/\/flags\/([^/.]+)\./)?.[1];
   return {
-    shortName: team?.short_name || team?.name?.slice(0, 3).toUpperCase() || fallback,
+    shortName: team?.short_name || team?.name?.slice(0, 3).toUpperCase() || "A definir",
     flagCode: (flagFromUrl || team?.country_code || "un").toLowerCase(),
   };
 }
 
-function formatStage(stage: string | null) {
+export function formatStage(stage: string | null) {
   if (!stage) return "Copa 2026";
   const labels: Record<string, string> = {
     group_stage: "Fase de grupos",

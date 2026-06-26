@@ -16,6 +16,7 @@ export interface MegaBrainForecast {
   home: number;
   draw: number;
   away: number;
+  totalBets?: number;
 }
 
 export interface MatchCardData {
@@ -26,6 +27,7 @@ export interface MatchCardData {
   status: MatchTemporalStatus;
   home: TeamInfo;
   away: TeamInfo;
+  teamsDefined?: boolean;
   liveScore?: ScoreValue;
   finalScore?: ScoreValue;
   /** Whether the paupite window is currently open for this match. */

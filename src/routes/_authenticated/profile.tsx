@@ -5,6 +5,7 @@ import {
   BiBarChartAlt2,
   BiBullseye,
   BiCheckCircle,
+  BiListUl,
   BiLogOut,
   BiPalette,
   BiSave,
@@ -38,7 +39,36 @@ export const Route = createFileRoute("/_authenticated/profile")({
 type ProfileStatsData = {
   freeStats: Stats | null;
   poolStats: Stats | null;
+  history: ClosedBetHistoryItem[];
   error: string | null;
+};
+
+type ClosedBetHistoryItem = {
+  matchId: string;
+  kickoffAt: string;
+  home: string;
+  away: string;
+  finalHome: number;
+  finalAway: number;
+  guessHome: number;
+  guessAway: number;
+  points: number;
+};
+
+type BetHistoryRow = {
+  match_id: string;
+  home_score: number;
+  away_score: number;
+  points: number;
+};
+
+type MatchHistoryRow = {
+  id: string;
+  kickoff_at: string;
+  home_score: number;
+  away_score: number;
+  home_team?: { short_name: string | null; name: string | null } | null;
+  away_team?: { short_name: string | null; name: string | null } | null;
 };
 
 const profileStatsQueryKey = (userId: string | null | undefined) =>
@@ -85,6 +115,7 @@ function ProfilePage() {
   const isStaff = profile.role === "admin" || profile.role === "superadmin";
   const freeStats = statsQuery.data?.freeStats ?? null;
   const poolStats = statsQuery.data?.poolStats ?? null;
+  const history = statsQuery.data?.history ?? [];
   const statsError =
     statsQuery.data?.error ?? (statsQuery.error instanceof Error ? statsQuery.error.message : null);
 
@@ -139,6 +170,8 @@ function ProfilePage() {
           <StatsCard title="Resenha" stats={freeStats} accent="brand" />
           <StatsCard title="Bolão" stats={poolStats} accent="warning" />
         </section>
+
+        <HistoryCard history={history} stats={freeStats} />
 
         <Card className="glass-card">
           <CardHeader className="pb-3">
@@ -199,7 +232,7 @@ function ProfilePage() {
                       ? "border-brand bg-brand/10 ring-2 ring-brand/20"
                       : "border-border bg-background/55 hover:bg-accent"
                   }`}
-                  onClick={() => setAccentTheme(option.value)}
+                  onClick={(event) => setAccentTheme(option.value, event.currentTarget)}
                 >
                   <span
                     className={`size-7 shrink-0 rounded-full ${option.swatch} ring-2 ring-background shadow-sm`}
@@ -252,16 +285,62 @@ function ProfilePage() {
 }
 
 async function fetchProfileStats(userId: string): Promise<ProfileStatsData> {
-  const [freeResult, poolResult] = await Promise.all([
+  const [freeResult, poolResult, betsResult, matchesResult] = await Promise.all([
     supabase.from("ranking_free").select("*").eq("user_id", userId).maybeSingle(),
     supabase.from("ranking_pool").select("*").eq("user_id", userId).maybeSingle(),
+    supabase.from("bets").select("match_id,home_score,away_score,points").eq("user_id", userId),
+    supabase
+      .from("matches")
+      .select(
+        "id,kickoff_at,status,home_score,away_score,home_team:teams!matches_home_team_id_fkey(short_name,name),away_team:teams!matches_away_team_id_fkey(short_name,name)",
+      )
+      .in("status", ["finished", "closed"])
+      .order("kickoff_at", { ascending: false }),
   ]);
 
   return {
     freeStats: freeResult.data,
     poolStats: poolResult.data,
-    error: freeResult.error?.message ?? poolResult.error?.message ?? null,
+    history: buildClosedBetHistory(
+      (betsResult.data ?? []) as BetHistoryRow[],
+      (matchesResult.data ?? []) as MatchHistoryRow[],
+    ),
+    error:
+      freeResult.error?.message ??
+      poolResult.error?.message ??
+      betsResult.error?.message ??
+      matchesResult.error?.message ??
+      null,
   };
+}
+
+function buildClosedBetHistory(
+  bets: BetHistoryRow[],
+  matches: MatchHistoryRow[],
+): ClosedBetHistoryItem[] {
+  const betByMatch = new Map<string, BetHistoryRow>();
+  for (const bet of bets) {
+    if (bet.match_id) betByMatch.set(bet.match_id, bet);
+  }
+
+  return matches
+    .map((match) => {
+      const bet = betByMatch.get(match.id);
+      if (!bet) return null;
+      return {
+        matchId: match.id,
+        kickoffAt: match.kickoff_at,
+        home: match.home_team?.short_name || match.home_team?.name || "Casa",
+        away: match.away_team?.short_name || match.away_team?.name || "Fora",
+        finalHome: match.home_score ?? 0,
+        finalAway: match.away_score ?? 0,
+        guessHome: bet.home_score ?? 0,
+        guessAway: bet.away_score ?? 0,
+        points: bet.points ?? 0,
+      };
+    })
+    .filter((item): item is ClosedBetHistoryItem => Boolean(item))
+    .slice(0, 12);
 }
 
 const accentOptions: Array<{ value: AccentTheme; label: string; swatch: string }> = [
@@ -318,6 +397,79 @@ function StatsCard({
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+function HistoryCard({ history, stats }: { history: ClosedBetHistoryItem[]; stats: Stats | null }) {
+  const best = history.reduce((max, item) => Math.max(max, item.points), 0);
+  const exactHits = stats?.exact_scores_count ?? 0;
+  const outcomeHits = stats?.outcome_hits_count ?? 0;
+
+  return (
+    <Card className="glass-card">
+      <CardHeader className="pb-3">
+        <p className="eyebrow flex items-center gap-1.5 text-brand">
+          <BiListUl className="size-4" />
+          Histórico
+        </p>
+        <CardTitle className="text-lg">Palpites encerrados</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid grid-cols-2 gap-2 text-sm">
+          <SummaryPill label="Palpites" value={stats?.bets_count ?? history.length} />
+          <SummaryPill label="Acertos" value={exactHits + outcomeHits} />
+          <SummaryPill label="Pontos" value={stats?.total_points ?? 0} />
+          <SummaryPill label="Melhor" value={best} />
+        </div>
+
+        {history.length > 0 ? (
+          <div className="space-y-2">
+            {history.slice(0, 8).map((item) => (
+              <div
+                key={item.matchId}
+                className="rounded-2xl border border-border/70 bg-background/55 p-3 text-sm"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <p className="min-w-0 truncate font-extrabold">
+                    {item.home} x {item.away}
+                  </p>
+                  <span className="shrink-0 rounded-full bg-brand/10 px-2 py-1 text-xs font-bold text-brand">
+                    {item.points} pts
+                  </span>
+                </div>
+                <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                  <span>
+                    Resultado:{" "}
+                    <strong className="text-foreground">
+                      {item.finalHome} - {item.finalAway}
+                    </strong>
+                  </span>
+                  <span>
+                    Seu palpite:{" "}
+                    <strong className="text-foreground">
+                      {item.guessHome} - {item.guessAway}
+                    </strong>
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="rounded-2xl border border-dashed border-border p-4 text-center text-sm text-muted-foreground">
+            Nenhum palpite encerrado ainda.
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function SummaryPill({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-2xl bg-muted/60 px-3 py-2">
+      <p className="text-lg font-extrabold tabular-nums">{value}</p>
+      <p className="text-[10px] font-bold uppercase text-muted-foreground">{label}</p>
+    </div>
   );
 }
 

@@ -9,6 +9,7 @@ import {
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
 
+import { BrazilThemeConfetti } from "@/components/theme/BrazilThemeConfetti";
 import { Toaster } from "@/components/ui/sonner";
 import { useThemeMode } from "@/hooks/use-theme";
 import appCss from "../styles.css?url";
@@ -161,6 +162,7 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Outlet />
+      <BrazilThemeConfetti />
       <Toaster richColors position="top-center" />
     </QueryClientProvider>
   );

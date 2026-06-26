@@ -10,6 +10,7 @@ export interface AppHeaderProps {
   userName: string;
   avatarUrl?: string | null;
   theme: ThemeMode;
+  onProfileClick?: () => void;
   onRankingShortcutClick?: () => void;
   onToggleTheme?: () => void;
   className?: string;
@@ -28,6 +29,7 @@ function AppHeader({
   userName,
   avatarUrl,
   theme,
+  onProfileClick,
   onRankingShortcutClick,
   onToggleTheme,
   className,
@@ -40,7 +42,12 @@ function AppHeader({
       )}
     >
       <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-3">
-        <div className="flex min-w-0 items-center gap-3">
+        <button
+          type="button"
+          onClick={onProfileClick}
+          className="flex min-w-0 items-center gap-3 rounded-2xl text-left outline-none transition-colors hover:text-brand focus-visible:ring-2 focus-visible:ring-ring"
+          aria-label="Abrir meu perfil"
+        >
           <Avatar className="size-10 border-2 border-background shadow-md ring-1 ring-border">
             {avatarUrl && <AvatarImage src={avatarUrl} alt={userName} />}
             <AvatarFallback className="bg-brand text-sm font-bold text-brand-foreground">
@@ -53,7 +60,7 @@ function AppHeader({
               Olá, <span className="font-extrabold text-foreground">{userName}</span>
             </p>
           </div>
-        </div>
+        </button>
 
         <div className="flex shrink-0 items-center gap-1.5">
           <button

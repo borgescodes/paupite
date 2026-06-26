@@ -4,11 +4,18 @@ import type { ThemeMode } from "@/components/mobile/AppHeader";
 import { supabase } from "@/integrations/supabase/client";
 
 export type AccentTheme = "blue" | "pink" | "purple" | "green" | "red" | "brazil";
+export type BrazilThemeEventDetail = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
 
 const THEME_KEY = "paupite-theme";
 const ACCENT_KEY = "paupite-accent";
 const THEME_EVENT = "paupite:theme-changed";
 const ACCENT_EVENT = "paupite:accent-changed";
+export const BRAZIL_THEME_EVENT = "paupite:brazil-theme-selected";
 const accents: AccentTheme[] = ["blue", "pink", "purple", "green", "red", "brazil"];
 const accentFetches = new Map<string, Promise<AccentTheme | null>>();
 
@@ -42,6 +49,25 @@ function applyAccentLocally(next: AccentTheme, userId?: string | null) {
   window.dispatchEvent(new CustomEvent<AccentTheme>(ACCENT_EVENT, { detail: next }));
 }
 
+function getBrazilThemeEventDetail(origin?: HTMLElement | null): BrazilThemeEventDetail {
+  if (origin) {
+    const rect = origin.getBoundingClientRect();
+    return {
+      x: rect.left + rect.width / 2,
+      y: rect.top + rect.height / 2,
+      width: rect.width,
+      height: rect.height,
+    };
+  }
+
+  return {
+    x: window.innerWidth / 2,
+    y: window.innerHeight / 2,
+    width: 120,
+    height: 52,
+  };
+}
+
 function fetchAccentTheme(userId: string) {
   const existing = accentFetches.get(userId);
   if (existing) return existing;
@@ -70,10 +96,17 @@ export function useThemeMode(userId?: string | null) {
     setAccentThemeState(initialAccent(userId));
   }, [userId]);
 
-  // After userId is known, fetch accent from DB — DB wins over localStorage
+  // After userId is known, hydrate from DB only when this browser has no explicit user accent.
   useEffect(() => {
     if (!userId) return;
     let cancelled = false;
+    const localAccent = window.localStorage.getItem(accentStorageKey(userId));
+
+    if (isAccentTheme(localAccent)) {
+      document.documentElement.dataset.accent = localAccent;
+      setAccentThemeState(localAccent);
+      return;
+    }
 
     void fetchAccentTheme(userId).then((next) => {
       if (cancelled || !next) return;
@@ -144,9 +177,16 @@ export function useThemeMode(userId?: string | null) {
     window.dispatchEvent(new CustomEvent<ThemeMode>(THEME_EVENT, { detail: next }));
   }
 
-  function setAccentTheme(next: AccentTheme) {
+  function setAccentTheme(next: AccentTheme, origin?: HTMLElement | null) {
     applyAccentLocally(next, userId);
     setAccentThemeState(next);
+    if (next === "brazil") {
+      window.dispatchEvent(
+        new CustomEvent<BrazilThemeEventDetail>(BRAZIL_THEME_EVENT, {
+          detail: getBrazilThemeEventDetail(origin),
+        }),
+      );
+    }
     if (userId) {
       accentFetches.set(userId, Promise.resolve(next));
       void supabase.from("profiles").update({ accent_theme: next }).eq("id", userId);

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { BiCalculator, BiLockAlt, BiSave, BiTrophy } from "react-icons/bi";
+import { BiCalculator, BiLockAlt, BiMinus, BiPlus, BiSave, BiTrophy } from "react-icons/bi";
 
+import { resultStatusOptions } from "@/components/admin/match-labels";
 import type { AdminMatch } from "@/components/admin/match-types";
 import { Button } from "@/components/ui/button";
 import {
@@ -84,13 +85,19 @@ export function AdminResultSheet({
               <Label htmlFor="result-status">Situação da partida</Label>
               <select
                 id="result-status"
-                className="h-11 w-full rounded-xl border border-input bg-background/65 px-3 text-sm"
+                className="h-12 w-full rounded-2xl border border-input bg-background/65 px-3 text-sm font-bold"
                 value={status}
                 onChange={(event) => setStatus(event.target.value)}
               >
-                <option value="live">Em andamento</option>
-                <option value="finished">Encerrada, aguardando pontuação</option>
+                {resultStatusOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
               </select>
+              <p className="text-xs text-muted-foreground">
+                Use “Pontuação calculada” após salvar o resultado e fechar a partida.
+              </p>
             </div>
             <Button
               className="w-full"
@@ -110,7 +117,12 @@ export function AdminResultSheet({
                   className="mt-3 w-full"
                   variant="outline"
                   disabled={busy}
-                  onClick={onCloseMatch}
+                  onClick={() => {
+                    const confirmed = window.confirm(
+                      "Fechar esta partida e recalcular a pontuação do bolão?",
+                    );
+                    if (confirmed) onCloseMatch();
+                  }}
                 >
                   <BiCalculator className="size-5" />
                   Fechar partida e recalcular
@@ -153,10 +165,28 @@ function ScoreField({
         type="number"
         min={0}
         max={99}
-        className="h-16 text-center text-3xl font-extrabold"
+        className="h-16 rounded-2xl text-center text-3xl font-extrabold"
         value={value}
         onChange={(event) => onChange(Number(event.target.value))}
       />
+      <div className="grid grid-cols-2 gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          className="h-10 rounded-2xl"
+          onClick={() => onChange(Math.max(0, value - 1))}
+        >
+          <BiMinus className="size-5" />
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          className="h-10 rounded-2xl"
+          onClick={() => onChange(Math.min(99, value + 1))}
+        >
+          <BiPlus className="size-5" />
+        </Button>
+      </div>
     </div>
   );
 }
