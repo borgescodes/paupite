@@ -132,33 +132,67 @@ export type Database = {
       }
       enrollments: {
         Row: {
+          activated_at: string | null
+          confirmed_by: string | null
           created_at: string
           id: string
+          note: string | null
+          pool_id: string
           requested_at: string
           status: string
-          terms_accepted_at: string | null
+          terms_accepted_at: string
           updated_at: string
           user_id: string
         }
         Insert: {
+          activated_at?: string | null
+          confirmed_by?: string | null
           created_at?: string
           id?: string
+          note?: string | null
+          pool_id: string
           requested_at?: string
           status?: string
-          terms_accepted_at?: string | null
+          terms_accepted_at: string
           updated_at?: string
           user_id: string
         }
         Update: {
+          activated_at?: string | null
+          confirmed_by?: string | null
           created_at?: string
           id?: string
+          note?: string | null
+          pool_id?: string
           requested_at?: string
           status?: string
-          terms_accepted_at?: string | null
+          terms_accepted_at?: string
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "enrollments_confirmed_by_fkey"
+            columns: ["confirmed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "enrollments_pool_id_fkey"
+            columns: ["pool_id"]
+            isOneToOne: false
+            referencedRelation: "pool_public_summary"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "enrollments_pool_id_fkey"
+            columns: ["pool_id"]
+            isOneToOne: false
+            referencedRelation: "pool_settings"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       match_imports: {
         Row: {
@@ -301,38 +335,66 @@ export type Database = {
       payments: {
         Row: {
           amount_cents: number
+          capture_method: string | null
           checkout_url: string | null
+          confirmed_by: string | null
           created_at: string
           enrollment_id: string
           id: string
+          invoice_slug: string | null
+          order_nsu: string
+          paid_amount_cents: number | null
+          paid_at: string | null
           provider: string
           receipt_url: string | null
           status: string
+          transaction_nsu: string | null
           updated_at: string
         }
         Insert: {
           amount_cents?: number
+          capture_method?: string | null
           checkout_url?: string | null
+          confirmed_by?: string | null
           created_at?: string
           enrollment_id: string
           id?: string
+          invoice_slug?: string | null
+          order_nsu: string
+          paid_amount_cents?: number | null
+          paid_at?: string | null
           provider?: string
           receipt_url?: string | null
           status?: string
+          transaction_nsu?: string | null
           updated_at?: string
         }
         Update: {
           amount_cents?: number
+          capture_method?: string | null
           checkout_url?: string | null
+          confirmed_by?: string | null
           created_at?: string
           enrollment_id?: string
           id?: string
+          invoice_slug?: string | null
+          order_nsu?: string
+          paid_amount_cents?: number | null
+          paid_at?: string | null
           provider?: string
           receipt_url?: string | null
           status?: string
+          transaction_nsu?: string | null
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "payments_confirmed_by_fkey"
+            columns: ["confirmed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "payments_enrollment_id_fkey"
             columns: ["enrollment_id"]
@@ -344,8 +406,12 @@ export type Database = {
       }
       pool_settings: {
         Row: {
+          coming_soon_message: string | null
+          competition_id: string | null
           created_at: string
+          enrollment_closes_at: string | null
           enrollment_opens_at: string | null
+          enrollments_mode: string | null
           entry_fee_cents: number
           free_ranking_starts_at: string | null
           id: string
@@ -357,10 +423,15 @@ export type Database = {
           terms: string
           title: string
           updated_at: string
+          updated_by: string | null
         }
         Insert: {
+          coming_soon_message?: string | null
+          competition_id?: string | null
           created_at?: string
+          enrollment_closes_at?: string | null
           enrollment_opens_at?: string | null
+          enrollments_mode?: string | null
           entry_fee_cents?: number
           free_ranking_starts_at?: string | null
           id?: string
@@ -372,10 +443,15 @@ export type Database = {
           terms?: string
           title?: string
           updated_at?: string
+          updated_by?: string | null
         }
         Update: {
+          coming_soon_message?: string | null
+          competition_id?: string | null
           created_at?: string
+          enrollment_closes_at?: string | null
           enrollment_opens_at?: string | null
+          enrollments_mode?: string | null
           entry_fee_cents?: number
           free_ranking_starts_at?: string | null
           id?: string
@@ -387,14 +463,35 @@ export type Database = {
           terms?: string
           title?: string
           updated_at?: string
+          updated_by?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "pool_settings_competition_id_fkey"
+            columns: ["competition_id"]
+            isOneToOne: false
+            referencedRelation: "competitions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pool_settings_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       prize_requests: {
         Row: {
           created_at: string
           id: string
+          note: string | null
+          paid_at: string | null
+          pool_id: string
           requested_at: string
+          reviewed_at: string | null
+          reviewed_by: string | null
           status: string
           updated_at: string
           user_id: string
@@ -402,7 +499,12 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          note?: string | null
+          paid_at?: string | null
+          pool_id: string
           requested_at?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           status?: string
           updated_at?: string
           user_id: string
@@ -410,12 +512,39 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          note?: string | null
+          paid_at?: string | null
+          pool_id?: string
           requested_at?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           status?: string
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "prize_requests_pool_id_fkey"
+            columns: ["pool_id"]
+            isOneToOne: false
+            referencedRelation: "pool_public_summary"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prize_requests_pool_id_fkey"
+            columns: ["pool_id"]
+            isOneToOne: false
+            referencedRelation: "pool_settings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prize_requests_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
