@@ -6,6 +6,9 @@ export interface RankingEntry {
   total_points: number | null;
   exact_scores_count: number | null;
   outcome_hits_count: number | null;
+  knockout_qualified_count: number | null;
+  knockout_combo_count: number | null;
+  special_points: number | null;
   bets_count: number | null;
   rank_position: number | null;
 }

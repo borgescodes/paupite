@@ -1,5 +1,8 @@
+import type { QualificationMethod } from "@/lib/knockout";
+
 export interface AdminTeam {
   id: string;
+  external_key?: string | null;
   name: string;
   short_name: string | null;
   country_code: string | null;
@@ -18,6 +21,12 @@ export interface AdminMatch {
   away_team_id: string | null;
   home_score: number;
   away_score: number;
+  regulation_home_score: number | null;
+  regulation_away_score: number | null;
+  qualified_team_id: string | null;
+  qualification_method: QualificationMethod | null;
+  bracket_source_home: string | null;
+  bracket_source_away: string | null;
   competition_id: string | null;
   stage: string | null;
   group_name: string | null;

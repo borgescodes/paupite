@@ -1,0 +1,1452 @@
+{
+  "competition": {
+    "id": "world-cup-2026",
+    "name": "Copa do Mundo 2026",
+    "stage": "knockout_stage",
+    "stage_label": "Mata-mata",
+    "timezone": "America/Sao_Paulo",
+    "data_version": "2026-knockout-stage-2026-06-28"
+  },
+  "matches": [
+    {
+      "id": "wc2026-ko-073",
+      "match_number": 73,
+      "date": "2026-06-28",
+      "date_label": "28 JUNHO",
+      "kickoff_time": "16:00",
+      "kickoff_datetime": "2026-06-28T16:00:00-03:00",
+      "stage": "round_of_32",
+      "stage_label": "Fase de 32",
+      "round": "round_of_32",
+      "round_label": "Fase de 32",
+      "group": null,
+      "stadium": "SoFi Stadium",
+      "city": "Los Angeles",
+      "country": "Estados Unidos",
+      "home_team": {
+        "id": "south-africa",
+        "name": "África do Sul",
+        "short_name": "RSA",
+        "flag_code": "za",
+        "flag_path": "/flags/za.svg"
+      },
+      "away_team": {
+        "id": "canada",
+        "name": "Canadá",
+        "short_name": "CAN",
+        "flag_code": "ca",
+        "flag_path": "/flags/ca.svg"
+      },
+      "status": "scheduled",
+      "score": {
+        "home": null,
+        "away": null
+      },
+      "winner": {
+        "team_id": null,
+        "outcome": null
+      },
+      "paupite": {
+        "opens_at": "2026-06-28T00:00:00-03:00",
+        "closes_at": "2026-06-28T15:55:00-03:00",
+        "is_open": true,
+        "closed_label": "Paupites encerrados"
+      }
+    },
+    {
+      "id": "wc2026-ko-074",
+      "match_number": 74,
+      "date": "2026-06-29",
+      "date_label": "29 JUNHO",
+      "kickoff_time": "17:30",
+      "kickoff_datetime": "2026-06-29T17:30:00-03:00",
+      "stage": "round_of_32",
+      "stage_label": "Fase de 32",
+      "round": "round_of_32",
+      "round_label": "Fase de 32",
+      "group": null,
+      "stadium": "Gillette Stadium",
+      "city": "Foxborough",
+      "country": "Estados Unidos",
+      "home_team": {
+        "id": "germany",
+        "name": "Alemanha",
+        "short_name": "GER",
+        "flag_code": "de",
+        "flag_path": "/flags/de.svg"
+      },
+      "away_team": {
+        "id": "paraguay",
+        "name": "Paraguai",
+        "short_name": "PAR",
+        "flag_code": "py",
+        "flag_path": "/flags/py.svg"
+      },
+      "status": "scheduled",
+      "score": {
+        "home": null,
+        "away": null
+      },
+      "winner": {
+        "team_id": null,
+        "outcome": null
+      },
+      "paupite": {
+        "opens_at": "2026-06-28T00:00:00-03:00",
+        "closes_at": "2026-06-29T17:25:00-03:00",
+        "is_open": true,
+        "closed_label": "Paupites encerrados"
+      }
+    },
+    {
+      "id": "wc2026-ko-075",
+      "match_number": 75,
+      "date": "2026-06-29",
+      "date_label": "29 JUNHO",
+      "kickoff_time": "22:00",
+      "kickoff_datetime": "2026-06-29T22:00:00-03:00",
+      "stage": "round_of_32",
+      "stage_label": "Fase de 32",
+      "round": "round_of_32",
+      "round_label": "Fase de 32",
+      "group": null,
+      "stadium": "Estádio BBVA",
+      "city": "Monterrey",
+      "country": "México",
+      "home_team": {
+        "id": "netherlands",
+        "name": "Países Baixos",
+        "short_name": "NED",
+        "flag_code": "nl",
+        "flag_path": "/flags/nl.svg"
+      },
+      "away_team": {
+        "id": "morocco",
+        "name": "Marrocos",
+        "short_name": "MAR",
+        "flag_code": "ma",
+        "flag_path": "/flags/ma.svg"
+      },
+      "status": "scheduled",
+      "score": {
+        "home": null,
+        "away": null
+      },
+      "winner": {
+        "team_id": null,
+        "outcome": null
+      },
+      "paupite": {
+        "opens_at": "2026-06-28T00:00:00-03:00",
+        "closes_at": "2026-06-29T21:55:00-03:00",
+        "is_open": true,
+        "closed_label": "Paupites encerrados"
+      }
+    },
+    {
+      "id": "wc2026-ko-076",
+      "match_number": 76,
+      "date": "2026-06-29",
+      "date_label": "29 JUNHO",
+      "kickoff_time": "14:00",
+      "kickoff_datetime": "2026-06-29T14:00:00-03:00",
+      "stage": "round_of_32",
+      "stage_label": "Fase de 32",
+      "round": "round_of_32",
+      "round_label": "Fase de 32",
+      "group": null,
+      "stadium": "NRG Stadium",
+      "city": "Houston",
+      "country": "Estados Unidos",
+      "home_team": {
+        "id": "brazil",
+        "name": "Brasil",
+        "short_name": "BRA",
+        "flag_code": "br",
+        "flag_path": "/flags/br.svg"
+      },
+      "away_team": {
+        "id": "japan",
+        "name": "Japão",
+        "short_name": "JPN",
+        "flag_code": "jp",
+        "flag_path": "/flags/jp.svg"
+      },
+      "status": "scheduled",
+      "score": {
+        "home": null,
+        "away": null
+      },
+      "winner": {
+        "team_id": null,
+        "outcome": null
+      },
+      "paupite": {
+        "opens_at": "2026-06-28T00:00:00-03:00",
+        "closes_at": "2026-06-29T13:55:00-03:00",
+        "is_open": true,
+        "closed_label": "Paupites encerrados"
+      }
+    },
+    {
+      "id": "wc2026-ko-077",
+      "match_number": 77,
+      "date": "2026-06-30",
+      "date_label": "30 JUNHO",
+      "kickoff_time": "18:00",
+      "kickoff_datetime": "2026-06-30T18:00:00-03:00",
+      "stage": "round_of_32",
+      "stage_label": "Fase de 32",
+      "round": "round_of_32",
+      "round_label": "Fase de 32",
+      "group": null,
+      "stadium": "MetLife Stadium",
+      "city": "East Rutherford",
+      "country": "Estados Unidos",
+      "home_team": {
+        "id": "france",
+        "name": "França",
+        "short_name": "FRA",
+        "flag_code": "fr",
+        "flag_path": "/flags/fr.svg"
+      },
+      "away_team": {
+        "id": "sweden",
+        "name": "Suécia",
+        "short_name": "SWE",
+        "flag_code": "se",
+        "flag_path": "/flags/se.svg"
+      },
+      "status": "scheduled",
+      "score": {
+        "home": null,
+        "away": null
+      },
+      "winner": {
+        "team_id": null,
+        "outcome": null
+      },
+      "paupite": {
+        "opens_at": "2026-06-28T00:00:00-03:00",
+        "closes_at": "2026-06-30T17:55:00-03:00",
+        "is_open": true,
+        "closed_label": "Paupites encerrados"
+      }
+    },
+    {
+      "id": "wc2026-ko-078",
+      "match_number": 78,
+      "date": "2026-06-30",
+      "date_label": "30 JUNHO",
+      "kickoff_time": "14:00",
+      "kickoff_datetime": "2026-06-30T14:00:00-03:00",
+      "stage": "round_of_32",
+      "stage_label": "Fase de 32",
+      "round": "round_of_32",
+      "round_label": "Fase de 32",
+      "group": null,
+      "stadium": "AT&T Stadium",
+      "city": "Arlington",
+      "country": "Estados Unidos",
+      "home_team": {
+        "id": "ivory-coast",
+        "name": "Costa do Marfim",
+        "short_name": "CIV",
+        "flag_code": "ci",
+        "flag_path": "/flags/ci.svg"
+      },
+      "away_team": {
+        "id": "norway",
+        "name": "Noruega",
+        "short_name": "NOR",
+        "flag_code": "no",
+        "flag_path": "/flags/no.svg"
+      },
+      "status": "scheduled",
+      "score": {
+        "home": null,
+        "away": null
+      },
+      "winner": {
+        "team_id": null,
+        "outcome": null
+      },
+      "paupite": {
+        "opens_at": "2026-06-28T00:00:00-03:00",
+        "closes_at": "2026-06-30T13:55:00-03:00",
+        "is_open": true,
+        "closed_label": "Paupites encerrados"
+      }
+    },
+    {
+      "id": "wc2026-ko-079",
+      "match_number": 79,
+      "date": "2026-06-30",
+      "date_label": "30 JUNHO",
+      "kickoff_time": "22:00",
+      "kickoff_datetime": "2026-06-30T22:00:00-03:00",
+      "stage": "round_of_32",
+      "stage_label": "Fase de 32",
+      "round": "round_of_32",
+      "round_label": "Fase de 32",
+      "group": null,
+      "stadium": "Estádio Azteca",
+      "city": "Cidade do México",
+      "country": "México",
+      "home_team": {
+        "id": "mexico",
+        "name": "México",
+        "short_name": "MEX",
+        "flag_code": "mx",
+        "flag_path": "/flags/mx.svg"
+      },
+      "away_team": {
+        "id": "ecuador",
+        "name": "Equador",
+        "short_name": "ECU",
+        "flag_code": "ec",
+        "flag_path": "/flags/ec.svg"
+      },
+      "status": "scheduled",
+      "score": {
+        "home": null,
+        "away": null
+      },
+      "winner": {
+        "team_id": null,
+        "outcome": null
+      },
+      "paupite": {
+        "opens_at": "2026-06-28T00:00:00-03:00",
+        "closes_at": "2026-06-30T21:55:00-03:00",
+        "is_open": true,
+        "closed_label": "Paupites encerrados"
+      }
+    },
+    {
+      "id": "wc2026-ko-080",
+      "match_number": 80,
+      "date": "2026-07-01",
+      "date_label": "1 JULHO",
+      "kickoff_time": "13:00",
+      "kickoff_datetime": "2026-07-01T13:00:00-03:00",
+      "stage": "round_of_32",
+      "stage_label": "Fase de 32",
+      "round": "round_of_32",
+      "round_label": "Fase de 32",
+      "group": null,
+      "stadium": "Mercedes-Benz Stadium",
+      "city": "Atlanta",
+      "country": "Estados Unidos",
+      "home_team": {
+        "id": "england",
+        "name": "Inglaterra",
+        "short_name": "ENG",
+        "flag_code": "gb-eng",
+        "flag_path": "/flags/gb-eng.svg"
+      },
+      "away_team": {
+        "id": "dr-congo",
+        "name": "RD Congo",
+        "short_name": "COD",
+        "flag_code": "cd",
+        "flag_path": "/flags/cd.svg"
+      },
+      "status": "scheduled",
+      "score": {
+        "home": null,
+        "away": null
+      },
+      "winner": {
+        "team_id": null,
+        "outcome": null
+      },
+      "paupite": {
+        "opens_at": "2026-06-28T00:00:00-03:00",
+        "closes_at": "2026-07-01T12:55:00-03:00",
+        "is_open": true,
+        "closed_label": "Paupites encerrados"
+      }
+    },
+    {
+      "id": "wc2026-ko-081",
+      "match_number": 81,
+      "date": "2026-07-01",
+      "date_label": "1 JULHO",
+      "kickoff_time": "21:00",
+      "kickoff_datetime": "2026-07-01T21:00:00-03:00",
+      "stage": "round_of_32",
+      "stage_label": "Fase de 32",
+      "round": "round_of_32",
+      "round_label": "Fase de 32",
+      "group": null,
+      "stadium": "Levi's Stadium",
+      "city": "Santa Clara",
+      "country": "Estados Unidos",
+      "home_team": {
+        "id": "united-states",
+        "name": "Estados Unidos",
+        "short_name": "USA",
+        "flag_code": "us",
+        "flag_path": "/flags/us.svg"
+      },
+      "away_team": {
+        "id": "bosnia-and-herzegovina",
+        "name": "Bósnia e Herzegovina",
+        "short_name": "BIH",
+        "flag_code": "ba",
+        "flag_path": "/flags/ba.svg"
+      },
+      "status": "scheduled",
+      "score": {
+        "home": null,
+        "away": null
+      },
+      "winner": {
+        "team_id": null,
+        "outcome": null
+      },
+      "paupite": {
+        "opens_at": "2026-06-28T00:00:00-03:00",
+        "closes_at": "2026-07-01T20:55:00-03:00",
+        "is_open": true,
+        "closed_label": "Paupites encerrados"
+      }
+    },
+    {
+      "id": "wc2026-ko-082",
+      "match_number": 82,
+      "date": "2026-07-01",
+      "date_label": "1 JULHO",
+      "kickoff_time": "17:00",
+      "kickoff_datetime": "2026-07-01T17:00:00-03:00",
+      "stage": "round_of_32",
+      "stage_label": "Fase de 32",
+      "round": "round_of_32",
+      "round_label": "Fase de 32",
+      "group": null,
+      "stadium": "Lumen Field",
+      "city": "Seattle",
+      "country": "Estados Unidos",
+      "home_team": {
+        "id": "belgium",
+        "name": "Bélgica",
+        "short_name": "BEL",
+        "flag_code": "be",
+        "flag_path": "/flags/be.svg"
+      },
+      "away_team": {
+        "id": "senegal",
+        "name": "Senegal",
+        "short_name": "SEN",
+        "flag_code": "sn",
+        "flag_path": "/flags/sn.svg"
+      },
+      "status": "scheduled",
+      "score": {
+        "home": null,
+        "away": null
+      },
+      "winner": {
+        "team_id": null,
+        "outcome": null
+      },
+      "paupite": {
+        "opens_at": "2026-06-28T00:00:00-03:00",
+        "closes_at": "2026-07-01T16:55:00-03:00",
+        "is_open": true,
+        "closed_label": "Paupites encerrados"
+      }
+    },
+    {
+      "id": "wc2026-ko-083",
+      "match_number": 83,
+      "date": "2026-07-02",
+      "date_label": "2 JULHO",
+      "kickoff_time": "20:00",
+      "kickoff_datetime": "2026-07-02T20:00:00-03:00",
+      "stage": "round_of_32",
+      "stage_label": "Fase de 32",
+      "round": "round_of_32",
+      "round_label": "Fase de 32",
+      "group": null,
+      "stadium": "BMO Field",
+      "city": "Toronto",
+      "country": "Canadá",
+      "home_team": {
+        "id": "portugal",
+        "name": "Portugal",
+        "short_name": "POR",
+        "flag_code": "pt",
+        "flag_path": "/flags/pt.svg"
+      },
+      "away_team": {
+        "id": "croatia",
+        "name": "Croácia",
+        "short_name": "CRO",
+        "flag_code": "hr",
+        "flag_path": "/flags/hr.svg"
+      },
+      "status": "scheduled",
+      "score": {
+        "home": null,
+        "away": null
+      },
+      "winner": {
+        "team_id": null,
+        "outcome": null
+      },
+      "paupite": {
+        "opens_at": "2026-06-28T00:00:00-03:00",
+        "closes_at": "2026-07-02T19:55:00-03:00",
+        "is_open": true,
+        "closed_label": "Paupites encerrados"
+      }
+    },
+    {
+      "id": "wc2026-ko-084",
+      "match_number": 84,
+      "date": "2026-07-02",
+      "date_label": "2 JULHO",
+      "kickoff_time": "16:00",
+      "kickoff_datetime": "2026-07-02T16:00:00-03:00",
+      "stage": "round_of_32",
+      "stage_label": "Fase de 32",
+      "round": "round_of_32",
+      "round_label": "Fase de 32",
+      "group": null,
+      "stadium": "SoFi Stadium",
+      "city": "Los Angeles",
+      "country": "Estados Unidos",
+      "home_team": {
+        "id": "spain",
+        "name": "Espanha",
+        "short_name": "ESP",
+        "flag_code": "es",
+        "flag_path": "/flags/es.svg"
+      },
+      "away_team": {
+        "id": "austria",
+        "name": "Áustria",
+        "short_name": "AUT",
+        "flag_code": "at",
+        "flag_path": "/flags/at.svg"
+      },
+      "status": "scheduled",
+      "score": {
+        "home": null,
+        "away": null
+      },
+      "winner": {
+        "team_id": null,
+        "outcome": null
+      },
+      "paupite": {
+        "opens_at": "2026-06-28T00:00:00-03:00",
+        "closes_at": "2026-07-02T15:55:00-03:00",
+        "is_open": true,
+        "closed_label": "Paupites encerrados"
+      }
+    },
+    {
+      "id": "wc2026-ko-085",
+      "match_number": 85,
+      "date": "2026-07-03",
+      "date_label": "3 JULHO",
+      "kickoff_time": "00:00",
+      "kickoff_datetime": "2026-07-03T00:00:00-03:00",
+      "stage": "round_of_32",
+      "stage_label": "Fase de 32",
+      "round": "round_of_32",
+      "round_label": "Fase de 32",
+      "group": null,
+      "stadium": "BC Place",
+      "city": "Vancouver",
+      "country": "Canadá",
+      "home_team": {
+        "id": "switzerland",
+        "name": "Suíça",
+        "short_name": "SUI",
+        "flag_code": "ch",
+        "flag_path": "/flags/ch.svg"
+      },
+      "away_team": {
+        "id": "algeria",
+        "name": "Argélia",
+        "short_name": "ALG",
+        "flag_code": "dz",
+        "flag_path": "/flags/dz.svg"
+      },
+      "status": "scheduled",
+      "score": {
+        "home": null,
+        "away": null
+      },
+      "winner": {
+        "team_id": null,
+        "outcome": null
+      },
+      "paupite": {
+        "opens_at": "2026-06-28T00:00:00-03:00",
+        "closes_at": "2026-07-02T23:55:00-03:00",
+        "is_open": true,
+        "closed_label": "Paupites encerrados"
+      }
+    },
+    {
+      "id": "wc2026-ko-086",
+      "match_number": 86,
+      "date": "2026-07-03",
+      "date_label": "3 JULHO",
+      "kickoff_time": "19:00",
+      "kickoff_datetime": "2026-07-03T19:00:00-03:00",
+      "stage": "round_of_32",
+      "stage_label": "Fase de 32",
+      "round": "round_of_32",
+      "round_label": "Fase de 32",
+      "group": null,
+      "stadium": "Hard Rock Stadium",
+      "city": "Miami Gardens",
+      "country": "Estados Unidos",
+      "home_team": {
+        "id": "argentina",
+        "name": "Argentina",
+        "short_name": "ARG",
+        "flag_code": "ar",
+        "flag_path": "/flags/ar.svg"
+      },
+      "away_team": {
+        "id": "cape-verde",
+        "name": "Cabo Verde",
+        "short_name": "CPV",
+        "flag_code": "cv",
+        "flag_path": "/flags/cv.svg"
+      },
+      "status": "scheduled",
+      "score": {
+        "home": null,
+        "away": null
+      },
+      "winner": {
+        "team_id": null,
+        "outcome": null
+      },
+      "paupite": {
+        "opens_at": "2026-06-28T00:00:00-03:00",
+        "closes_at": "2026-07-03T18:55:00-03:00",
+        "is_open": true,
+        "closed_label": "Paupites encerrados"
+      }
+    },
+    {
+      "id": "wc2026-ko-087",
+      "match_number": 87,
+      "date": "2026-07-03",
+      "date_label": "3 JULHO",
+      "kickoff_time": "22:30",
+      "kickoff_datetime": "2026-07-03T22:30:00-03:00",
+      "stage": "round_of_32",
+      "stage_label": "Fase de 32",
+      "round": "round_of_32",
+      "round_label": "Fase de 32",
+      "group": null,
+      "stadium": "Arrowhead Stadium",
+      "city": "Kansas City",
+      "country": "Estados Unidos",
+      "home_team": {
+        "id": "colombia",
+        "name": "Colômbia",
+        "short_name": "COL",
+        "flag_code": "co",
+        "flag_path": "/flags/co.svg"
+      },
+      "away_team": {
+        "id": "ghana",
+        "name": "Gana",
+        "short_name": "GHA",
+        "flag_code": "gh",
+        "flag_path": "/flags/gh.svg"
+      },
+      "status": "scheduled",
+      "score": {
+        "home": null,
+        "away": null
+      },
+      "winner": {
+        "team_id": null,
+        "outcome": null
+      },
+      "paupite": {
+        "opens_at": "2026-06-28T00:00:00-03:00",
+        "closes_at": "2026-07-03T22:25:00-03:00",
+        "is_open": true,
+        "closed_label": "Paupites encerrados"
+      }
+    },
+    {
+      "id": "wc2026-ko-088",
+      "match_number": 88,
+      "date": "2026-07-03",
+      "date_label": "3 JULHO",
+      "kickoff_time": "15:00",
+      "kickoff_datetime": "2026-07-03T15:00:00-03:00",
+      "stage": "round_of_32",
+      "stage_label": "Fase de 32",
+      "round": "round_of_32",
+      "round_label": "Fase de 32",
+      "group": null,
+      "stadium": "AT&T Stadium",
+      "city": "Arlington",
+      "country": "Estados Unidos",
+      "home_team": {
+        "id": "australia",
+        "name": "Austrália",
+        "short_name": "AUS",
+        "flag_code": "au",
+        "flag_path": "/flags/au.svg"
+      },
+      "away_team": {
+        "id": "egypt",
+        "name": "Egito",
+        "short_name": "EGY",
+        "flag_code": "eg",
+        "flag_path": "/flags/eg.svg"
+      },
+      "status": "scheduled",
+      "score": {
+        "home": null,
+        "away": null
+      },
+      "winner": {
+        "team_id": null,
+        "outcome": null
+      },
+      "paupite": {
+        "opens_at": "2026-06-28T00:00:00-03:00",
+        "closes_at": "2026-07-03T14:55:00-03:00",
+        "is_open": true,
+        "closed_label": "Paupites encerrados"
+      }
+    },
+    {
+      "id": "wc2026-ko-089",
+      "match_number": 89,
+      "date": "2026-07-04",
+      "date_label": "4 JULHO",
+      "kickoff_time": "18:00",
+      "kickoff_datetime": "2026-07-04T18:00:00-03:00",
+      "stage": "round_of_16",
+      "stage_label": "Oitavas de final",
+      "round": "round_of_16",
+      "round_label": "Oitavas de final",
+      "group": null,
+      "stadium": "Lincoln Financial Field",
+      "city": "Philadelphia",
+      "country": "Estados Unidos",
+      "home_team": {
+        "id": "winner-match-74",
+        "name": "Vencedor Jogo 74",
+        "short_name": "W74",
+        "flag_code": null,
+        "flag_path": null
+      },
+      "away_team": {
+        "id": "winner-match-77",
+        "name": "Vencedor Jogo 77",
+        "short_name": "W77",
+        "flag_code": null,
+        "flag_path": null
+      },
+      "status": "scheduled",
+      "score": {
+        "home": null,
+        "away": null
+      },
+      "winner": {
+        "team_id": null,
+        "outcome": null
+      },
+      "paupite": {
+        "opens_at": "2026-06-28T00:00:00-03:00",
+        "closes_at": "2026-07-04T17:55:00-03:00",
+        "is_open": true,
+        "closed_label": "Paupites encerrados"
+      }
+    },
+    {
+      "id": "wc2026-ko-090",
+      "match_number": 90,
+      "date": "2026-07-04",
+      "date_label": "4 JULHO",
+      "kickoff_time": "14:00",
+      "kickoff_datetime": "2026-07-04T14:00:00-03:00",
+      "stage": "round_of_16",
+      "stage_label": "Oitavas de final",
+      "round": "round_of_16",
+      "round_label": "Oitavas de final",
+      "group": null,
+      "stadium": "NRG Stadium",
+      "city": "Houston",
+      "country": "Estados Unidos",
+      "home_team": {
+        "id": "winner-match-73",
+        "name": "Vencedor Jogo 73",
+        "short_name": "W73",
+        "flag_code": null,
+        "flag_path": null
+      },
+      "away_team": {
+        "id": "winner-match-75",
+        "name": "Vencedor Jogo 75",
+        "short_name": "W75",
+        "flag_code": null,
+        "flag_path": null
+      },
+      "status": "scheduled",
+      "score": {
+        "home": null,
+        "away": null
+      },
+      "winner": {
+        "team_id": null,
+        "outcome": null
+      },
+      "paupite": {
+        "opens_at": "2026-06-28T00:00:00-03:00",
+        "closes_at": "2026-07-04T13:55:00-03:00",
+        "is_open": true,
+        "closed_label": "Paupites encerrados"
+      }
+    },
+    {
+      "id": "wc2026-ko-091",
+      "match_number": 91,
+      "date": "2026-07-05",
+      "date_label": "5 JULHO",
+      "kickoff_time": "17:00",
+      "kickoff_datetime": "2026-07-05T17:00:00-03:00",
+      "stage": "round_of_16",
+      "stage_label": "Oitavas de final",
+      "round": "round_of_16",
+      "round_label": "Oitavas de final",
+      "group": null,
+      "stadium": "MetLife Stadium",
+      "city": "East Rutherford",
+      "country": "Estados Unidos",
+      "home_team": {
+        "id": "winner-match-76",
+        "name": "Vencedor Jogo 76",
+        "short_name": "W76",
+        "flag_code": null,
+        "flag_path": null
+      },
+      "away_team": {
+        "id": "winner-match-78",
+        "name": "Vencedor Jogo 78",
+        "short_name": "W78",
+        "flag_code": null,
+        "flag_path": null
+      },
+      "status": "scheduled",
+      "score": {
+        "home": null,
+        "away": null
+      },
+      "winner": {
+        "team_id": null,
+        "outcome": null
+      },
+      "paupite": {
+        "opens_at": "2026-06-28T00:00:00-03:00",
+        "closes_at": "2026-07-05T16:55:00-03:00",
+        "is_open": true,
+        "closed_label": "Paupites encerrados"
+      }
+    },
+    {
+      "id": "wc2026-ko-092",
+      "match_number": 92,
+      "date": "2026-07-05",
+      "date_label": "5 JULHO",
+      "kickoff_time": "21:00",
+      "kickoff_datetime": "2026-07-05T21:00:00-03:00",
+      "stage": "round_of_16",
+      "stage_label": "Oitavas de final",
+      "round": "round_of_16",
+      "round_label": "Oitavas de final",
+      "group": null,
+      "stadium": "Estádio Azteca",
+      "city": "Cidade do México",
+      "country": "México",
+      "home_team": {
+        "id": "winner-match-79",
+        "name": "Vencedor Jogo 79",
+        "short_name": "W79",
+        "flag_code": null,
+        "flag_path": null
+      },
+      "away_team": {
+        "id": "winner-match-80",
+        "name": "Vencedor Jogo 80",
+        "short_name": "W80",
+        "flag_code": null,
+        "flag_path": null
+      },
+      "status": "scheduled",
+      "score": {
+        "home": null,
+        "away": null
+      },
+      "winner": {
+        "team_id": null,
+        "outcome": null
+      },
+      "paupite": {
+        "opens_at": "2026-06-28T00:00:00-03:00",
+        "closes_at": "2026-07-05T20:55:00-03:00",
+        "is_open": true,
+        "closed_label": "Paupites encerrados"
+      }
+    },
+    {
+      "id": "wc2026-ko-093",
+      "match_number": 93,
+      "date": "2026-07-06",
+      "date_label": "6 JULHO",
+      "kickoff_time": "16:00",
+      "kickoff_datetime": "2026-07-06T16:00:00-03:00",
+      "stage": "round_of_16",
+      "stage_label": "Oitavas de final",
+      "round": "round_of_16",
+      "round_label": "Oitavas de final",
+      "group": null,
+      "stadium": "AT&T Stadium",
+      "city": "Arlington",
+      "country": "Estados Unidos",
+      "home_team": {
+        "id": "winner-match-83",
+        "name": "Vencedor Jogo 83",
+        "short_name": "W83",
+        "flag_code": null,
+        "flag_path": null
+      },
+      "away_team": {
+        "id": "winner-match-84",
+        "name": "Vencedor Jogo 84",
+        "short_name": "W84",
+        "flag_code": null,
+        "flag_path": null
+      },
+      "status": "scheduled",
+      "score": {
+        "home": null,
+        "away": null
+      },
+      "winner": {
+        "team_id": null,
+        "outcome": null
+      },
+      "paupite": {
+        "opens_at": "2026-06-28T00:00:00-03:00",
+        "closes_at": "2026-07-06T15:55:00-03:00",
+        "is_open": true,
+        "closed_label": "Paupites encerrados"
+      }
+    },
+    {
+      "id": "wc2026-ko-094",
+      "match_number": 94,
+      "date": "2026-07-06",
+      "date_label": "6 JULHO",
+      "kickoff_time": "21:00",
+      "kickoff_datetime": "2026-07-06T21:00:00-03:00",
+      "stage": "round_of_16",
+      "stage_label": "Oitavas de final",
+      "round": "round_of_16",
+      "round_label": "Oitavas de final",
+      "group": null,
+      "stadium": "Lumen Field",
+      "city": "Seattle",
+      "country": "Estados Unidos",
+      "home_team": {
+        "id": "winner-match-81",
+        "name": "Vencedor Jogo 81",
+        "short_name": "W81",
+        "flag_code": null,
+        "flag_path": null
+      },
+      "away_team": {
+        "id": "winner-match-82",
+        "name": "Vencedor Jogo 82",
+        "short_name": "W82",
+        "flag_code": null,
+        "flag_path": null
+      },
+      "status": "scheduled",
+      "score": {
+        "home": null,
+        "away": null
+      },
+      "winner": {
+        "team_id": null,
+        "outcome": null
+      },
+      "paupite": {
+        "opens_at": "2026-06-28T00:00:00-03:00",
+        "closes_at": "2026-07-06T20:55:00-03:00",
+        "is_open": true,
+        "closed_label": "Paupites encerrados"
+      }
+    },
+    {
+      "id": "wc2026-ko-095",
+      "match_number": 95,
+      "date": "2026-07-07",
+      "date_label": "7 JULHO",
+      "kickoff_time": "13:00",
+      "kickoff_datetime": "2026-07-07T13:00:00-03:00",
+      "stage": "round_of_16",
+      "stage_label": "Oitavas de final",
+      "round": "round_of_16",
+      "round_label": "Oitavas de final",
+      "group": null,
+      "stadium": "Mercedes-Benz Stadium",
+      "city": "Atlanta",
+      "country": "Estados Unidos",
+      "home_team": {
+        "id": "winner-match-86",
+        "name": "Vencedor Jogo 86",
+        "short_name": "W86",
+        "flag_code": null,
+        "flag_path": null
+      },
+      "away_team": {
+        "id": "winner-match-88",
+        "name": "Vencedor Jogo 88",
+        "short_name": "W88",
+        "flag_code": null,
+        "flag_path": null
+      },
+      "status": "scheduled",
+      "score": {
+        "home": null,
+        "away": null
+      },
+      "winner": {
+        "team_id": null,
+        "outcome": null
+      },
+      "paupite": {
+        "opens_at": "2026-06-28T00:00:00-03:00",
+        "closes_at": "2026-07-07T12:55:00-03:00",
+        "is_open": true,
+        "closed_label": "Paupites encerrados"
+      }
+    },
+    {
+      "id": "wc2026-ko-096",
+      "match_number": 96,
+      "date": "2026-07-07",
+      "date_label": "7 JULHO",
+      "kickoff_time": "17:00",
+      "kickoff_datetime": "2026-07-07T17:00:00-03:00",
+      "stage": "round_of_16",
+      "stage_label": "Oitavas de final",
+      "round": "round_of_16",
+      "round_label": "Oitavas de final",
+      "group": null,
+      "stadium": "BC Place",
+      "city": "Vancouver",
+      "country": "Canadá",
+      "home_team": {
+        "id": "winner-match-85",
+        "name": "Vencedor Jogo 85",
+        "short_name": "W85",
+        "flag_code": null,
+        "flag_path": null
+      },
+      "away_team": {
+        "id": "winner-match-87",
+        "name": "Vencedor Jogo 87",
+        "short_name": "W87",
+        "flag_code": null,
+        "flag_path": null
+      },
+      "status": "scheduled",
+      "score": {
+        "home": null,
+        "away": null
+      },
+      "winner": {
+        "team_id": null,
+        "outcome": null
+      },
+      "paupite": {
+        "opens_at": "2026-06-28T00:00:00-03:00",
+        "closes_at": "2026-07-07T16:55:00-03:00",
+        "is_open": true,
+        "closed_label": "Paupites encerrados"
+      }
+    },
+    {
+      "id": "wc2026-ko-097",
+      "match_number": 97,
+      "date": "2026-07-09",
+      "date_label": "9 JULHO",
+      "kickoff_time": "17:00",
+      "kickoff_datetime": "2026-07-09T17:00:00-03:00",
+      "stage": "quarter_finals",
+      "stage_label": "Quartas de final",
+      "round": "quarter_finals",
+      "round_label": "Quartas de final",
+      "group": null,
+      "stadium": "Gillette Stadium",
+      "city": "Foxborough",
+      "country": "Estados Unidos",
+      "home_team": {
+        "id": "winner-match-89",
+        "name": "Vencedor Jogo 89",
+        "short_name": "W89",
+        "flag_code": null,
+        "flag_path": null
+      },
+      "away_team": {
+        "id": "winner-match-90",
+        "name": "Vencedor Jogo 90",
+        "short_name": "W90",
+        "flag_code": null,
+        "flag_path": null
+      },
+      "status": "scheduled",
+      "score": {
+        "home": null,
+        "away": null
+      },
+      "winner": {
+        "team_id": null,
+        "outcome": null
+      },
+      "paupite": {
+        "opens_at": "2026-06-28T00:00:00-03:00",
+        "closes_at": "2026-07-09T16:55:00-03:00",
+        "is_open": true,
+        "closed_label": "Paupites encerrados"
+      }
+    },
+    {
+      "id": "wc2026-ko-098",
+      "match_number": 98,
+      "date": "2026-07-10",
+      "date_label": "10 JULHO",
+      "kickoff_time": "16:00",
+      "kickoff_datetime": "2026-07-10T16:00:00-03:00",
+      "stage": "quarter_finals",
+      "stage_label": "Quartas de final",
+      "round": "quarter_finals",
+      "round_label": "Quartas de final",
+      "group": null,
+      "stadium": "SoFi Stadium",
+      "city": "Los Angeles",
+      "country": "Estados Unidos",
+      "home_team": {
+        "id": "winner-match-93",
+        "name": "Vencedor Jogo 93",
+        "short_name": "W93",
+        "flag_code": null,
+        "flag_path": null
+      },
+      "away_team": {
+        "id": "winner-match-94",
+        "name": "Vencedor Jogo 94",
+        "short_name": "W94",
+        "flag_code": null,
+        "flag_path": null
+      },
+      "status": "scheduled",
+      "score": {
+        "home": null,
+        "away": null
+      },
+      "winner": {
+        "team_id": null,
+        "outcome": null
+      },
+      "paupite": {
+        "opens_at": "2026-06-28T00:00:00-03:00",
+        "closes_at": "2026-07-10T15:55:00-03:00",
+        "is_open": true,
+        "closed_label": "Paupites encerrados"
+      }
+    },
+    {
+      "id": "wc2026-ko-099",
+      "match_number": 99,
+      "date": "2026-07-11",
+      "date_label": "11 JULHO",
+      "kickoff_time": "18:00",
+      "kickoff_datetime": "2026-07-11T18:00:00-03:00",
+      "stage": "quarter_finals",
+      "stage_label": "Quartas de final",
+      "round": "quarter_finals",
+      "round_label": "Quartas de final",
+      "group": null,
+      "stadium": "Hard Rock Stadium",
+      "city": "Miami Gardens",
+      "country": "Estados Unidos",
+      "home_team": {
+        "id": "winner-match-91",
+        "name": "Vencedor Jogo 91",
+        "short_name": "W91",
+        "flag_code": null,
+        "flag_path": null
+      },
+      "away_team": {
+        "id": "winner-match-92",
+        "name": "Vencedor Jogo 92",
+        "short_name": "W92",
+        "flag_code": null,
+        "flag_path": null
+      },
+      "status": "scheduled",
+      "score": {
+        "home": null,
+        "away": null
+      },
+      "winner": {
+        "team_id": null,
+        "outcome": null
+      },
+      "paupite": {
+        "opens_at": "2026-06-28T00:00:00-03:00",
+        "closes_at": "2026-07-11T17:55:00-03:00",
+        "is_open": true,
+        "closed_label": "Paupites encerrados"
+      }
+    },
+    {
+      "id": "wc2026-ko-100",
+      "match_number": 100,
+      "date": "2026-07-11",
+      "date_label": "11 JULHO",
+      "kickoff_time": "22:00",
+      "kickoff_datetime": "2026-07-11T22:00:00-03:00",
+      "stage": "quarter_finals",
+      "stage_label": "Quartas de final",
+      "round": "quarter_finals",
+      "round_label": "Quartas de final",
+      "group": null,
+      "stadium": "Arrowhead Stadium",
+      "city": "Kansas City",
+      "country": "Estados Unidos",
+      "home_team": {
+        "id": "winner-match-95",
+        "name": "Vencedor Jogo 95",
+        "short_name": "W95",
+        "flag_code": null,
+        "flag_path": null
+      },
+      "away_team": {
+        "id": "winner-match-96",
+        "name": "Vencedor Jogo 96",
+        "short_name": "W96",
+        "flag_code": null,
+        "flag_path": null
+      },
+      "status": "scheduled",
+      "score": {
+        "home": null,
+        "away": null
+      },
+      "winner": {
+        "team_id": null,
+        "outcome": null
+      },
+      "paupite": {
+        "opens_at": "2026-06-28T00:00:00-03:00",
+        "closes_at": "2026-07-11T21:55:00-03:00",
+        "is_open": true,
+        "closed_label": "Paupites encerrados"
+      }
+    },
+    {
+      "id": "wc2026-ko-101",
+      "match_number": 101,
+      "date": "2026-07-14",
+      "date_label": "14 JULHO",
+      "kickoff_time": "16:00",
+      "kickoff_datetime": "2026-07-14T16:00:00-03:00",
+      "stage": "semi_finals",
+      "stage_label": "Semifinais",
+      "round": "semi_finals",
+      "round_label": "Semifinais",
+      "group": null,
+      "stadium": "AT&T Stadium",
+      "city": "Arlington",
+      "country": "Estados Unidos",
+      "home_team": {
+        "id": "winner-match-97",
+        "name": "Vencedor Jogo 97",
+        "short_name": "W97",
+        "flag_code": null,
+        "flag_path": null
+      },
+      "away_team": {
+        "id": "winner-match-98",
+        "name": "Vencedor Jogo 98",
+        "short_name": "W98",
+        "flag_code": null,
+        "flag_path": null
+      },
+      "status": "scheduled",
+      "score": {
+        "home": null,
+        "away": null
+      },
+      "winner": {
+        "team_id": null,
+        "outcome": null
+      },
+      "paupite": {
+        "opens_at": "2026-06-28T00:00:00-03:00",
+        "closes_at": "2026-07-14T15:55:00-03:00",
+        "is_open": true,
+        "closed_label": "Paupites encerrados"
+      }
+    },
+    {
+      "id": "wc2026-ko-102",
+      "match_number": 102,
+      "date": "2026-07-15",
+      "date_label": "15 JULHO",
+      "kickoff_time": "16:00",
+      "kickoff_datetime": "2026-07-15T16:00:00-03:00",
+      "stage": "semi_finals",
+      "stage_label": "Semifinais",
+      "round": "semi_finals",
+      "round_label": "Semifinais",
+      "group": null,
+      "stadium": "Mercedes-Benz Stadium",
+      "city": "Atlanta",
+      "country": "Estados Unidos",
+      "home_team": {
+        "id": "winner-match-99",
+        "name": "Vencedor Jogo 99",
+        "short_name": "W99",
+        "flag_code": null,
+        "flag_path": null
+      },
+      "away_team": {
+        "id": "winner-match-100",
+        "name": "Vencedor Jogo 100",
+        "short_name": "W100",
+        "flag_code": null,
+        "flag_path": null
+      },
+      "status": "scheduled",
+      "score": {
+        "home": null,
+        "away": null
+      },
+      "winner": {
+        "team_id": null,
+        "outcome": null
+      },
+      "paupite": {
+        "opens_at": "2026-06-28T00:00:00-03:00",
+        "closes_at": "2026-07-15T15:55:00-03:00",
+        "is_open": true,
+        "closed_label": "Paupites encerrados"
+      }
+    },
+    {
+      "id": "wc2026-ko-103",
+      "match_number": 103,
+      "date": "2026-07-18",
+      "date_label": "18 JULHO",
+      "kickoff_time": "18:00",
+      "kickoff_datetime": "2026-07-18T18:00:00-03:00",
+      "stage": "third_place",
+      "stage_label": "Disputa do 3º lugar",
+      "round": "third_place",
+      "round_label": "Disputa do 3º lugar",
+      "group": null,
+      "stadium": "Hard Rock Stadium",
+      "city": "Miami Gardens",
+      "country": "Estados Unidos",
+      "home_team": {
+        "id": "runner-up-match-101",
+        "name": "Perdedor Jogo 101",
+        "short_name": "L101",
+        "flag_code": null,
+        "flag_path": null
+      },
+      "away_team": {
+        "id": "runner-up-match-102",
+        "name": "Perdedor Jogo 102",
+        "short_name": "L102",
+        "flag_code": null,
+        "flag_path": null
+      },
+      "status": "scheduled",
+      "score": {
+        "home": null,
+        "away": null
+      },
+      "winner": {
+        "team_id": null,
+        "outcome": null
+      },
+      "paupite": {
+        "opens_at": "2026-06-28T00:00:00-03:00",
+        "closes_at": "2026-07-18T17:55:00-03:00",
+        "is_open": true,
+        "closed_label": "Paupites encerrados"
+      }
+    },
+    {
+      "id": "wc2026-ko-104",
+      "match_number": 104,
+      "date": "2026-07-19",
+      "date_label": "19 JULHO",
+      "kickoff_time": "16:00",
+      "kickoff_datetime": "2026-07-19T16:00:00-03:00",
+      "stage": "final",
+      "stage_label": "Final",
+      "round": "final",
+      "round_label": "Final",
+      "group": null,
+      "stadium": "MetLife Stadium",
+      "city": "East Rutherford",
+      "country": "Estados Unidos",
+      "home_team": {
+        "id": "winner-match-101",
+        "name": "Vencedor Jogo 101",
+        "short_name": "W101",
+        "flag_code": null,
+        "flag_path": null
+      },
+      "away_team": {
+        "id": "winner-match-102",
+        "name": "Vencedor Jogo 102",
+        "short_name": "W102",
+        "flag_code": null,
+        "flag_path": null
+      },
+      "status": "scheduled",
+      "score": {
+        "home": null,
+        "away": null
+      },
+      "winner": {
+        "team_id": null,
+        "outcome": null
+      },
+      "paupite": {
+        "opens_at": "2026-06-28T00:00:00-03:00",
+        "closes_at": "2026-07-19T15:55:00-03:00",
+        "is_open": true,
+        "closed_label": "Paupites encerrados"
+      }
+    }
+  ]
+}

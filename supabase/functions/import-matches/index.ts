@@ -13,7 +13,8 @@ interface ImportTeam {
   id: string;
   name: string;
   short_name?: string;
-  flag_code?: string;
+  flag_code?: string | null;
+  flag_path?: string | null;
 }
 
 interface ImportMatch {
@@ -80,9 +81,13 @@ Deno.serve(async (req) => {
     for (const item of payload.matches) {
       try {
         validateMatch(item);
-        const homeTeamId = await upsertTeam(admin, item.home_team, teamCache);
-        const awayTeamId = await upsertTeam(admin, item.away_team, teamCache);
-        if (homeTeamId === awayTeamId) throw new Error("As seleções da partida são iguais.");
+        const homeSource = parseBracketSource(item.home_team);
+        const awaySource = parseBracketSource(item.away_team);
+        const homeTeamId = homeSource ? null : await upsertTeam(admin, item.home_team, teamCache);
+        const awayTeamId = awaySource ? null : await upsertTeam(admin, item.away_team, teamCache);
+        if (homeTeamId && awayTeamId && homeTeamId === awayTeamId) {
+          throw new Error("As seleções da partida são iguais.");
+        }
 
         const kickoff = new Date(item.kickoff_datetime);
         const future = kickoff > new Date();
@@ -95,13 +100,19 @@ Deno.serve(async (req) => {
           match_number: item.match_number ?? null,
           competition_id: competitionId,
           kickoff_at: kickoff.toISOString(),
-          stage: clean(item.stage),
+          stage: normalizeStage(item.stage),
           group_name: clean(item.group),
           venue: clean(item.stadium),
           city: clean(item.city),
           country: clean(item.country),
           home_team_id: homeTeamId,
           away_team_id: awayTeamId,
+          bracket_source_home: homeSource?.source ?? null,
+          bracket_source_away: awaySource?.source ?? null,
+          bracket_home_source_match_number: homeSource?.matchNumber ?? null,
+          bracket_home_source_result: homeSource?.result ?? null,
+          bracket_away_source_match_number: awaySource?.matchNumber ?? null,
+          bracket_away_source_result: awaySource?.result ?? null,
           status,
           home_score: homeScore,
           away_score: awayScore,
@@ -226,8 +237,25 @@ async function upsertTeam(admin: SupabaseClient, team: ImportTeam, cache: Map<st
   return data.id as string;
 }
 
-function clean(value: string | undefined) {
+function clean(value: string | null | undefined) {
   return value?.trim() || null;
+}
+
+function normalizeStage(value: string | undefined) {
+  const stage = clean(value);
+  if (stage === "quarter_finals" || stage === "quarter-finals") return "quarterfinal";
+  if (stage === "semi_finals" || stage === "semi-finals") return "semifinal";
+  return stage;
+}
+
+function parseBracketSource(team: ImportTeam) {
+  const match = team.id.match(/^(winner|runner-up|loser)-match-(\d+)$/);
+  if (!match) return null;
+  return {
+    source: team.id,
+    result: match[1] === "winner" ? "winner" : "loser",
+    matchNumber: Number(match[2]),
+  };
 }
 
 function normalizeScore(value: number | null | undefined) {

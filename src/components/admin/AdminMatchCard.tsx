@@ -6,6 +6,7 @@ import { Flag } from "@/components/mobile/Flag";
 import { StatusBadge } from "@/components/mobile/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { parseBracketSource } from "@/lib/knockout";
 
 export function AdminMatchCard({
   match,
@@ -18,8 +19,10 @@ export function AdminMatchCard({
 }) {
   const future = new Date(match.kickoff_at) > new Date();
   const canSetResult = !future && match.status !== "closed";
-  const home = match.home_team?.name ?? "A definir";
-  const away = match.away_team?.name ?? "A definir";
+  const home =
+    match.home_team?.name ?? parseBracketSource(match.bracket_source_home)?.label ?? "A definir";
+  const away =
+    match.away_team?.name ?? parseBracketSource(match.bracket_source_away)?.label ?? "A definir";
 
   return (
     <Card className="glass-card interactive-card overflow-hidden">

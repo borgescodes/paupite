@@ -25,6 +25,8 @@ interface MatchPayload {
   status?: "scheduled" | "live" | "finished";
   home_score?: number;
   away_score?: number;
+  qualified_team_id?: string | null;
+  qualification_method?: "regulation" | "extra_time" | "penalties" | null;
 }
 
 Deno.serve(async (req) => {
@@ -117,11 +119,19 @@ Deno.serve(async (req) => {
       const homeScore = score(body.home_score);
       const awayScore = score(body.away_score);
       const status = body.status === "live" ? "live" : "finished";
+      const knockout = isKnockoutStage(current.stage);
+      const qualification = knockout
+        ? validateKnockoutResult(current, homeScore, awayScore, body)
+        : { qualified_team_id: null, qualification_method: null };
       const { error } = await admin
         .from("matches")
         .update({
           home_score: homeScore,
           away_score: awayScore,
+          regulation_home_score: knockout ? homeScore : null,
+          regulation_away_score: knockout ? awayScore : null,
+          qualified_team_id: qualification.qualified_team_id,
+          qualification_method: qualification.qualification_method,
           status,
           manual_override: true,
         })
@@ -130,6 +140,8 @@ Deno.serve(async (req) => {
       await writeAudit(admin, profile.id, "match.result_updated", "match", body.match_id, {
         home_score: homeScore,
         away_score: awayScore,
+        qualified_team_id: qualification.qualified_team_id,
+        qualification_method: qualification.qualification_method,
         status,
       });
       return json({ ok: true });
@@ -178,4 +190,55 @@ function validateOperational(body: MatchPayload, create: boolean) {
   if (body.kickoff_at && Number.isNaN(new Date(body.kickoff_at).getTime())) {
     throw new HttpError(400, "Data da partida inválida.");
   }
+}
+
+function normalizeKnockoutStage(stage: string | null | undefined) {
+  if (stage === "quarter_finals" || stage === "quarter-finals") return "quarterfinal";
+  if (stage === "semi_finals" || stage === "semi-finals") return "semifinal";
+  return stage ?? null;
+}
+
+function isKnockoutStage(stage: string | null | undefined) {
+  return [
+    "round_of_32",
+    "round_of_16",
+    "quarterfinal",
+    "semifinal",
+    "third_place",
+    "final",
+  ].includes(normalizeKnockoutStage(stage) ?? "");
+}
+
+function validateKnockoutResult(
+  current: {
+    home_team_id?: string | null;
+    away_team_id?: string | null;
+    stage?: string | null;
+  },
+  homeScore: number,
+  awayScore: number,
+  body: MatchPayload,
+) {
+  if (!current.home_team_id || !current.away_team_id) {
+    throw new HttpError(400, "Defina as duas seleções antes de lançar o resultado do mata-mata.");
+  }
+
+  if (homeScore > awayScore) {
+    return { qualified_team_id: current.home_team_id, qualification_method: "regulation" };
+  }
+  if (awayScore > homeScore) {
+    return { qualified_team_id: current.away_team_id, qualification_method: "regulation" };
+  }
+
+  if (![current.home_team_id, current.away_team_id].includes(body.qualified_team_id ?? "")) {
+    throw new HttpError(400, "Informe o classificado do confronto.");
+  }
+  if (!["extra_time", "penalties"].includes(body.qualification_method ?? "")) {
+    throw new HttpError(400, "Empate no tempo regulamentar exige prorrogação ou pênaltis.");
+  }
+
+  return {
+    qualified_team_id: body.qualified_team_id,
+    qualification_method: body.qualification_method,
+  };
 }

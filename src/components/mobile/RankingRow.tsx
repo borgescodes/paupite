@@ -37,6 +37,14 @@ export function RankingRow({
             <BiCheckDouble className="size-3.5" />
             {row.outcome_hits_count ?? 0} resultados
           </span>
+          <span className="inline-flex items-center gap-1">
+            <BiCheckDouble className="size-3.5" />
+            {row.knockout_qualified_count ?? 0} classificados
+          </span>
+          <span className="inline-flex items-center gap-1">
+            <BiBullseye className="size-3.5" />
+            {row.special_points ?? 0} especiais
+          </span>
         </div>
       </div>
     </>

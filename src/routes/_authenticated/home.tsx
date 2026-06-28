@@ -7,11 +7,17 @@ import { toast } from "sonner";
 import { DaySelector } from "@/components/mobile/DaySelector";
 import { MatchCard } from "@/components/mobile/MatchCard";
 import { MobileShell } from "@/components/mobile/MobileShell";
-import type { ScoreValue } from "@/components/mobile/types";
+import type { PredictionValue } from "@/components/mobile/types";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  deriveKnockoutPredictionFields,
+  isKnockoutStage,
+  validateKnockoutPrediction,
+  type KnockoutScoringRules,
+} from "@/lib/knockout";
 import {
   buildMatchDays,
   matchDateKey,
@@ -29,6 +35,7 @@ type HomeMatchesData = {
   matches: MatchRow[];
   bets: Record<string, BetRow>;
   trends: Record<string, BetTrend>;
+  scoringRules: KnockoutScoringRules | null;
 };
 
 const emptyMatches: MatchRow[] = [];
@@ -40,7 +47,7 @@ const homeMatchesQueryKey = (userId: string | null | undefined) =>
 function HomePage() {
   const { user, loading: authLoading } = useAuth();
   const queryClient = useQueryClient();
-  const [drafts, setDrafts] = useState<Record<string, ScoreValue>>({});
+  const [drafts, setDrafts] = useState<Record<string, PredictionValue>>({});
   const [selectedDate, setSelectedDate] = useState("");
   const [localError, setLocalError] = useState<string | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
@@ -56,6 +63,7 @@ function HomePage() {
   const matches = homeQuery.data?.matches ?? emptyMatches;
   const bets = homeQuery.data?.bets ?? emptyBets;
   const trends = homeQuery.data?.trends ?? emptyTrends;
+  const scoringRules = homeQuery.data?.scoringRules ?? null;
   const error = localError ?? (homeQuery.error instanceof Error ? homeQuery.error.message : null);
   const loading = authLoading || (homeQuery.isLoading && !homeQuery.data);
 
@@ -65,7 +73,12 @@ function HomePage() {
       const next = { ...current };
       for (const bet of Object.values(homeQuery.data.bets)) {
         if (!next[bet.match_id]) {
-          next[bet.match_id] = { home: bet.home_score, away: bet.away_score };
+          next[bet.match_id] = {
+            home: bet.regulation_home_score ?? bet.home_score,
+            away: bet.regulation_away_score ?? bet.away_score,
+            qualifiedTeamId: bet.predicted_qualified_team_id ?? null,
+            qualificationMethod: bet.predicted_qualification_method ?? null,
+          };
         }
       }
       return next;
@@ -105,8 +118,10 @@ function HomePage() {
     () =>
       matches
         .filter((match) => matchDateKey(match.kickoff_at) === selectedDate)
-        .map((match) => toMatchCard(match, bets[match.id], drafts[match.id], trends[match.id])),
-    [bets, drafts, matches, selectedDate, trends],
+        .map((match) =>
+          toMatchCard(match, bets[match.id], drafts[match.id], trends[match.id], scoringRules),
+        ),
+    [bets, drafts, matches, scoringRules, selectedDate, trends],
   );
 
   async function saveBet(matchId: string) {
@@ -119,6 +134,8 @@ function HomePage() {
     const value = drafts[matchId] ?? {
       home: bets[matchId]?.home_score ?? 0,
       away: bets[matchId]?.away_score ?? 0,
+      qualifiedTeamId: bets[matchId]?.predicted_qualified_team_id ?? null,
+      qualificationMethod: bets[matchId]?.predicted_qualification_method ?? null,
     };
     if (
       !Number.isInteger(value.home) ||
@@ -132,6 +149,35 @@ function HomePage() {
       return;
     }
 
+    const knockout = isKnockoutStage(match.stage);
+    let predictedQualifiedTeamId = value.qualifiedTeamId ?? null;
+    let predictedQualificationMethod = value.qualificationMethod ?? null;
+
+    if (knockout) {
+      const validationError = validateKnockoutPrediction({
+        homeScore: value.home,
+        awayScore: value.away,
+        homeTeamId: match.home_team?.id,
+        awayTeamId: match.away_team?.id,
+        qualifiedTeamId: predictedQualifiedTeamId,
+        qualificationMethod: predictedQualificationMethod,
+      });
+      if (validationError) {
+        setLocalError(validationError);
+        return;
+      }
+      const derived = deriveKnockoutPredictionFields({
+        homeScore: value.home,
+        awayScore: value.away,
+        homeTeamId: match.home_team?.id,
+        awayTeamId: match.away_team?.id,
+        qualifiedTeamId: predictedQualifiedTeamId,
+        qualificationMethod: predictedQualificationMethod,
+      });
+      predictedQualifiedTeamId = derived.qualifiedTeamId;
+      predictedQualificationMethod = derived.qualificationMethod;
+    }
+
     setSavingId(matchId);
     setSavedId(null);
     setLocalError(null);
@@ -141,6 +187,10 @@ function HomePage() {
         match_id: matchId,
         home_score: value.home,
         away_score: value.away,
+        regulation_home_score: knockout ? value.home : null,
+        regulation_away_score: knockout ? value.away : null,
+        predicted_qualified_team_id: knockout ? predictedQualifiedTeamId : null,
+        predicted_qualification_method: knockout ? predictedQualificationMethod : null,
       },
       { onConflict: "user_id,match_id" },
     );
@@ -160,6 +210,10 @@ function HomePage() {
                 match_id: matchId,
                 home_score: value.home,
                 away_score: value.away,
+                regulation_home_score: knockout ? value.home : null,
+                regulation_away_score: knockout ? value.away : null,
+                predicted_qualified_team_id: knockout ? predictedQualifiedTeamId : null,
+                predicted_qualification_method: knockout ? predictedQualificationMethod : null,
                 points: current.bets[matchId]?.points ?? 0,
               },
             },
@@ -265,7 +319,7 @@ async function fetchHomeMatches(userId: string): Promise<HomeMatchesData> {
   const primaryMatchResult = await supabase
     .from("matches")
     .select(
-      "id,kickoff_at,status,stage,group_name,venue,city,country,home_score,away_score,home_team:teams!matches_home_team_id_fkey(id,name,short_name,country_code,flag_url),away_team:teams!matches_away_team_id_fkey(id,name,short_name,country_code,flag_url)",
+      "id,match_number,kickoff_at,status,stage,group_name,venue,city,country,home_score,away_score,bracket_source_home,bracket_source_away,qualification_method,qualified_team_id,regulation_home_score,regulation_away_score,home_team:teams!matches_home_team_id_fkey(id,external_key,name,short_name,country_code,flag_url),away_team:teams!matches_away_team_id_fkey(id,external_key,name,short_name,country_code,flag_url)",
     )
     .order("kickoff_at", { ascending: true });
   let matchData: unknown[] | null = primaryMatchResult.data;
@@ -284,9 +338,19 @@ async function fetchHomeMatches(userId: string): Promise<HomeMatchesData> {
   }
 
   const [betResult, trendsResult] = await Promise.all([
-    supabase.from("bets").select("match_id,home_score,away_score,points").eq("user_id", userId),
+    supabase
+      .from("bets")
+      .select(
+        "match_id,home_score,away_score,regulation_home_score,regulation_away_score,predicted_qualified_team_id,predicted_qualification_method,knockout_points_breakdown,points",
+      )
+      .eq("user_id", userId),
     supabase.from("match_bet_trends").select("match_id,total_bets,home_pct,draw_pct,away_pct"),
   ]);
+  const scoringRulesResult = await supabase
+    .from("pool_scoring_rules")
+    .select("stage_weights,base_points,team_multipliers")
+    .limit(1)
+    .maybeSingle();
 
   if (matchError || betResult.error) {
     throw new Error(
@@ -306,5 +370,6 @@ async function fetchHomeMatches(userId: string): Promise<HomeMatchesData> {
     matches: (matchData ?? []) as MatchRow[],
     bets,
     trends,
+    scoringRules: (scoringRulesResult.data as KnockoutScoringRules | null) ?? null,
   };
 }
