@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   BiBarChartAlt2,
   BiBullseye,
@@ -35,23 +35,36 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
-import { isActiveEnrollment, rankingInitials, rankingName, type RankingEntry } from "@/lib/ranking";
+import { cn } from "@/lib/utils";
+import {
+  isActiveEnrollment,
+  rankingInitials,
+  rankingName,
+  type RankingEntry,
+  type RankingMode,
+  type RankingMovement,
+} from "@/lib/ranking";
+import {
+  defaultKnockoutBasePoints,
+  defaultKnockoutStageWeights,
+  defaultSpecialPoints,
+  knockoutStageLabel,
+} from "@/lib/knockout";
 
 export const Route = createFileRoute("/_authenticated/ranking")({
   component: RankingPage,
 });
-
-type RankingMode = "free" | "pool";
 
 type RankingData = {
   rows: RankingEntry[];
   enrollmentStatus: string | null;
 };
 
-type ScoreRules = {
-  exact_score_points: number | null;
-  outcome_points: number | null;
-  goal_difference_bonus: number | null;
+type PoolScoringRules = {
+  stage_weights: Record<string, number> | null;
+  base_points: Record<string, number> | null;
+  team_multipliers: Record<string, number> | null;
+  special_points: Record<string, number> | null;
 };
 
 type PublicClosedBetHistoryItem = {
@@ -85,7 +98,7 @@ type PublicProfileRpcClient = {
 
 const rankingQueryKey = (mode: RankingMode, userId: string | null | undefined) =>
   ["ranking", mode, userId] as const;
-const scoreRulesQueryKey = ["score-rules"] as const;
+const scoreRulesQueryKey = ["pool-scoring-rules"] as const;
 const publicProfileHistoryQueryKey = (userId: string | null | undefined) =>
   ["public-profile-history", userId] as const;
 
@@ -109,8 +122,9 @@ function RankingPage() {
   const loading = rankingQuery.isLoading && !rankingQuery.data;
   const error = rankingQuery.error instanceof Error ? rankingQuery.error.message : null;
 
-  const podium = rows.filter((row) => (row.rank_position ?? 99) <= 3);
-  const remaining = rows.filter((row) => (row.rank_position ?? 0) > 3);
+  const podium = rows.slice(0, 3);
+  const remaining = rows.slice(3);
+  const rankingMovements = useRankingMovements(mode, rows);
   const participates = isActiveEnrollment(enrollmentStatus);
   const openOwnProfile = () => void navigate({ to: "/profile" });
 
@@ -128,7 +142,7 @@ function RankingPage() {
           </p>
         </header>
 
-        <ScoreExplanationCard rules={scoreRulesQuery.data ?? null} />
+        <ScoreExplanationCard rules={scoreRulesQuery.data ?? null} mode={mode} />
 
         <Tabs value={mode} onValueChange={(value) => setMode(value as "free" | "pool")}>
           <TabsList className="grid w-full grid-cols-2">
@@ -136,6 +150,10 @@ function RankingPage() {
             <TabsTrigger value="pool">Do Bolão</TabsTrigger>
           </TabsList>
         </Tabs>
+
+        <p className="text-center text-[11px] font-bold text-muted-foreground">
+          Setas mostram variação desde sua última visualização neste aparelho.
+        </p>
 
         {mode === "pool" && !participates && !loading && (
           <Card className="glass-card border-brand/25">
@@ -197,6 +215,8 @@ function RankingPage() {
             <RankingPodium
               rows={podium}
               currentUserId={user?.id}
+              variant={mode}
+              movementByUserId={rankingMovements}
               onOpenProfile={setSelectedPlayer}
               onOpenOwnProfile={openOwnProfile}
             />
@@ -206,6 +226,8 @@ function RankingPage() {
                   key={row.user_id}
                   row={row}
                   isMe={row.user_id === user?.id}
+                  variant={mode}
+                  movement={row.user_id ? rankingMovements[row.user_id] : undefined}
                   onOpenProfile={setSelectedPlayer}
                   onOpenOwnProfile={openOwnProfile}
                 />
@@ -226,6 +248,46 @@ function RankingPage() {
   );
 }
 
+function useRankingMovements(mode: RankingMode, rows: RankingEntry[]) {
+  const [movements, setMovements] = useState<Record<string, RankingMovement>>({});
+
+  useEffect(() => {
+    if (!rows.length || typeof window === "undefined") {
+      setMovements({});
+      return;
+    }
+
+    const storageKey = `paupite-ranking-positions:${mode}`;
+    let previous: Record<string, number> = {};
+
+    try {
+      previous = JSON.parse(window.localStorage.getItem(storageKey) ?? "{}") as Record<
+        string,
+        number
+      >;
+    } catch {
+      previous = {};
+    }
+
+    const nextMovements: Record<string, RankingMovement> = {};
+    const current: Record<string, number> = {};
+
+    for (const row of rows) {
+      if (!row.user_id || !row.rank_position) continue;
+      current[row.user_id] = row.rank_position;
+      const previousPosition = previous[row.user_id];
+      if (previousPosition && previousPosition !== row.rank_position) {
+        nextMovements[row.user_id] = previousPosition - row.rank_position;
+      }
+    }
+
+    setMovements(nextMovements);
+    window.localStorage.setItem(storageKey, JSON.stringify(current));
+  }, [mode, rows]);
+
+  return movements;
+}
+
 async function fetchRanking(mode: RankingMode, userId: string | null): Promise<RankingData> {
   const view = mode === "free" ? "ranking_free" : "ranking_pool";
   const rankingPromise = supabase.from(view).select("*").order("rank_position");
@@ -243,15 +305,15 @@ async function fetchRanking(mode: RankingMode, userId: string | null): Promise<R
   };
 }
 
-async function fetchScoreRules(): Promise<ScoreRules | null> {
+async function fetchScoreRules(): Promise<PoolScoringRules | null> {
   const { data, error } = await supabase
-    .from("score_rules")
-    .select("exact_score_points,outcome_points,goal_difference_bonus")
+    .from("pool_scoring_rules")
+    .select("stage_weights,base_points,team_multipliers,special_points")
     .limit(1)
     .maybeSingle();
 
   if (error) throw new Error(error.message);
-  return data;
+  return data as PoolScoringRules | null;
 }
 
 async function fetchPublicClosedBetHistory(userId: string): Promise<PublicClosedBetHistoryItem[]> {
@@ -274,13 +336,25 @@ async function fetchPublicClosedBetHistory(userId: string): Promise<PublicClosed
   }));
 }
 
-function ScoreExplanationCard({ rules }: { rules: ScoreRules | null }) {
-  const exact = rules?.exact_score_points ?? 0;
-  const outcome = rules?.outcome_points ?? 0;
-  const bonus = rules?.goal_difference_bonus ?? 0;
+function ScoreExplanationCard({
+  rules,
+  mode,
+}: {
+  rules: PoolScoringRules | null;
+  mode: RankingMode;
+}) {
+  const basePoints = { ...defaultKnockoutBasePoints, ...(rules?.base_points ?? {}) };
+  const stageWeights = { ...defaultKnockoutStageWeights, ...(rules?.stage_weights ?? {}) };
+  const specialPoints = { ...defaultSpecialPoints, ...(rules?.special_points ?? {}) };
+  const exactExample =
+    (basePoints.exact_score ?? 3) +
+    (basePoints.goal_difference ?? 1) +
+    (basePoints.qualified_team ?? 2) +
+    (basePoints.qualification_method ?? 1) +
+    (basePoints.perfect_combo ?? 1);
 
   return (
-    <Card className="glass-card border-brand/20">
+    <Card className={cn("glass-card border-brand/20", mode === "pool" && "border-warning/35")}>
       <CardContent className="p-0">
         <Accordion type="single" collapsible>
           <AccordionItem value="scoring" className="border-b-0 px-4">
@@ -290,13 +364,59 @@ function ScoreExplanationCard({ rules }: { rules: ScoreRules | null }) {
                 Como funciona a pontuação
               </span>
             </AccordionTrigger>
-            <AccordionContent className="pb-4 text-sm text-muted-foreground">
-              O ranking usa somente pontos já apurados em jogos encerrados. Placar exato vale{" "}
-              <strong className="text-foreground">{exact}</strong> ponto(s); resultado correto vale{" "}
-              <strong className="text-foreground">{outcome}</strong>. Quando o saldo de gols também
-              bate, há bônus de <strong className="text-foreground">{bonus}</strong> ponto(s). No
-              mata-mata entram também classificado, método, pesos por fase, multiplicadores por time
-              e apostas especiais.
+            <AccordionContent className="space-y-3 pb-4 text-sm text-muted-foreground">
+              <p>
+                O ranking usa só pontos apurados em jogos encerrados desde o início oficial. Empate
+                no ranking é decidido por quem enviou o primeiro palpite válido antes; editar depois
+                não muda esse desempate.
+              </p>
+              <div className="rounded-2xl bg-muted/55 p-3">
+                <p className="font-bold text-foreground">Mata-mata</p>
+                <p className="mt-1">
+                  Placar exato:{" "}
+                  <strong className="text-foreground">{basePoints.exact_score}</strong>; resultado
+                  no tempo:{" "}
+                  <strong className="text-foreground">{basePoints.regulation_result}</strong>; saldo
+                  de gols: <strong className="text-foreground">{basePoints.goal_difference}</strong>
+                  ; classificado:{" "}
+                  <strong className="text-foreground">{basePoints.qualified_team}</strong>; método:{" "}
+                  <strong className="text-foreground">{basePoints.qualification_method}</strong>;
+                  combo perfeito:{" "}
+                  <strong className="text-foreground">{basePoints.perfect_combo}</strong>.
+                </p>
+              </div>
+              <div className="rounded-2xl bg-brand/10 p-3">
+                <p className="font-bold text-foreground">Exemplo prático</p>
+                <p className="mt-1">
+                  Jogo fake: Time A 0 x 1 Time B. Palpite 0 x 1, Time B classificado no tempo: 3
+                  placar + 1 saldo + 2 classificado + 1 método + 1 combo ={" "}
+                  <strong className="text-foreground">{exactExample} pts</strong> na Fase de 32.
+                  Depois aplica multiplicador da fase e do time, se houver.
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {Object.entries(stageWeights).map(([stage, weight]) => (
+                  <div
+                    key={stage}
+                    className="rounded-2xl border border-border/70 bg-background/55 p-2"
+                  >
+                    <p className="text-[10px] font-black uppercase text-muted-foreground">
+                      {knockoutStageLabel(stage) ?? stage}
+                    </p>
+                    <p className="text-lg font-extrabold text-foreground">x{weight}</p>
+                  </div>
+                ))}
+              </div>
+              {mode === "pool" && (
+                <p>
+                  No Bolão entram só inscrições ativas. Palpites especiais somam: campeão{" "}
+                  <strong className="text-foreground">{specialPoints.champion}</strong>, vice{" "}
+                  <strong className="text-foreground">{specialPoints.runner_up}</strong>, 3º lugar{" "}
+                  <strong className="text-foreground">{specialPoints.third_place}</strong> e pódio
+                  perfeito{" "}
+                  <strong className="text-foreground">{specialPoints.perfect_podium}</strong>.
+                </p>
+              )}
             </AccordionContent>
           </AccordionItem>
         </Accordion>
@@ -333,9 +453,9 @@ function PublicProfileDrawer({
       <DrawerContent className="max-h-[88vh]">
         <div className="mx-auto w-full max-w-xl overflow-y-auto px-4 pb-6">
           <DrawerHeader className="px-0 text-left">
-            <DrawerTitle>Perfil público</DrawerTitle>
+            <DrawerTitle>Perfil do jogador</DrawerTitle>
             <DrawerDescription>
-              Dados públicos do ranking {mode === "pool" ? "do Bolão" : "da Resenha"}.
+              Histórico visível no ranking {mode === "pool" ? "do Bolão" : "da Resenha"}.
             </DrawerDescription>
           </DrawerHeader>
 

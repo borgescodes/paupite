@@ -395,7 +395,7 @@ function PoolPage() {
               </TabsList>
 
               <TabsContent value="rules" className="space-y-3">
-                <RulesCard summary={summary} scoreRules={scoreRules} />
+                <RulesCard summary={summary} />
                 <KnockoutRulesCard rules={poolScoringRules} teams={teams} />
               </TabsContent>
 
@@ -616,13 +616,7 @@ function TermsDialog({
   );
 }
 
-function RulesCard({
-  summary,
-  scoreRules,
-}: {
-  summary: PoolSummary;
-  scoreRules: ScoreRules | null;
-}) {
+function RulesCard({ summary }: { summary: PoolSummary }) {
   return (
     <Card className="glass-card">
       <CardContent className="p-0">
@@ -636,20 +630,16 @@ function RulesCard({
             </AccordionTrigger>
             <AccordionContent className="space-y-3 pb-4 text-sm text-muted-foreground">
               <RuleLine
-                title="Pontos base por jogo"
-                text={
-                  scoreRules
-                    ? `Placar exato vale ${scoreRules.exact_score_points ?? 0}; resultado correto vale ${scoreRules.outcome_points ?? 0}; bônus de saldo vale ${scoreRules.goal_difference_bonus ?? 0}.`
-                    : "A pontuação base segue a configuração atual do bolão."
-                }
-              />
-              <RuleLine
                 title="Prazo dos palpites"
                 text="Cada palpite de jogo bloqueia automaticamente no início da partida."
               />
               <RuleLine
                 title="Ranking oficial"
                 text="O ranking do Bolão considera somente participantes com inscrição ativa."
+              />
+              <RuleLine
+                title="Desempate"
+                text="Em empate de pontos, fica na frente quem enviou primeiro o palpite válido. Editar o palpite depois não muda esse critério."
               />
               <RuleLine
                 title="Inscrição e prêmio"
@@ -700,10 +690,29 @@ function KnockoutRulesCard({
                 <p className="font-bold text-foreground">Pontos base por jogo</p>
                 <p className="mt-1">
                   Placar exato: {basePoints.exact_score ?? 3}; resultado no tempo regulamentar:{" "}
-                  {basePoints.regulation_result ?? 1}; classificado:{" "}
-                  {basePoints.qualified_team ?? 2}; método de classificação:{" "}
-                  {basePoints.qualification_method ?? 1}; combo perfeito:{" "}
+                  {basePoints.regulation_result ?? 1}; saldo de gols:{" "}
+                  {basePoints.goal_difference ?? 1}; classificado: {basePoints.qualified_team ?? 2};
+                  método de classificação: {basePoints.qualification_method ?? 1}; combo perfeito:{" "}
                   {basePoints.perfect_combo ?? 1}.
+                </p>
+              </div>
+              <div className="rounded-2xl border border-brand/20 bg-brand/10 p-3 text-muted-foreground">
+                <p className="font-bold text-foreground">Exemplo prático</p>
+                <p className="mt-1">
+                  Time A 0 x 1 Time B. Você cravou 0 x 1, indicou Time B classificado e método tempo
+                  regulamentar: {basePoints.exact_score ?? 3} pelo placar +{" "}
+                  {basePoints.goal_difference ?? 1} pelo saldo + {basePoints.qualified_team ?? 2}{" "}
+                  pelo classificado + {basePoints.qualification_method ?? 1} pelo método +{" "}
+                  {basePoints.perfect_combo ?? 1} pelo combo ={" "}
+                  <strong className="text-foreground">
+                    {(basePoints.exact_score ?? 3) +
+                      (basePoints.goal_difference ?? 1) +
+                      (basePoints.qualified_team ?? 2) +
+                      (basePoints.qualification_method ?? 1) +
+                      (basePoints.perfect_combo ?? 1)}{" "}
+                    pts
+                  </strong>
+                  . Depois aplica o multiplicador da fase e do time, se houver.
                 </p>
               </div>
               <div className="space-y-2">
