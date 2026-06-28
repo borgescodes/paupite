@@ -1,4 +1,4 @@
-import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 import {
   authenticate,
   corsHeaders,
@@ -15,6 +15,8 @@ type Action =
   | "update_score_rules"
   | "confirm_manual"
   | "remove_enrollment"
+  | "archive_pool"
+  | "reactivate_pool"
   | "request_prize"
   | "mark_prize_paid";
 
@@ -216,12 +218,15 @@ Deno.serve(async (req) => {
         .eq("id", enrollmentId)
         .single();
       if (enrollmentError) throw new HttpError(404, "Inscrição não encontrada.");
-      if (["removed", "refund_pending"].includes(enrollment.status)) return json({ ok: true });
+      if (["removed", "refund_pending"].includes(enrollment.status)) {
+        return json({ ok: true, enrollment_id: enrollment.id, status: enrollment.status });
+      }
 
+      const nextStatus = "refund_pending";
       const { error } = await admin
         .from("enrollments")
         .update({
-          status: "refund_pending",
+          status: nextStatus,
           note: "Inscrição removida pelo administrador. Reembolso manual pendente.",
         })
         .eq("id", enrollment.id);
@@ -239,8 +244,83 @@ Deno.serve(async (req) => {
           dedupe_key: `enrollment_removed:${enrollment.id}`,
         },
       );
-      await writeAudit(admin, profile.id, "pool.enrollment_removed", "enrollment", enrollment.id);
-      return json({ ok: true });
+      await writeAudit(admin, profile.id, "pool.enrollment_removed", "enrollment", enrollment.id, {
+        status: nextStatus,
+      });
+      return json({ ok: true, enrollment_id: enrollment.id, status: nextStatus });
+    }
+
+    if (body.action === "archive_pool") {
+      requireRole(profile, ["superadmin"]);
+      if (body.confirmation !== "ARQUIVAR") {
+        throw new HttpError(400, "Confirmação inválida para arquivar bolão.");
+      }
+
+      const { data, error } = await admin
+        .from("pool_settings")
+        .update({
+          status: "archived",
+          enrollments_mode: "closed",
+          updated_by: profile.id,
+        })
+        .eq("id", poolSettings.id)
+        .select("id,status")
+        .single();
+      if (error) throw new HttpError(400, error.message);
+
+      await notifyActiveStaff(
+        admin,
+        "pool_archived",
+        "Bolão arquivado",
+        "O bolão foi arquivado pelo superadmin. Jogadores não verão mais este bolão ativo.",
+        {
+          pool_id: poolSettings.id,
+          archived_by: profile.id,
+          dedupe_key: `pool_archived:${poolSettings.id}`,
+        },
+      );
+      await writeAudit(admin, profile.id, "pool.archived", "pool_settings", poolSettings.id, {
+        status: "archived",
+      });
+      return json({ ok: true, pool_id: data.id, status: data.status });
+    }
+
+    if (body.action === "reactivate_pool") {
+      requireRole(profile, ["superadmin"]);
+      if (body.confirmation !== "REATIVAR") {
+        throw new HttpError(400, "Confirmação inválida para reativar bolão.");
+      }
+      if (poolSettings.status !== "archived") {
+        throw new HttpError(400, "Somente bolão arquivado pode ser reativado por esta ação.");
+      }
+
+      const { data, error } = await admin
+        .from("pool_settings")
+        .update({
+          status: "open",
+          enrollments_mode: "open",
+          updated_by: profile.id,
+        })
+        .eq("id", poolSettings.id)
+        .select("id,status")
+        .single();
+      if (error) throw new HttpError(400, error.message);
+
+      await notifyActiveStaff(
+        admin,
+        "pool_reactivated",
+        "Bolão reativado",
+        "O bolão arquivado foi reativado pelo superadmin.",
+        {
+          pool_id: poolSettings.id,
+          reactivated_by: profile.id,
+          dedupe_key: `pool_reactivated:${poolSettings.id}`,
+        },
+      );
+      await writeAudit(admin, profile.id, "pool.reactivated", "pool_settings", poolSettings.id, {
+        status: "open",
+      });
+      return json({ ok: true, pool_id: data.id, status: data.status });
     }
 
     if (body.action === "request_prize") {
