@@ -3,10 +3,12 @@ import { BiSolidMoon, BiSolidSun, BiSolidTrophy } from "react-icons/bi";
 
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { NotificationBell } from "@/components/notifications/NotificationBell";
 
 export type ThemeMode = "light" | "dark";
 
 export interface AppHeaderProps {
+  userId?: string | null;
   userName: string;
   avatarUrl?: string | null;
   theme: ThemeMode;
@@ -26,6 +28,7 @@ function getInitials(name: string) {
 }
 
 function AppHeader({
+  userId,
   userName,
   avatarUrl,
   theme,
@@ -71,6 +74,7 @@ function AppHeader({
           >
             <BiSolidTrophy className="size-5" />
           </button>
+          <NotificationBell userId={userId} />
           <button
             type="button"
             onClick={onToggleTheme}
