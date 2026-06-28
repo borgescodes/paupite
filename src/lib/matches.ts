@@ -111,6 +111,7 @@ export function toMatchCard(
   const kickoff = new Date(match.kickoff_at);
   const locked = kickoff.getTime() <= Date.now();
   const status = normalizeStatus(match.status);
+  const bettingStatusOpen = !["locked", "canceled"].includes(match.status);
   const knockout = isKnockoutStage(match.stage);
   const score = {
     home: match.regulation_home_score ?? match.home_score,
@@ -167,7 +168,7 @@ export function toMatchCard(
           qualificationMethod: match.qualification_method ?? null,
         }
       : undefined,
-    paupiteOpen: status === "scheduled" && !locked && teamsDefined,
+    paupiteOpen: status === "scheduled" && bettingStatusOpen && !locked && teamsDefined,
     paupiteClosedLabel: "Paupites encerrados",
     paupiteClosesAtLabel:
       status === "scheduled" && !locked
@@ -185,7 +186,7 @@ export function toMatchCard(
 
 function normalizeStatus(status: string): MatchCardData["status"] {
   if (status === "live") return "live";
-  if (status === "finished" || status === "closed") return "finished";
+  if (status === "finished" || status === "closed" || status === "scored") return "finished";
   return "scheduled";
 }
 
@@ -203,6 +204,7 @@ function toTeam(team: MatchTeamRow | null, sourceLabel?: string | null) {
 
 export function formatStage(stage: string | null) {
   if (!stage) return "Copa 2026";
+  if (knockoutStageLabel(stage)) return "Eliminatórias";
   const labels: Record<string, string> = {
     group_stage: "Fase de grupos",
     groups: "Fase de grupos",

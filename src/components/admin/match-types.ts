@@ -17,6 +17,7 @@ export interface AdminMatch {
   id: string;
   kickoff_at: string;
   status: string;
+  deleted_at: string | null;
   home_team_id: string | null;
   away_team_id: string | null;
   home_score: number;

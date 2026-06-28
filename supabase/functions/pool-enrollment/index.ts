@@ -12,6 +12,7 @@ type Action =
   | "request"
   | "update_settings"
   | "update_score_rules"
+  | "archive_pool"
   | "confirm_manual"
   | "request_prize"
   | "mark_prize_paid";
@@ -33,8 +34,15 @@ Deno.serve(async (req) => {
     if (settingsError) throw new HttpError(500, settingsError.message);
 
     if (body.action === "request") {
+      const now = new Date();
       if (settings.status === "closed" || settings.status === "archived") {
         throw new HttpError(400, "As inscrições estão encerradas.");
+      }
+      if (settings.enrollment_closes_at && new Date(settings.enrollment_closes_at) <= now) {
+        throw new HttpError(400, "As inscrições estão encerradas.");
+      }
+      if (settings.enrollment_opens_at && new Date(settings.enrollment_opens_at) > now) {
+        throw new HttpError(400, "As inscrições ainda não estão abertas.");
       }
       if (settings.enrollments_mode === "closed") {
         throw new HttpError(400, "As inscrições estão encerradas.");
@@ -43,7 +51,7 @@ Deno.serve(async (req) => {
         const opensAt = settings.enrollment_opens_at
           ? new Date(settings.enrollment_opens_at)
           : null;
-        if (!opensAt || opensAt > new Date()) {
+        if (!opensAt || opensAt > now) {
           throw new HttpError(400, "As inscrições ainda não estão abertas.");
         }
       }
@@ -92,6 +100,8 @@ Deno.serve(async (req) => {
         "free_ranking_starts_at",
         "enrollment_opens_at",
         "enrollment_closes_at",
+        "enrollments_mode",
+        "coming_soon_message",
       ];
       const patch: Record<string, unknown> = { updated_by: profile.id };
       for (const key of allowed) {
@@ -114,6 +124,26 @@ Deno.serve(async (req) => {
         settings.id,
         patch,
       );
+      return json({ settings: data });
+    }
+
+    if (body.action === "archive_pool") {
+      requireRole(profile, ["superadmin"]);
+      if (body.confirmation !== "ARQUIVAR BOLAO") {
+        throw new HttpError(400, "Confirmação inválida.");
+      }
+      const { data, error } = await admin
+        .from("pool_settings")
+        .update({
+          status: "archived",
+          enrollments_mode: "closed",
+          updated_by: profile.id,
+        })
+        .eq("id", settings.id)
+        .select("*")
+        .single();
+      if (error) throw new HttpError(400, error.message);
+      await writeAudit(admin, profile.id, "pool.archived", "pool_settings", settings.id);
       return json({ settings: data });
     }
 

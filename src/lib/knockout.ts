@@ -57,7 +57,6 @@ export const defaultSpecialPoints = {
   champion: 60,
   runner_up: 35,
   third_place: 25,
-  top_scorer: 40,
   perfect_podium: 30,
 };
 

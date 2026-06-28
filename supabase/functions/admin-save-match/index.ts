@@ -8,7 +8,15 @@ import {
   writeAudit,
 } from "../_shared/paupite.ts";
 
-type MatchAction = "create" | "update" | "result" | "close";
+type MatchAction =
+  | "create"
+  | "update"
+  | "result"
+  | "close"
+  | "correct_score"
+  | "recalculate"
+  | "set_status"
+  | "soft_delete";
 
 interface MatchPayload {
   action: MatchAction;
@@ -22,7 +30,7 @@ interface MatchPayload {
   venue?: string | null;
   city?: string | null;
   country?: string | null;
-  status?: "scheduled" | "live" | "finished";
+  status?: "scheduled" | "open" | "locked" | "live" | "finished" | "closed" | "scored" | "canceled";
   home_score?: number;
   away_score?: number;
   qualified_team_id?: string | null;
@@ -38,7 +46,18 @@ Deno.serve(async (req) => {
     requireRole(profile, ["admin", "superadmin"]);
     const body = (await req.json()) as MatchPayload;
 
-    if (!["create", "update", "result", "close"].includes(body.action)) {
+    if (
+      ![
+        "create",
+        "update",
+        "result",
+        "close",
+        "correct_score",
+        "recalculate",
+        "set_status",
+        "soft_delete",
+      ].includes(body.action)
+    ) {
       throw new HttpError(400, "Ação de partida inválida.");
     }
 
@@ -78,6 +97,45 @@ Deno.serve(async (req) => {
     if (currentError) throw new HttpError(500, currentError.message);
     if (!current) throw new HttpError(404, "Partida não encontrada.");
 
+    if (body.action === "soft_delete") {
+      const { data: affected, error: rpcError } = await admin.rpc("admin_soft_delete_match", {
+        _match_id: body.match_id,
+      });
+      if (rpcError) throw new HttpError(400, rpcError.message);
+      await writeAudit(admin, profile.id, "match.soft_deleted", "match", body.match_id, {
+        bets_reset: affected,
+      });
+      return json({ updated: affected });
+    }
+
+    if (body.action === "set_status") {
+      const status = normalizeAdminStatus(body.status);
+      const { data: affected, error: rpcError } = await admin.rpc("admin_set_match_status", {
+        _match_id: body.match_id,
+        _new_status: status,
+      });
+      if (rpcError) throw new HttpError(400, rpcError.message);
+      await writeAudit(admin, profile.id, "match.status_updated", "match", body.match_id, {
+        status,
+        bets_updated: affected,
+      });
+      return json({ updated: affected });
+    }
+
+    if (body.action === "recalculate") {
+      const { data: affected, error: rpcError } = await admin.rpc(
+        "admin_recalculate_match_points",
+        {
+          _match_id: body.match_id,
+        },
+      );
+      if (rpcError) throw new HttpError(400, rpcError.message);
+      await writeAudit(admin, profile.id, "match.points_recalculated", "match", body.match_id, {
+        bets_updated: affected,
+      });
+      return json({ updated: affected });
+    }
+
     if (body.action === "update") {
       validateOperational(body, false);
       if (current.status === "closed" && profile.role !== "superadmin") {
@@ -115,10 +173,32 @@ Deno.serve(async (req) => {
       throw new HttpError(400, "Não é permitido lançar placar antes do início da partida.");
     }
 
+    if (body.action === "correct_score") {
+      const homeScore = score(body.home_score);
+      const awayScore = score(body.away_score);
+      const { data: affected, error: rpcError } = await admin.rpc("admin_update_match_score", {
+        _match_id: body.match_id,
+        _new_home_score: homeScore,
+        _new_away_score: awayScore,
+      });
+      if (rpcError) throw new HttpError(400, rpcError.message);
+      await writeAudit(admin, profile.id, "match.score_corrected", "match", body.match_id, {
+        home_score: homeScore,
+        away_score: awayScore,
+        bets_updated: affected,
+      });
+      return json({ updated: affected });
+    }
+
     if (body.action === "result") {
       const homeScore = score(body.home_score);
       const awayScore = score(body.away_score);
-      const status = body.status === "live" ? "live" : "finished";
+      const status =
+        body.status === "live"
+          ? "live"
+          : body.status === "closed" || body.status === "scored"
+            ? body.status
+            : "finished";
       const knockout = isKnockoutStage(current.stage);
       const qualification = knockout
         ? validateKnockoutResult(current, homeScore, awayScore, body)
@@ -144,21 +224,23 @@ Deno.serve(async (req) => {
         qualification_method: qualification.qualification_method,
         status,
       });
+      if (status === "closed" || status === "scored") {
+        const { error: rpcError } = await admin.rpc("admin_recalculate_match_points", {
+          _match_id: body.match_id,
+        });
+        if (rpcError) throw new HttpError(400, rpcError.message);
+      }
       return json({ ok: true });
     }
 
-    if (current.status === "scheduled") {
+    if (["scheduled", "open", "locked"].includes(current.status)) {
       throw new HttpError(400, "Lance o resultado antes de fechar a partida.");
     }
-    const { data: updated, error: rpcError } = await admin.rpc("admin_recalculate_match_points", {
+    const { data: updated, error: rpcError } = await admin.rpc("admin_set_match_status", {
       _match_id: body.match_id,
+      _new_status: "closed",
     });
     if (rpcError) throw new HttpError(400, rpcError.message);
-    const { error: closeError } = await admin
-      .from("matches")
-      .update({ status: "closed" })
-      .eq("id", body.match_id);
-    if (closeError) throw new HttpError(400, closeError.message);
     await writeAudit(admin, profile.id, "match.closed_and_scored", "match", body.match_id, {
       bets_updated: updated,
     });
@@ -190,6 +272,16 @@ function validateOperational(body: MatchPayload, create: boolean) {
   if (body.kickoff_at && Number.isNaN(new Date(body.kickoff_at).getTime())) {
     throw new HttpError(400, "Data da partida inválida.");
   }
+}
+
+function normalizeAdminStatus(value: string | undefined) {
+  const status = value === "finished" ? "closed" : value;
+  if (
+    !["scheduled", "open", "locked", "live", "closed", "scored", "canceled"].includes(status ?? "")
+  ) {
+    throw new HttpError(400, "Status de partida inválido.");
+  }
+  return status!;
 }
 
 function normalizeKnockoutStage(stage: string | null | undefined) {

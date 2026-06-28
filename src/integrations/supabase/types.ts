@@ -311,6 +311,7 @@ export type Database = {
           competition_id: string | null;
           country: string | null;
           created_at: string;
+          deleted_at: string | null;
           external_key: string | null;
           group_name: string | null;
           home_score: number;
@@ -345,6 +346,7 @@ export type Database = {
           competition_id?: string | null;
           country?: string | null;
           created_at?: string;
+          deleted_at?: string | null;
           external_key?: string | null;
           group_name?: string | null;
           home_score?: number;
@@ -379,6 +381,7 @@ export type Database = {
           competition_id?: string | null;
           country?: string | null;
           created_at?: string;
+          deleted_at?: string | null;
           external_key?: string | null;
           group_name?: string | null;
           home_score?: number;
@@ -914,6 +917,7 @@ export type Database = {
       pool_public_summary: {
         Row: {
           coming_soon_message: string | null;
+          enrollment_closes_at: string | null;
           enrollment_opens_at: string | null;
           enrollments_mode: string | null;
           entry_fee_cents: number | null;
@@ -929,6 +933,7 @@ export type Database = {
         };
         Insert: {
           coming_soon_message?: string | null;
+          enrollment_closes_at?: string | null;
           enrollment_opens_at?: string | null;
           enrollments_mode?: string | null;
           entry_fee_cents?: number | null;
@@ -944,6 +949,7 @@ export type Database = {
         };
         Update: {
           coming_soon_message?: string | null;
+          enrollment_closes_at?: string | null;
           enrollment_opens_at?: string | null;
           enrollments_mode?: string | null;
           entry_fee_cents?: number | null;
@@ -1014,6 +1020,18 @@ export type Database = {
     Functions: {
       admin_recalculate_match_points: {
         Args: { _match_id: string };
+        Returns: number;
+      };
+      admin_set_match_status: {
+        Args: { _match_id: string; _new_status: string };
+        Returns: number;
+      };
+      admin_soft_delete_match: {
+        Args: { _match_id: string };
+        Returns: number;
+      };
+      admin_update_match_score: {
+        Args: { _match_id: string; _new_away_score: number; _new_home_score: number };
         Returns: number;
       };
       calc_bet_points: {

@@ -321,6 +321,8 @@ async function fetchHomeMatches(userId: string): Promise<HomeMatchesData> {
     .select(
       "id,match_number,kickoff_at,status,stage,group_name,venue,city,country,home_score,away_score,bracket_source_home,bracket_source_away,qualification_method,qualified_team_id,regulation_home_score,regulation_away_score,home_team:teams!matches_home_team_id_fkey(id,external_key,name,short_name,country_code,flag_url),away_team:teams!matches_away_team_id_fkey(id,external_key,name,short_name,country_code,flag_url)",
     )
+    .is("deleted_at", null)
+    .neq("status", "canceled")
     .order("kickoff_at", { ascending: true });
   let matchData: unknown[] | null = primaryMatchResult.data;
   let matchError = primaryMatchResult.error;
@@ -332,6 +334,8 @@ async function fetchHomeMatches(userId: string): Promise<HomeMatchesData> {
       .select(
         "id,kickoff_at,status,stage,group_name,home_score,away_score,home_team:teams!matches_home_team_id_fkey(id,name,short_name,country_code,flag_url),away_team:teams!matches_away_team_id_fkey(id,name,short_name,country_code,flag_url)",
       )
+      .is("deleted_at", null)
+      .neq("status", "canceled")
       .order("kickoff_at", { ascending: true });
     matchData = fallbackMatchResult.data;
     matchError = fallbackMatchResult.error;

@@ -121,12 +121,17 @@ Deno.serve(async (req) => {
 
         const { data: existing, error: existingError } = await admin
           .from("matches")
-          .select("id,status,home_score,away_score")
+          .select("id,status,home_score,away_score,deleted_at")
           .eq("external_key", item.id)
           .maybeSingle();
         if (existingError) throw new Error(existingError.message);
 
         if (existing) {
+          if (existing.deleted_at) {
+            throw new Error(
+              "Partida removida logicamente. Reative manualmente antes de reimportar.",
+            );
+          }
           const { error } = await admin.from("matches").update(row).eq("id", existing.id);
           if (error) throw new Error(error.message);
           updatedCount += 1;

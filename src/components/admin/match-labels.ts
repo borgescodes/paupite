@@ -13,11 +13,13 @@ export const matchStageOptions = [
 export const resultStatusOptions = [
   { value: "live", label: "Em andamento" },
   { value: "finished", label: "Encerrado" },
+  { value: "closed", label: "Pontuação calculada" },
+  { value: "scored", label: "Pontuada" },
 ] as const;
 
 export function matchStageLabel(stage: string | null | undefined) {
   if (!stage) return "Fase a definir";
-  return knockoutStageLabel(stage) ?? stageLabelFallback(stage);
+  return knockoutStageLabel(stage) ? "Eliminatórias" : stageLabelFallback(stage);
 }
 
 function stageLabelFallback(stage: string) {
@@ -27,9 +29,13 @@ function stageLabelFallback(stage: string) {
 }
 
 export function matchStatusLabel(status: string, future: boolean) {
+  if (status === "canceled") return "Cancelada";
+  if (status === "scored") return "Pontuada";
   if (status === "closed") return "Pontuação calculada";
   if (status === "finished") return "Encerrado";
   if (status === "live") return "Em andamento";
+  if (status === "locked") return "Bloqueada";
+  if (status === "open") return "Aberta";
   if (future) return "Aberto para palpite";
   return "Agendado";
 }

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { BiChevronDown, BiFilterAlt, BiGroup, BiPlus, BiSearch } from "react-icons/bi";
 import { toast } from "sonner";
 
+import { AdminMatchActionsSheet } from "@/components/admin/AdminMatchActionsSheet";
 import { AdminMatchCard } from "@/components/admin/AdminMatchCard";
 import { AdminMatchEditor, NativeSelect } from "@/components/admin/AdminMatchEditor";
 import { AdminResultSheet } from "@/components/admin/AdminResultSheet";
@@ -30,10 +31,12 @@ export function MatchesAdmin() {
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState<AdminMatch | null | "new">(null);
   const [resultMatch, setResultMatch] = useState<AdminMatch | null>(null);
+  const [actionMatch, setActionMatch] = useState<AdminMatch | null>(null);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
   const [stage, setStage] = useState("all");
   const [date, setDate] = useState("");
+  const [showDeleted, setShowDeleted] = useState(false);
   const [newTeam, setNewTeam] = useState({
     id: "",
     name: "",
@@ -49,7 +52,7 @@ export function MatchesAdmin() {
       supabase
         .from("matches")
         .select(
-          "id,kickoff_at,status,home_team_id,away_team_id,home_score,away_score,regulation_home_score,regulation_away_score,qualified_team_id,qualification_method,bracket_source_home,bracket_source_away,competition_id,stage,group_name,venue,city,home_team:teams!matches_home_team_id_fkey(name,short_name,country_code),away_team:teams!matches_away_team_id_fkey(name,short_name,country_code)",
+          "id,kickoff_at,status,deleted_at,home_team_id,away_team_id,home_score,away_score,regulation_home_score,regulation_away_score,qualified_team_id,qualification_method,bracket_source_home,bracket_source_away,competition_id,stage,group_name,venue,city,home_team:teams!matches_home_team_id_fkey(name,short_name,country_code),away_team:teams!matches_away_team_id_fkey(name,short_name,country_code)",
         )
         .order("kickoff_at"),
     ]);
@@ -78,26 +81,30 @@ export function MatchesAdmin() {
     const query = search.trim().toLocaleLowerCase("pt-BR");
     return matches.filter((match) => {
       const kickoff = new Date(match.kickoff_at);
-      const operationalStatus =
-        match.status === "closed"
+      const operationalStatus = match.deleted_at
+        ? "deleted"
+        : match.status === "closed" || match.status === "scored"
           ? "closed"
           : match.status === "live"
             ? "live"
             : match.status === "finished"
               ? "finished"
-              : kickoff > new Date()
-                ? "future"
-                : "pending";
+              : match.status === "canceled"
+                ? "canceled"
+                : kickoff > new Date()
+                  ? "future"
+                  : "pending";
       const names =
         `${match.home_team?.name ?? ""} ${match.away_team?.name ?? ""}`.toLocaleLowerCase("pt-BR");
       return (
+        (showDeleted || !match.deleted_at) &&
         (!query || names.includes(query)) &&
         (status === "all" || operationalStatus === status) &&
         (stage === "all" || match.stage === stage) &&
         (!date || match.kickoff_at.slice(0, 10) === date)
       );
     });
-  }, [date, matches, search, stage, status]);
+  }, [date, matches, search, showDeleted, stage, status]);
 
   async function run(operation: () => Promise<unknown>, success: string) {
     setBusy(true);
@@ -178,6 +185,57 @@ export function MatchesAdmin() {
     if (closed) setResultMatch(null);
   }
 
+  async function correctMatchScore(value: { home_score: number; away_score: number }) {
+    if (!actionMatch) return;
+    await run(
+      () =>
+        callEdgeFunction("admin-save-match", {
+          action: "correct_score",
+          match_id: actionMatch.id,
+          ...value,
+        }),
+      "Placar corrigido e pontuação atualizada quando aplicável.",
+    );
+  }
+
+  async function recalculateMatch() {
+    if (!actionMatch) return;
+    await run(
+      () =>
+        callEdgeFunction("admin-save-match", {
+          action: "recalculate",
+          match_id: actionMatch.id,
+        }),
+      "Pontuação recalculada.",
+    );
+  }
+
+  async function setMatchStatus(nextStatus: string) {
+    if (!actionMatch) return;
+    await run(
+      () =>
+        callEdgeFunction("admin-save-match", {
+          action: "set_status",
+          match_id: actionMatch.id,
+          status: nextStatus,
+        }),
+      "Status da partida atualizado.",
+    );
+  }
+
+  async function softDeleteMatch() {
+    if (!actionMatch) return;
+    const removed = await run(
+      () =>
+        callEdgeFunction("admin-save-match", {
+          action: "soft_delete",
+          match_id: actionMatch.id,
+        }),
+      "Partida removida logicamente.",
+    );
+    if (removed) setActionMatch(null);
+  }
+
   async function saveTeam(event: React.FormEvent) {
     event.preventDefault();
     const saved = await run(
@@ -236,6 +294,8 @@ export function MatchesAdmin() {
             <option value="finished">Encerrado</option>
             <option value="pending">Agendado</option>
             <option value="closed">Pontuação calculada</option>
+            <option value="canceled">Canceladas</option>
+            <option value="deleted">Removidas</option>
           </NativeSelect>
           <NativeSelect id="filter-stage" value={stage} onChange={setStage}>
             <option value="all">Todas as fases</option>
@@ -255,6 +315,14 @@ export function MatchesAdmin() {
               onChange={(event) => setDate(event.target.value)}
             />
           </div>
+          <label className="flex min-h-10 items-center gap-2 rounded-xl border border-border/70 px-3 text-sm font-bold text-muted-foreground">
+            <input
+              type="checkbox"
+              checked={showDeleted}
+              onChange={(event) => setShowDeleted(event.target.checked)}
+            />
+            Ver removidas
+          </label>
         </CardContent>
       </Card>
 
@@ -278,6 +346,7 @@ export function MatchesAdmin() {
               match={match}
               onEdit={() => setEditing(match)}
               onResult={() => setResultMatch(match)}
+              onActions={() => setActionMatch(match)}
             />
           ))}
         </div>
@@ -386,6 +455,16 @@ export function MatchesAdmin() {
         onOpenChange={(open) => !open && setResultMatch(null)}
         onSave={(value) => void saveResult(value)}
         onCloseMatch={() => void closeMatch()}
+      />
+      <AdminMatchActionsSheet
+        open={Boolean(actionMatch)}
+        match={actionMatch}
+        busy={busy}
+        onOpenChange={(open) => !open && setActionMatch(null)}
+        onCorrectScore={(value) => void correctMatchScore(value)}
+        onRecalculate={() => void recalculateMatch()}
+        onSetStatus={(value) => void setMatchStatus(value)}
+        onSoftDelete={() => void softDeleteMatch()}
       />
     </div>
   );

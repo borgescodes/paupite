@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { BiCheckCircle, BiCoinStack, BiSave } from "react-icons/bi";
+import { BiArchive, BiCheckCircle, BiCoinStack, BiSave } from "react-icons/bi";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,10 @@ interface Settings {
   id: string;
   title: string;
   status: string;
+  enrollment_opens_at: string | null;
+  enrollment_closes_at: string | null;
+  enrollments_mode: string | null;
+  coming_soon_message: string | null;
   entry_fee_cents: number;
   minimum_participants: number;
   prize_percentage: number;
@@ -32,7 +36,6 @@ interface UserName {
   id: string;
   display_name: string | null;
   nickname: string | null;
-  email: string;
 }
 
 interface PrizeRequest {
@@ -71,7 +74,6 @@ interface KnockoutForm {
   champion_team_id: string;
   runner_up_team_id: string;
   third_place_team_id: string;
-  top_scorer: string;
 }
 
 export function PoolAdmin({ currentRole }: { currentRole: string }) {
@@ -90,7 +92,6 @@ export function PoolAdmin({ currentRole }: { currentRole: string }) {
     champion_team_id: "",
     runner_up_team_id: "",
     third_place_team_id: "",
-    top_scorer: "",
   });
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -109,7 +110,7 @@ export function PoolAdmin({ currentRole }: { currentRole: string }) {
       supabase.from("pool_settings").select("*").eq("slug", "world-cup-2026").single(),
       supabase.from("enrollments").select("*").order("requested_at", { ascending: false }),
       supabase.from("prize_requests").select("*").order("requested_at", { ascending: false }),
-      supabase.from("profiles").select("id,display_name,nickname,email"),
+      supabase.from("profiles").select("id,display_name,nickname"),
       supabase
         .from("score_rules")
         .select("exact_score_points,outcome_points,goal_difference_bonus")
@@ -137,7 +138,6 @@ export function PoolAdmin({ currentRole }: { currentRole: string }) {
       champion_team_id: specialResults.champion_team_id ?? "",
       runner_up_team_id: specialResults.runner_up_team_id ?? "",
       third_place_team_id: specialResults.third_place_team_id ?? "",
-      top_scorer: specialResults.top_scorer ?? "",
     });
     const map: Record<string, UserName> = {};
     for (const user of (usersResult.data ?? []) as UserName[]) map[user.id] = user;
@@ -201,7 +201,6 @@ export function PoolAdmin({ currentRole }: { currentRole: string }) {
           champion_team_id: knockoutForm.champion_team_id || null,
           runner_up_team_id: knockoutForm.runner_up_team_id || null,
           third_place_team_id: knockoutForm.third_place_team_id || null,
-          top_scorer: knockoutForm.top_scorer.trim() || null,
         },
         specials_lock_at: fromDateTimeLocal(knockoutForm.specials_lock_at),
       })
@@ -242,6 +241,43 @@ export function PoolAdmin({ currentRole }: { currentRole: string }) {
                 <option value="archived">Arquivado</option>
               </select>
             </Field>
+            <Field label="Status das inscrições">
+              <select
+                className="h-9 w-full rounded-md border bg-background px-3 text-sm"
+                value={settings.enrollments_mode ?? "closed"}
+                onChange={(event) =>
+                  setSettings({ ...settings, enrollments_mode: event.target.value })
+                }
+              >
+                <option value="open">Bolão aberto para inscrições</option>
+                <option value="coming_soon">Inscrições em breve</option>
+                <option value="closed">Inscrições encerradas</option>
+              </select>
+            </Field>
+            <Field label="Inscrições abrem em">
+              <Input
+                type="datetime-local"
+                value={toDateTimeLocal(settings.enrollment_opens_at)}
+                onChange={(event) =>
+                  setSettings({
+                    ...settings,
+                    enrollment_opens_at: fromDateTimeLocal(event.target.value),
+                  })
+                }
+              />
+            </Field>
+            <Field label="Inscrições encerram em">
+              <Input
+                type="datetime-local"
+                value={toDateTimeLocal(settings.enrollment_closes_at)}
+                onChange={(event) =>
+                  setSettings({
+                    ...settings,
+                    enrollment_closes_at: fromDateTimeLocal(event.target.value),
+                  })
+                }
+              />
+            </Field>
             <Field label="Entrada (R$)">
               <Input
                 type="number"
@@ -278,6 +314,16 @@ export function PoolAdmin({ currentRole }: { currentRole: string }) {
               />
             </Field>
             <div className="sm:col-span-2">
+              <Field label="Mensagem de inscrições em breve">
+                <Input
+                  value={settings.coming_soon_message ?? ""}
+                  onChange={(event) =>
+                    setSettings({ ...settings, coming_soon_message: event.target.value || null })
+                  }
+                />
+              </Field>
+            </div>
+            <div className="sm:col-span-2">
               <Field label="Informação da premiação">
                 <Input
                   value={settings.prize_description ?? ""}
@@ -311,6 +357,10 @@ export function PoolAdmin({ currentRole }: { currentRole: string }) {
                       prize_percentage: settings.prize_percentage,
                       prize_description: settings.prize_description,
                       terms: settings.terms,
+                      enrollment_opens_at: settings.enrollment_opens_at,
+                      enrollment_closes_at: settings.enrollment_closes_at,
+                      enrollments_mode: settings.enrollments_mode,
+                      coming_soon_message: settings.coming_soon_message,
                     }),
                   "Configurações salvas.",
                 )
@@ -318,6 +368,29 @@ export function PoolAdmin({ currentRole }: { currentRole: string }) {
             >
               <BiSave className="size-5" />
               Salvar configurações
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={busy || settings.status === "archived"}
+              className="sm:col-span-2"
+              onClick={() => {
+                const confirmation = window.prompt(
+                  "Para arquivar este bolão sem apagar pagamentos ou inscrições, digite ARQUIVAR BOLAO.",
+                );
+                if (confirmation !== "ARQUIVAR BOLAO") return;
+                void run(
+                  () =>
+                    callEdgeFunction("pool-enrollment", {
+                      action: "archive_pool",
+                      confirmation,
+                    }),
+                  "Bolão arquivado.",
+                );
+              }}
+            >
+              <BiArchive className="size-5" />
+              Excluir/arquivar bolão
             </Button>
           </CardContent>
         </Card>
@@ -415,14 +488,6 @@ export function PoolAdmin({ currentRole }: { currentRole: string }) {
                       ...current,
                       specials_lock_at: event.target.value,
                     }))
-                  }
-                />
-              </Field>
-              <Field label="Artilheiro oficial">
-                <Input
-                  value={knockoutForm.top_scorer}
-                  onChange={(event) =>
-                    setKnockoutForm((current) => ({ ...current, top_scorer: event.target.value }))
                   }
                 />
               </Field>
@@ -664,7 +729,7 @@ function fromDateTimeLocal(value: string) {
 }
 
 function nameOf(user?: UserName) {
-  return user?.nickname || user?.display_name || user?.email || "Usuário";
+  return user?.nickname || user?.display_name || "Usuário";
 }
 
 function enrollmentStatusLabel(status: string) {

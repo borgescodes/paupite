@@ -1,4 +1,12 @@
-import { BiCalendar, BiEditAlt, BiMap, BiPlayCircle, BiSolidLock, BiTrophy } from "react-icons/bi";
+import {
+  BiCalendar,
+  BiDotsHorizontalRounded,
+  BiEditAlt,
+  BiMap,
+  BiPlayCircle,
+  BiSolidLock,
+  BiTrophy,
+} from "react-icons/bi";
 
 import { matchStageLabel, matchStatusLabel } from "@/components/admin/match-labels";
 import type { AdminMatch } from "@/components/admin/match-types";
@@ -12,13 +20,16 @@ export function AdminMatchCard({
   match,
   onEdit,
   onResult,
+  onActions,
 }: {
   match: AdminMatch;
   onEdit: () => void;
   onResult: () => void;
+  onActions: () => void;
 }) {
   const future = new Date(match.kickoff_at) > new Date();
-  const canSetResult = !future && match.status !== "closed";
+  const removed = Boolean(match.deleted_at);
+  const canSetResult = !future && !removed && match.status !== "canceled";
   const home =
     match.home_team?.name ?? parseBracketSource(match.bracket_source_home)?.label ?? "A definir";
   const away =
@@ -49,17 +60,19 @@ export function AdminMatchCard({
           </div>
           <StatusBadge
             variant={
-              match.status === "closed"
-                ? "success"
-                : match.status === "live"
-                  ? "live"
-                  : future
-                    ? "brand"
-                    : "warning"
+              removed || match.status === "canceled"
+                ? "neutral"
+                : match.status === "closed" || match.status === "scored"
+                  ? "success"
+                  : match.status === "live"
+                    ? "live"
+                    : future
+                      ? "brand"
+                      : "warning"
             }
             pulse={match.status === "live"}
           >
-            {matchStatusLabel(match.status, future)}
+            {removed ? "Removida" : matchStatusLabel(match.status, future)}
           </StatusBadge>
         </div>
 
@@ -93,7 +106,7 @@ export function AdminMatchCard({
           </p>
         )}
 
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-3 gap-2">
           <Button variant="outline" onClick={onEdit}>
             <BiEditAlt className="size-5" />
             Editar jogo
@@ -111,6 +124,10 @@ export function AdminMatchCard({
               <BiTrophy className="size-5" />
             )}
             {future ? "Aguarda início" : "Resultado"}
+          </Button>
+          <Button variant="secondary" onClick={onActions}>
+            <BiDotsHorizontalRounded className="size-5" />
+            Ações
           </Button>
         </div>
       </CardContent>

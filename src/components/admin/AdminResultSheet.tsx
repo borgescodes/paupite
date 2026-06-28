@@ -53,7 +53,11 @@ export function AdminResultSheet({
     if (!match || !open) return;
     setHomeScore(match.regulation_home_score ?? match.home_score);
     setAwayScore(match.regulation_away_score ?? match.away_score);
-    setStatus(match.status === "live" ? "live" : "finished");
+    setStatus(
+      match.status === "live" || match.status === "closed" || match.status === "scored"
+        ? match.status
+        : "finished",
+    );
     setQualifiedTeamId(match.qualified_team_id);
     setQualificationMethod(match.qualification_method);
   }, [match, open]);

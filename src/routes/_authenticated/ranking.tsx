@@ -240,7 +240,8 @@ async function fetchPublicClosedBetHistory(userId: string): Promise<PublicClosed
       .select(
         "id,status,home_score,away_score,home_team:teams!matches_home_team_id_fkey(short_name,name),away_team:teams!matches_away_team_id_fkey(short_name,name)",
       )
-      .in("status", ["finished", "closed"])
+      .is("deleted_at", null)
+      .in("status", ["finished", "closed", "scored"])
       .order("kickoff_at", { ascending: false }),
   ]);
 
