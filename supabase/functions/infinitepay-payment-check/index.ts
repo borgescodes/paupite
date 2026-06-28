@@ -33,6 +33,9 @@ Deno.serve(async (req) => {
       throw new HttpError(403, "Pagamento não pertence ao usuário.");
     }
     if (payment.status === "paid") return json({ paid: true });
+    if (["removed", "refund_pending"].includes(payment.enrollment?.status)) {
+      throw new HttpError(409, "Sua inscrição foi removida pelo administrador.");
+    }
     const { data: settings, error: settingsError } = await admin
       .from("pool_settings")
       .select("entry_fee_cents")

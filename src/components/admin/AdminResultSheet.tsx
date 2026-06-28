@@ -150,11 +150,11 @@ export function AdminResultSheet({
                         onChange={(event) => setQualifiedTeamId(event.target.value || null)}
                       >
                         <option value="">Selecione</option>
-                        <option value={match.home_team_id}>
-                          {match.home_team?.name ?? "Seleção A"}
+                        <option value={match?.home_team_id ?? ""}>
+                          {match?.home_team?.name ?? "Seleção A"}
                         </option>
-                        <option value={match.away_team_id}>
-                          {match.away_team?.name ?? "Seleção B"}
+                        <option value={match?.away_team_id ?? ""}>
+                          {match?.away_team?.name ?? "Seleção B"}
                         </option>
                       </select>
                     </div>

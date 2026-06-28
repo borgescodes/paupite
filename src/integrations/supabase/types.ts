@@ -513,6 +513,7 @@ export type Database = {
           free_ranking_starts_at: string | null;
           id: string;
           minimum_participants: number;
+          pool_ends_at: string | null;
           prize_description: string | null;
           prize_percentage: number;
           slug: string;
@@ -533,6 +534,7 @@ export type Database = {
           free_ranking_starts_at?: string | null;
           id?: string;
           minimum_participants?: number;
+          pool_ends_at?: string | null;
           prize_description?: string | null;
           prize_percentage?: number;
           slug: string;
@@ -553,6 +555,7 @@ export type Database = {
           free_ranking_starts_at?: string | null;
           id?: string;
           minimum_participants?: number;
+          pool_ends_at?: string | null;
           prize_description?: string | null;
           prize_percentage?: number;
           slug?: string;
@@ -639,6 +642,7 @@ export type Database = {
           id: string;
           note: string | null;
           paid_at: string | null;
+          pix_key: string | null;
           pool_id: string;
           requested_at: string;
           reviewed_at: string | null;
@@ -652,6 +656,7 @@ export type Database = {
           id?: string;
           note?: string | null;
           paid_at?: string | null;
+          pix_key?: string | null;
           pool_id: string;
           requested_at?: string;
           reviewed_at?: string | null;
@@ -665,6 +670,7 @@ export type Database = {
           id?: string;
           note?: string | null;
           paid_at?: string | null;
+          pix_key?: string | null;
           pool_id?: string;
           requested_at?: string;
           reviewed_at?: string | null;
@@ -914,12 +920,14 @@ export type Database = {
       pool_public_summary: {
         Row: {
           coming_soon_message: string | null;
+          enrollment_closes_at: string | null;
           enrollment_opens_at: string | null;
           enrollments_mode: string | null;
           entry_fee_cents: number | null;
           estimated_prize_cents: number | null;
           id: string | null;
           minimum_participants: number | null;
+          pool_ends_at: string | null;
           participants_count: number | null;
           prize_description: string | null;
           prize_percentage: number | null;
@@ -929,12 +937,14 @@ export type Database = {
         };
         Insert: {
           coming_soon_message?: string | null;
+          enrollment_closes_at?: string | null;
           enrollment_opens_at?: string | null;
           enrollments_mode?: string | null;
           entry_fee_cents?: number | null;
           estimated_prize_cents?: never;
           id?: string | null;
           minimum_participants?: number | null;
+          pool_ends_at?: string | null;
           participants_count?: never;
           prize_description?: string | null;
           prize_percentage?: number | null;
@@ -944,12 +954,14 @@ export type Database = {
         };
         Update: {
           coming_soon_message?: string | null;
+          enrollment_closes_at?: string | null;
           enrollment_opens_at?: string | null;
           enrollments_mode?: string | null;
           entry_fee_cents?: number | null;
           estimated_prize_cents?: never;
           id?: string | null;
           minimum_participants?: number | null;
+          pool_ends_at?: string | null;
           participants_count?: never;
           prize_description?: string | null;
           prize_percentage?: number | null;

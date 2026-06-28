@@ -1,7 +1,17 @@
 import { useCallback, useEffect, useState } from "react";
-import { BiCheckCircle, BiCoinStack, BiSave } from "react-icons/bi";
+import { BiCheckCircle, BiCoinStack, BiCopy, BiSave, BiTrash } from "react-icons/bi";
 import { toast } from "sonner";
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -18,6 +28,11 @@ interface Settings {
   minimum_participants: number;
   prize_percentage: number;
   prize_description: string | null;
+  enrollment_opens_at: string | null;
+  enrollment_closes_at: string | null;
+  pool_ends_at: string | null;
+  enrollments_mode: string | null;
+  coming_soon_message: string | null;
   terms: string;
 }
 
@@ -26,6 +41,7 @@ interface Enrollment {
   user_id: string;
   status: string;
   requested_at: string;
+  note: string | null;
 }
 
 interface UserName {
@@ -40,6 +56,8 @@ interface PrizeRequest {
   user_id: string;
   status: string;
   requested_at: string;
+  pix_key: string | null;
+  paid_at: string | null;
 }
 
 interface ScoreRules {
@@ -71,7 +89,6 @@ interface KnockoutForm {
   champion_team_id: string;
   runner_up_team_id: string;
   third_place_team_id: string;
-  top_scorer: string;
 }
 
 export function PoolAdmin({ currentRole }: { currentRole: string }) {
@@ -90,8 +107,9 @@ export function PoolAdmin({ currentRole }: { currentRole: string }) {
     champion_team_id: "",
     runner_up_team_id: "",
     third_place_team_id: "",
-    top_scorer: "",
   });
+  const [removalTarget, setRemovalTarget] = useState<Enrollment | null>(null);
+  const [removalConfirmText, setRemovalConfirmText] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -137,7 +155,6 @@ export function PoolAdmin({ currentRole }: { currentRole: string }) {
       champion_team_id: specialResults.champion_team_id ?? "",
       runner_up_team_id: specialResults.runner_up_team_id ?? "",
       third_place_team_id: specialResults.third_place_team_id ?? "",
-      top_scorer: specialResults.top_scorer ?? "",
     });
     const map: Record<string, UserName> = {};
     for (const user of (usersResult.data ?? []) as UserName[]) map[user.id] = user;
@@ -201,7 +218,7 @@ export function PoolAdmin({ currentRole }: { currentRole: string }) {
           champion_team_id: knockoutForm.champion_team_id || null,
           runner_up_team_id: knockoutForm.runner_up_team_id || null,
           third_place_team_id: knockoutForm.third_place_team_id || null,
-          top_scorer: knockoutForm.top_scorer.trim() || null,
+          top_scorer: null,
         },
         specials_lock_at: fromDateTimeLocal(knockoutForm.specials_lock_at),
       })
@@ -242,6 +259,19 @@ export function PoolAdmin({ currentRole }: { currentRole: string }) {
                 <option value="archived">Arquivado</option>
               </select>
             </Field>
+            <Field label="Modo das inscrições">
+              <select
+                className="h-9 w-full rounded-md border bg-background px-3 text-sm"
+                value={settings.enrollments_mode ?? "closed"}
+                onChange={(event) =>
+                  setSettings({ ...settings, enrollments_mode: event.target.value })
+                }
+              >
+                <option value="coming_soon">Em breve</option>
+                <option value="open">Aberto</option>
+                <option value="closed">Fechado</option>
+              </select>
+            </Field>
             <Field label="Entrada (R$)">
               <Input
                 type="number"
@@ -266,6 +296,42 @@ export function PoolAdmin({ currentRole }: { currentRole: string }) {
                 }
               />
             </Field>
+            <Field label="Inscrições abrem em">
+              <Input
+                type="datetime-local"
+                value={toDateTimeLocal(settings.enrollment_opens_at)}
+                onChange={(event) =>
+                  setSettings({
+                    ...settings,
+                    enrollment_opens_at: fromDateTimeLocal(event.target.value),
+                  })
+                }
+              />
+            </Field>
+            <Field label="Inscrições encerram em">
+              <Input
+                type="datetime-local"
+                value={toDateTimeLocal(settings.enrollment_closes_at)}
+                onChange={(event) =>
+                  setSettings({
+                    ...settings,
+                    enrollment_closes_at: fromDateTimeLocal(event.target.value),
+                  })
+                }
+              />
+            </Field>
+            <Field label="Bolão finaliza em">
+              <Input
+                type="datetime-local"
+                value={toDateTimeLocal(settings.pool_ends_at)}
+                onChange={(event) =>
+                  setSettings({
+                    ...settings,
+                    pool_ends_at: fromDateTimeLocal(event.target.value),
+                  })
+                }
+              />
+            </Field>
             <Field label="% destinado à premiação">
               <Input
                 type="number"
@@ -283,6 +349,16 @@ export function PoolAdmin({ currentRole }: { currentRole: string }) {
                   value={settings.prize_description ?? ""}
                   onChange={(event) =>
                     setSettings({ ...settings, prize_description: event.target.value || null })
+                  }
+                />
+              </Field>
+            </div>
+            <div className="sm:col-span-2">
+              <Field label="Mensagem de inscrições em breve">
+                <Input
+                  value={settings.coming_soon_message ?? ""}
+                  onChange={(event) =>
+                    setSettings({ ...settings, coming_soon_message: event.target.value || null })
                   }
                 />
               </Field>
@@ -310,6 +386,11 @@ export function PoolAdmin({ currentRole }: { currentRole: string }) {
                       minimum_participants: settings.minimum_participants,
                       prize_percentage: settings.prize_percentage,
                       prize_description: settings.prize_description,
+                      enrollment_opens_at: settings.enrollment_opens_at,
+                      enrollment_closes_at: settings.enrollment_closes_at,
+                      pool_ends_at: settings.pool_ends_at,
+                      enrollments_mode: settings.enrollments_mode,
+                      coming_soon_message: settings.coming_soon_message,
                       terms: settings.terms,
                     }),
                   "Configurações salvas.",
@@ -415,14 +496,6 @@ export function PoolAdmin({ currentRole }: { currentRole: string }) {
                       ...current,
                       specials_lock_at: event.target.value,
                     }))
-                  }
-                />
-              </Field>
-              <Field label="Artilheiro oficial">
-                <Input
-                  value={knockoutForm.top_scorer}
-                  onChange={(event) =>
-                    setKnockoutForm((current) => ({ ...current, top_scorer: event.target.value }))
                   }
                 />
               </Field>
@@ -534,25 +607,42 @@ export function PoolAdmin({ currentRole }: { currentRole: string }) {
                   {enrollmentStatusLabel(enrollment.status)}
                 </p>
               </div>
-              {superadmin && enrollment.status !== "active" && (
-                <Button
-                  size="sm"
-                  disabled={busy}
-                  onClick={() =>
-                    void run(
-                      () =>
-                        callEdgeFunction("pool-enrollment", {
-                          action: "confirm_manual",
-                          enrollment_id: enrollment.id,
-                        }),
-                      "Pagamento manual confirmado.",
-                    )
-                  }
-                >
-                  <BiCheckCircle className="size-5" />
-                  Confirmar manualmente
-                </Button>
-              )}
+              <div className="flex flex-wrap gap-2">
+                {superadmin &&
+                  !["active", "removed", "refund_pending"].includes(enrollment.status) && (
+                    <Button
+                      size="sm"
+                      disabled={busy}
+                      onClick={() =>
+                        void run(
+                          () =>
+                            callEdgeFunction("pool-enrollment", {
+                              action: "confirm_manual",
+                              enrollment_id: enrollment.id,
+                            }),
+                          "Pagamento manual confirmado.",
+                        )
+                      }
+                    >
+                      <BiCheckCircle className="size-5" />
+                      Confirmar manualmente
+                    </Button>
+                  )}
+                {!["removed", "refund_pending"].includes(enrollment.status) && (
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    disabled={busy}
+                    onClick={() => {
+                      setRemovalTarget(enrollment);
+                      setRemovalConfirmText("");
+                    }}
+                  >
+                    <BiTrash className="size-5" />
+                    Remover do bolão
+                  </Button>
+                )}
+              </div>
             </div>
           ))}
         </CardContent>
@@ -569,36 +659,111 @@ export function PoolAdmin({ currentRole }: { currentRole: string }) {
           {prizes.map((prize) => (
             <div
               key={prize.id}
-              className="flex items-center gap-3 rounded-2xl border border-border/70 bg-muted/35 p-3"
+              className="flex flex-col gap-3 rounded-2xl border border-border/70 bg-muted/35 p-3 sm:flex-row sm:items-center"
             >
               <div className="min-w-0 flex-1">
                 <p className="truncate font-bold">{nameOf(users[prize.user_id])}</p>
                 <p className="text-xs text-muted-foreground">{prize.status}</p>
+                {prize.pix_key ? (
+                  <p className="mt-1 break-all text-xs text-muted-foreground">
+                    Pix: <span className="font-bold text-foreground">{prize.pix_key}</span>
+                  </p>
+                ) : (
+                  <p className="mt-1 text-xs text-muted-foreground">Pix não informado.</p>
+                )}
               </div>
-              {superadmin && prize.status !== "paid" && (
-                <Button
-                  size="sm"
-                  disabled={busy}
-                  onClick={() =>
-                    void run(
-                      () =>
-                        callEdgeFunction("pool-enrollment", {
-                          action: "mark_prize_paid",
-                          request_id: prize.id,
-                        }),
-                      "Prêmio marcado como pago.",
-                    )
-                  }
-                >
-                  Marcar pago
-                </Button>
-              )}
+              <div className="flex flex-wrap gap-2">
+                {prize.pix_key && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={busy}
+                    onClick={() => void copyPix(prize.pix_key)}
+                  >
+                    <BiCopy className="size-5" />
+                    Copiar Pix
+                  </Button>
+                )}
+                {prize.status !== "paid" && (
+                  <Button
+                    size="sm"
+                    disabled={busy}
+                    onClick={() =>
+                      void run(
+                        () =>
+                          callEdgeFunction("pool-enrollment", {
+                            action: "mark_prize_paid",
+                            request_id: prize.id,
+                          }),
+                        "Prêmio marcado como pago.",
+                      )
+                    }
+                  >
+                    Confirmar prêmio pago
+                  </Button>
+                )}
+              </div>
             </div>
           ))}
         </CardContent>
       </Card>
+
+      <AlertDialog
+        open={Boolean(removalTarget)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setRemovalTarget(null);
+            setRemovalConfirmText("");
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remover inscrição do bolão?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação mantém o histórico, remove o jogador do ranking oficial e envia a
+              notificação interna de reembolso manual.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <Field label='Digite "REMOVER" para confirmar'>
+            <Input
+              value={removalConfirmText}
+              onChange={(event) => setRemovalConfirmText(event.target.value)}
+            />
+          </Field>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={busy}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={busy || removalConfirmText !== "REMOVER" || !removalTarget}
+              onClick={() => {
+                const target = removalTarget;
+                if (!target) return;
+                setRemovalTarget(null);
+                setRemovalConfirmText("");
+                void run(
+                  () =>
+                    callEdgeFunction("pool-enrollment", {
+                      action: "remove_enrollment",
+                      enrollment_id: target.id,
+                      confirmation: "REMOVER",
+                    }),
+                  "Inscrição removida.",
+                );
+              }}
+            >
+              Remover inscrição
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
+}
+
+async function copyPix(value: string | null) {
+  if (!value) return;
+  await navigator.clipboard.writeText(value);
+  toast.success("Pix copiado.");
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
