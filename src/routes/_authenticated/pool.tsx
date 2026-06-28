@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import { toast } from "sonner";
 import {
   BiCalendar,
   BiCheckCircle,
@@ -41,6 +42,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
 import { callEdgeFunction } from "@/lib/edge";
+import { cn } from "@/lib/utils";
 import {
   defaultKnockoutBasePoints,
   defaultKnockoutStageWeights,
@@ -279,16 +281,19 @@ function PoolPage() {
       .finally(() => setBusy(false));
   }, [enrollment, payments, refetchPool]);
 
-  async function run(operation: () => Promise<unknown>, success: string) {
+  async function run(operation: () => Promise<unknown>, success: string, friendlyError?: string) {
     setBusy(true);
     setLocalError(null);
     setMessage(null);
     try {
       await operation();
       setMessage(success);
+      toast.success(success);
       await refetchPool();
     } catch (caught) {
-      setLocalError(caught instanceof Error ? caught.message : "Falha na operação.");
+      const detail = friendlyError ?? friendlyPoolError(caught);
+      setLocalError(detail);
+      toast.error(detail);
     } finally {
       setBusy(false);
     }
@@ -405,6 +410,13 @@ function PoolPage() {
                   onSave={(value) =>
                     void run(async () => {
                       if (!user?.id) throw new Error("Usuário não autenticado.");
+                      const lockAt = poolScoringRules?.specials_lock_at
+                        ? new Date(poolScoringRules.specials_lock_at)
+                        : null;
+                      if (lockAt && lockAt <= new Date()) {
+                        throw new Error("special_predictions_locked");
+                      }
+
                       const { error: saveError } = await supabase
                         .from("special_predictions")
                         .upsert(
@@ -810,8 +822,15 @@ function SpecialPredictionsCard({
           Palpites de campeão, vice e 3º lugar do bolão.
         </p>
         {lockAt && (
-          <p className="rounded-2xl bg-muted/55 p-3 text-xs text-muted-foreground">
-            Lock: {lockAt.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}
+          <p
+            className={cn(
+              "rounded-2xl p-3 text-xs font-bold",
+              locked ? "bg-destructive/10 text-destructive" : "bg-muted/55 text-muted-foreground",
+            )}
+          >
+            {locked
+              ? `Prazo encerrado em ${formatPoolDateTime(lockAt)}. Palpites especiais não podem mais ser editados.`
+              : `Prazo para enviar: ${formatPoolDateTime(lockAt)}.`}
           </p>
         )}
         <div className="grid gap-3 sm:grid-cols-2">
@@ -851,8 +870,8 @@ function SpecialPredictionsCard({
           </Button>
         )}
         {locked && (
-          <p className="text-xs text-muted-foreground">
-            Palpites especiais bloqueados para edição.
+          <p className="text-xs font-bold text-destructive">
+            Prazo encerrado. Palpites especiais bloqueados para edição.
           </p>
         )}
       </CardContent>
@@ -1235,6 +1254,35 @@ function paymentStatusLabel(status: string) {
 
 function isActiveEnrollment(status?: string | null) {
   return status === "active";
+}
+
+function formatPoolDateTime(value: Date) {
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(value);
+}
+
+function friendlyPoolError(caught: unknown) {
+  const message = caught instanceof Error ? caught.message : "";
+  const normalized = message.toLowerCase();
+
+  if (
+    normalized.includes("special_predictions_locked") ||
+    normalized.includes("row-level security") ||
+    normalized.includes("policy")
+  ) {
+    return "Prazo encerrado ou inscrição não ativa. Não foi possível concluir a operação.";
+  }
+
+  if (normalized.includes("permission denied")) {
+    return "Permissão insuficiente para concluir a operação. Atualize a página ou fale com o admin.";
+  }
+
+  return message || "Falha na operação.";
 }
 
 function money(cents: number) {
