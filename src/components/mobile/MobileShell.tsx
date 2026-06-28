@@ -40,6 +40,7 @@ export function MobileShell({
   return (
     <div className={cn("app-backdrop min-h-screen pb-24", className)}>
       <AppHeader
+        userId={profile?.id}
         userName={userName}
         avatarUrl={profile?.avatar_url}
         theme={theme}

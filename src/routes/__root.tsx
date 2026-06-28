@@ -111,8 +111,16 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "description", content: "Aposta não é renda extra!" },
       { property: "og:description", content: "Aposta não é renda extra!" },
       { name: "twitter:description", content: "Aposta não é renda extra!" },
-      { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/ySEy62ePY7TAmyksCtpa2YsdZxg1/social-images/social-1782473407681-social-img.webp" },
-      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/ySEy62ePY7TAmyksCtpa2YsdZxg1/social-images/social-1782473407681-social-img.webp" },
+      {
+        property: "og:image",
+        content:
+          "https://storage.googleapis.com/gpt-engineer-file-uploads/ySEy62ePY7TAmyksCtpa2YsdZxg1/social-images/social-1782473407681-social-img.webp",
+      },
+      {
+        name: "twitter:image",
+        content:
+          "https://storage.googleapis.com/gpt-engineer-file-uploads/ySEy62ePY7TAmyksCtpa2YsdZxg1/social-images/social-1782473407681-social-img.webp",
+      },
     ],
     links: [
       {
