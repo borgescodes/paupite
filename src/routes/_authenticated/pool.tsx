@@ -358,6 +358,17 @@ function PoolPage() {
           </p>
         )}
 
+        {!loading && !summary && (
+          <Card className="glass-card border-muted/70">
+            <CardContent className="p-5 text-center">
+              <p className="font-extrabold">Nenhum bolão ativo no momento.</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Quando um novo bolão abrir, ele aparecerá aqui.
+              </p>
+            </CardContent>
+          </Card>
+        )}
+
         {summary && phase && (
           <>
             <PoolStatusCard phase={phase} enrollment={enrollment} />
@@ -1400,7 +1411,8 @@ async function fetchPool(userId: string, isOperator: boolean): Promise<PoolData>
       supabase.from("teams").select("id,name,short_name,external_key").order("name"),
     ]);
 
-  const summary = summaryResult.data as PoolSummary | null;
+  const fetchedSummary = summaryResult.data as PoolSummary | null;
+  const summary = !isOperator && fetchedSummary?.status === "archived" ? null : fetchedSummary;
   const poolEndsFallbackAt =
     finalMatchResult.data?.kickoff_at ?? lastMatchResult.data?.kickoff_at ?? null;
 
@@ -1457,13 +1469,13 @@ async function fetchPool(userId: string, isOperator: boolean): Promise<PoolData>
       supabase.from("enrollments").select("status"),
       supabase.from("payments").select("status"),
     ]);
-    const enrollments = (allEnrollmentsResult.data ?? []) as Array<{ status: string }>;
+    const allEnrollments = (allEnrollmentsResult.data ?? []) as Array<{ status: string }>;
     const allPayments = (allPaymentsResult.data ?? []) as Array<{ status: string }>;
     adminSummary = {
-      active: enrollments.filter((item) => item.status === "active").length,
-      requested: enrollments.filter((item) => item.status === "requested").length,
-      paymentPending: enrollments.filter((item) => item.status === "payment_pending").length,
-      refundPending: enrollments.filter((item) =>
+      active: allEnrollments.filter((item) => item.status === "active").length,
+      requested: allEnrollments.filter((item) => item.status === "requested").length,
+      paymentPending: allEnrollments.filter((item) => item.status === "payment_pending").length,
+      refundPending: allEnrollments.filter((item) =>
         ["removed", "refund_pending"].includes(item.status),
       ).length,
       paymentsPending: allPayments.filter((item) => item.status === "pending").length,

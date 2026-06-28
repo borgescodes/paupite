@@ -110,6 +110,10 @@ export function PoolAdmin({ currentRole }: { currentRole: string }) {
   });
   const [removalTarget, setRemovalTarget] = useState<Enrollment | null>(null);
   const [removalConfirmText, setRemovalConfirmText] = useState("");
+  const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
+  const [archiveConfirmText, setArchiveConfirmText] = useState("");
+  const [reactivateDialogOpen, setReactivateDialogOpen] = useState(false);
+  const [reactivateConfirmText, setReactivateConfirmText] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -184,8 +188,12 @@ export function PoolAdmin({ currentRole }: { currentRole: string }) {
       setMessage(success);
       toast.success(success);
       await load();
+      return true;
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Falha na operação.");
+      const detail = caught instanceof Error ? caught.message : "Falha na operação.";
+      setError(detail);
+      toast.error(detail);
+      return false;
     } finally {
       setBusy(false);
     }
@@ -708,6 +716,56 @@ export function PoolAdmin({ currentRole }: { currentRole: string }) {
         </CardContent>
       </Card>
 
+      {superadmin && (
+        <Card className="glass-card border-destructive/25">
+          <CardHeader>
+            <CardTitle className="text-base text-destructive">Zona de risco</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="rounded-2xl bg-muted/45 p-3 text-sm text-muted-foreground">
+              <p className="font-bold text-foreground">
+                Status atual: {poolStatusLabel(settings.status)}
+              </p>
+              <p className="mt-1">
+                Arquivar tira o bolão da área dos jogadores, mas histórico, inscrições e pagamentos
+                ficam preservados. Não existe delete físico neste fluxo.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {settings.status !== "archived" ? (
+                <Button
+                  type="button"
+                  variant="destructive"
+                  disabled={busy}
+                  onClick={() => {
+                    setArchiveDialogOpen(true);
+                    setArchiveConfirmText("");
+                  }}
+                >
+                  Arquivar bolão
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  disabled={busy}
+                  onClick={() => {
+                    setReactivateDialogOpen(true);
+                    setReactivateConfirmText("");
+                  }}
+                >
+                  Reativar bolão arquivado
+                </Button>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              TODO pós-MVP: multi-bolão com slug novo e histórico por edição. MVP atual mantém
+              single-pool seguro em `world-cup-2026`.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
       <AlertDialog
         open={Boolean(removalTarget)}
         onOpenChange={(open) => {
@@ -735,11 +793,10 @@ export function PoolAdmin({ currentRole }: { currentRole: string }) {
             <AlertDialogCancel disabled={busy}>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               disabled={busy || removalConfirmText !== "REMOVER" || !removalTarget}
-              onClick={() => {
+              onClick={(event) => {
+                event.preventDefault();
                 const target = removalTarget;
                 if (!target) return;
-                setRemovalTarget(null);
-                setRemovalConfirmText("");
                 void run(
                   () =>
                     callEdgeFunction("pool-enrollment", {
@@ -748,10 +805,111 @@ export function PoolAdmin({ currentRole }: { currentRole: string }) {
                       confirmation: "REMOVER",
                     }),
                   "Inscrição removida.",
-                );
+                ).then((ok) => {
+                  if (!ok) return;
+                  setRemovalTarget(null);
+                  setRemovalConfirmText("");
+                });
               }}
             >
               Remover inscrição
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={archiveDialogOpen}
+        onOpenChange={(open) => {
+          if (!open && !busy) {
+            setArchiveDialogOpen(false);
+            setArchiveConfirmText("");
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Arquivar bolão?</AlertDialogTitle>
+            <AlertDialogDescription>
+              O bolão sai da área dos jogadores, mas histórico, inscrições e pagamentos ficam
+              preservados. Esta ação não apaga dados.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <Field label='Digite "ARQUIVAR" para confirmar'>
+            <Input
+              value={archiveConfirmText}
+              onChange={(event) => setArchiveConfirmText(event.target.value)}
+            />
+          </Field>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={busy}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={busy || archiveConfirmText !== "ARQUIVAR"}
+              onClick={(event) => {
+                event.preventDefault();
+                void run(
+                  () =>
+                    callEdgeFunction("pool-enrollment", {
+                      action: "archive_pool",
+                      confirmation: "ARQUIVAR",
+                    }),
+                  "Bolão arquivado.",
+                ).then((ok) => {
+                  if (!ok) return;
+                  setArchiveDialogOpen(false);
+                  setArchiveConfirmText("");
+                });
+              }}
+            >
+              Arquivar bolão
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={reactivateDialogOpen}
+        onOpenChange={(open) => {
+          if (!open && !busy) {
+            setReactivateDialogOpen(false);
+            setReactivateConfirmText("");
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reativar bolão arquivado?</AlertDialogTitle>
+            <AlertDialogDescription>
+              O bolão volta para a área dos jogadores e inscrições ficam abertas no MVP atual.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <Field label='Digite "REATIVAR" para confirmar'>
+            <Input
+              value={reactivateConfirmText}
+              onChange={(event) => setReactivateConfirmText(event.target.value)}
+            />
+          </Field>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={busy}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={busy || reactivateConfirmText !== "REATIVAR"}
+              onClick={(event) => {
+                event.preventDefault();
+                void run(
+                  () =>
+                    callEdgeFunction("pool-enrollment", {
+                      action: "reactivate_pool",
+                      confirmation: "REATIVAR",
+                    }),
+                  "Bolão reativado.",
+                ).then((ok) => {
+                  if (!ok) return;
+                  setReactivateDialogOpen(false);
+                  setReactivateConfirmText("");
+                });
+              }}
+            >
+              Reativar bolão
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -841,6 +999,18 @@ function enrollmentStatusLabel(status: string) {
     paid: "Pagamento recebido",
     rejected: "Solicitação recusada",
     cancelled: "Inscrição cancelada",
+    removed: "Inscrição removida",
+    refund_pending: "Reembolso manual pendente",
   };
   return map[status] ?? "Status em análise";
+}
+
+function poolStatusLabel(status: string) {
+  const map: Record<string, string> = {
+    draft: "Rascunho",
+    open: "Aberto",
+    closed: "Fechado",
+    archived: "Arquivado",
+  };
+  return map[status] ?? status;
 }
