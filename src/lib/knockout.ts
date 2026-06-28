@@ -48,6 +48,7 @@ export const defaultKnockoutStageWeights: Record<KnockoutStage, number> = {
 export const defaultKnockoutBasePoints = {
   exact_score: 3,
   regulation_result: 1,
+  goal_difference: 1,
   qualified_team: 2,
   qualification_method: 1,
   perfect_combo: 1,
@@ -183,10 +184,13 @@ export function calculateKnockoutPoints(input: KnockoutPointInput) {
   const exactScore =
     input.homeScore === input.officialHomeScore && input.awayScore === input.officialAwayScore;
   const regulationResult = actualOutcome === predictedOutcome;
+  const goalDifference =
+    input.homeScore - input.awayScore === input.officialHomeScore - input.officialAwayScore;
   const qualifiedTeam =
     Boolean(input.officialQualifiedTeamId) &&
     input.qualifiedTeamId === input.officialQualifiedTeamId;
   const qualificationMethod =
+    qualifiedTeam &&
     Boolean(input.officialQualificationMethod) &&
     input.qualificationMethod === input.officialQualificationMethod;
   const perfectCombo = exactScore && qualifiedTeam && qualificationMethod;
@@ -194,6 +198,7 @@ export function calculateKnockoutPoints(input: KnockoutPointInput) {
   let basePoints = 0;
   if (exactScore) basePoints += baseRules.exact_score;
   else if (regulationResult) basePoints += baseRules.regulation_result;
+  if (goalDifference) basePoints += baseRules.goal_difference;
   if (qualifiedTeam) basePoints += baseRules.qualified_team;
   if (qualificationMethod) basePoints += baseRules.qualification_method;
   if (perfectCombo) basePoints += baseRules.perfect_combo;
@@ -208,6 +213,7 @@ export function calculateKnockoutPoints(input: KnockoutPointInput) {
   return {
     exactScore,
     regulationResult,
+    goalDifference,
     qualifiedTeam,
     qualificationMethod,
     perfectCombo,

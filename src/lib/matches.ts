@@ -132,6 +132,7 @@ export function toMatchCard(
     : 1;
   const maxBasePoints =
     defaultKnockoutBasePoints.exact_score +
+    defaultKnockoutBasePoints.goal_difference +
     defaultKnockoutBasePoints.qualified_team +
     defaultKnockoutBasePoints.qualification_method +
     defaultKnockoutBasePoints.perfect_combo;

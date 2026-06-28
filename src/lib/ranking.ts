@@ -1,3 +1,7 @@
+export type RankingMode = "free" | "pool";
+
+export type RankingMovement = number;
+
 export interface RankingEntry {
   user_id: string | null;
   display_name: string | null;
