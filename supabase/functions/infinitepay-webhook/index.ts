@@ -47,6 +47,9 @@ Deno.serve(async (req) => {
     if (paymentError) throw new HttpError(500, paymentError.message);
     if (!payment) throw new HttpError(404, "Payment not found.");
     if (payment.status === "paid") return json({ ok: true });
+    if (["removed", "refund_pending"].includes(payment.enrollment?.status)) {
+      throw new HttpError(409, "Enrollment was removed and must not be activated.");
+    }
     const { data: settings, error: settingsError } = await admin
       .from("pool_settings")
       .select("entry_fee_cents")

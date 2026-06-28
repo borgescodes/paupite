@@ -26,9 +26,18 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
 import { callEdgeFunction } from "@/lib/edge";
@@ -45,6 +54,8 @@ interface PoolSummary {
   status: string;
   enrollments_mode: string | null;
   enrollment_opens_at: string | null;
+  enrollment_closes_at: string | null;
+  pool_ends_at: string | null;
   coming_soon_message: string | null;
   entry_fee_cents: number;
   minimum_participants: number;
@@ -92,7 +103,6 @@ interface SpecialPrediction {
   champion_team_id: string | null;
   runner_up_team_id: string | null;
   third_place_team_id: string | null;
-  top_scorer: string | null;
   submitted_at: string;
   locked_at: string | null;
   points: number;
@@ -110,7 +120,14 @@ interface AdminPoolSummary {
   active: number;
   requested: number;
   paymentPending: number;
+  refundPending: number;
   paymentsPending: number;
+}
+
+interface PrizeRequest {
+  id: string;
+  status: string;
+  pix_key: string | null;
 }
 
 type PoolData = {
@@ -121,11 +138,24 @@ type PoolData = {
   poolScoringRules: PoolScoringRules | null;
   specialPrediction: SpecialPrediction | null;
   teams: PoolTeam[];
-  poolStartsAt: string | null;
+  poolEndsFallbackAt: string | null;
   adminSummary: AdminPoolSummary | null;
   eligibleForPrize: boolean;
-  prizeRequested: boolean;
+  prizeRequest: PrizeRequest | null;
   error: string | null;
+};
+
+type PoolPhaseKind = "before_enrollment" | "enrollment_open" | "running" | "ended" | "blocked";
+
+type PoolPhase = {
+  kind: PoolPhaseKind;
+  title: string;
+  label: string;
+  description: string;
+  target: Date | null;
+  tone: Tone;
+  ctaEnabled: boolean;
+  ctaDisabledReason: string;
 };
 
 export const Route = createFileRoute("/_authenticated/pool")({
@@ -139,6 +169,8 @@ const poolQueryKey = (userId: string | null | undefined, isOperator: boolean) =>
 function PoolPage() {
   const { user, profile } = useAuth();
   const [termsAccepted, setTermsAccepted] = useState(false);
+  const [termsDialogOpen, setTermsDialogOpen] = useState(false);
+  const [prizePixKey, setPrizePixKey] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [localError, setLocalError] = useState<string | null>(null);
@@ -149,6 +181,11 @@ function PoolPage() {
     queryKey: poolQueryKey(user?.id, isOperator),
     enabled: Boolean(user?.id && profile),
     queryFn: () => fetchPool(user!.id, isOperator),
+    refetchOnWindowFocus: true,
+    refetchInterval: (query) => {
+      const status = query.state.data?.enrollment?.status;
+      return status === "requested" || status === "payment_pending" ? 10_000 : false;
+    },
   });
 
   const summary = poolQuery.data?.summary ?? null;
@@ -158,19 +195,62 @@ function PoolPage() {
   const poolScoringRules = poolQuery.data?.poolScoringRules ?? null;
   const specialPrediction = poolQuery.data?.specialPrediction ?? null;
   const teams = poolQuery.data?.teams ?? [];
-  const poolStartsAt = poolQuery.data?.poolStartsAt ?? null;
+  const poolEndsFallbackAt = poolQuery.data?.poolEndsFallbackAt ?? null;
   const adminSummary = poolQuery.data?.adminSummary ?? null;
   const eligibleForPrize = poolQuery.data?.eligibleForPrize ?? false;
-  const prizeRequested = poolQuery.data?.prizeRequested ?? false;
+  const prizeRequest = poolQuery.data?.prizeRequest ?? null;
   const loading = poolQuery.isLoading && !poolQuery.data;
   const queryError = poolQuery.error instanceof Error ? poolQuery.error.message : null;
   const error = localError ?? poolQuery.data?.error ?? queryError;
   const refetchPool = poolQuery.refetch;
 
+  const phase = useMemo(
+    () => (summary ? getPoolPhase(summary, poolEndsFallbackAt) : null),
+    [summary, poolEndsFallbackAt],
+  );
+
   useEffect(() => {
     if (!enrollment) return;
     setTermsAccepted(Boolean(enrollment.terms_accepted_at));
   }, [enrollment]);
+
+  useEffect(() => {
+    setPrizePixKey(prizeRequest?.pix_key ?? "");
+  }, [prizeRequest?.pix_key]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    let channel = supabase
+      .channel(`pool-status-${user.id}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "enrollments", filter: `user_id=eq.${user.id}` },
+        () => void refetchPool(),
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "prize_requests", filter: `user_id=eq.${user.id}` },
+        () => void refetchPool(),
+      );
+
+    if (enrollment?.id) {
+      channel = channel.on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "payments",
+          filter: `enrollment_id=eq.${enrollment.id}`,
+        },
+        () => void refetchPool(),
+      );
+    }
+
+    channel.subscribe();
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [enrollment?.id, refetchPool, user?.id]);
 
   useEffect(() => {
     if (typeof window === "undefined" || !enrollment) return;
@@ -199,11 +279,6 @@ function PoolPage() {
       .finally(() => setBusy(false));
   }, [enrollment, payments, refetchPool]);
 
-  const progress = useMemo(() => {
-    if (!summary?.minimum_participants) return 0;
-    return Math.min(100, (summary.participants_count / summary.minimum_participants) * 100);
-  }, [summary]);
-
   async function run(operation: () => Promise<unknown>, success: string) {
     setBusy(true);
     setLocalError(null);
@@ -225,6 +300,7 @@ function PoolPage() {
         callEdgeFunction("pool-enrollment", { action: "request", terms_accepted: termsAccepted }),
       "Solicitação registrada.",
     );
+    setTermsDialogOpen(false);
   }
 
   async function createCheckout() {
@@ -261,14 +337,12 @@ function PoolPage() {
           <div className="mx-auto grid size-14 place-items-center rounded-2xl bg-warning/15 text-warning">
             <BiSolidTrophy className="size-8" />
           </div>
-          <p className="eyebrow mt-3 text-brand">Competição oficial</p>
+          <p className="eyebrow mt-3 text-brand">Bolão oficial</p>
           <h1 className="mt-1 text-3xl font-extrabold tracking-tight">
             {summary?.title ?? "Bolão da Copa 2026"}
           </h1>
           <p className="text-sm text-muted-foreground">
-            {summary?.status === "open"
-              ? "Inscrições abertas"
-              : "Acompanhe o status da competição oficial"}
+            Inscrição, palpites especiais e premiação do ranking oficial.
           </p>
         </div>
 
@@ -284,92 +358,99 @@ function PoolPage() {
           </p>
         )}
 
-        {summary && (
+        {summary && phase && (
           <>
-            <PoolStatusCard summary={summary} enrollment={enrollment} poolStartsAt={poolStartsAt} />
+            <PoolStatusCard phase={phase} enrollment={enrollment} />
 
-            <div className="grid grid-cols-2 gap-3">
-              <Metric icon={BiGroup} label="Inscritos" value={String(summary.participants_count)} />
-              <Metric icon={BiCreditCard} label="Entrada" value={money(summary.entry_fee_cents)} />
-              <Metric
-                icon={BiSolidTrophy}
-                label="Prêmio estimado"
-                value={money(summary.estimated_prize_cents)}
-              />
-              <Metric
-                icon={BiShieldQuarter}
-                label="Premiação"
-                value={`${summary.prize_percentage}%`}
-              />
-            </div>
+            <Tabs defaultValue="status" className="space-y-3">
+              <TabsList className="grid h-auto w-full grid-cols-2 gap-1 sm:grid-cols-4">
+                <TabsTrigger value="status">Status</TabsTrigger>
+                <TabsTrigger value="rules">Regras</TabsTrigger>
+                <TabsTrigger value="specials">Palpites Especiais</TabsTrigger>
+                <TabsTrigger value="prizes">Premiação</TabsTrigger>
+              </TabsList>
 
-            <GoalCard summary={summary} progress={progress} />
+              <TabsContent value="status" className="space-y-3">
+                <StatusTab
+                  summary={summary}
+                  enrollment={enrollment}
+                  payments={payments}
+                  phase={phase}
+                  busy={busy}
+                  onOpenTerms={() => setTermsDialogOpen(true)}
+                  onCreateCheckout={() => void createCheckout()}
+                />
+                {isOperator && adminSummary && <OperatorSummaryCard summary={adminSummary} />}
+              </TabsContent>
 
-            <CountdownGrid summary={summary} poolStartsAt={poolStartsAt} />
+              <TabsContent value="rules" className="space-y-3">
+                <RulesCard summary={summary} scoreRules={scoreRules} />
+                <KnockoutRulesCard rules={poolScoringRules} teams={teams} />
+              </TabsContent>
 
-            <EnrollmentCard
+              <TabsContent value="specials">
+                <SpecialPredictionsCard
+                  userId={user?.id ?? null}
+                  enrollment={enrollment}
+                  rules={poolScoringRules}
+                  prediction={specialPrediction}
+                  teams={teams}
+                  busy={busy}
+                  onSave={(value) =>
+                    void run(async () => {
+                      if (!user?.id) throw new Error("Usuário não autenticado.");
+                      const { error: saveError } = await supabase
+                        .from("special_predictions")
+                        .upsert(
+                          {
+                            pool_id: summary.id,
+                            user_id: user.id,
+                            champion_team_id: value.champion_team_id || null,
+                            runner_up_team_id: value.runner_up_team_id || null,
+                            third_place_team_id: value.third_place_team_id || null,
+                            top_scorer: null,
+                          },
+                          { onConflict: "pool_id,user_id" },
+                        );
+                      if (saveError) throw new Error(saveError.message);
+                    }, "Palpites especiais salvos.")
+                  }
+                />
+              </TabsContent>
+
+              <TabsContent value="prizes" className="space-y-3">
+                <PrizeTab
+                  summary={summary}
+                  phase={phase}
+                  eligibleForPrize={eligibleForPrize}
+                  prizeRequest={prizeRequest}
+                  prizePixKey={prizePixKey}
+                  busy={busy}
+                  onPrizePixKeyChange={setPrizePixKey}
+                  onRequestPrize={() =>
+                    void run(
+                      () =>
+                        callEdgeFunction("pool-enrollment", {
+                          action: "request_prize",
+                          pix_key: prizePixKey.trim(),
+                        }),
+                      "Solicitação de prêmio registrada.",
+                    )
+                  }
+                />
+              </TabsContent>
+            </Tabs>
+
+            <TermsDialog
+              open={termsDialogOpen}
               summary={summary}
-              enrollment={enrollment}
-              termsAccepted={termsAccepted}
+              phase={phase}
+              accepted={termsAccepted}
               busy={busy}
-              onTermsChange={setTermsAccepted}
-              onRequestEnrollment={() => void requestEnrollment()}
-              onCreateCheckout={() => void createCheckout()}
+              onAcceptedChange={setTermsAccepted}
+              onOpenChange={setTermsDialogOpen}
+              onConfirm={() => void requestEnrollment()}
             />
-
-            <RulesCard summary={summary} scoreRules={scoreRules} />
-
-            <KnockoutRulesCard rules={poolScoringRules} teams={teams} />
-
-            <SpecialPredictionsCard
-              summary={summary}
-              userId={user?.id ?? null}
-              enrollment={enrollment}
-              rules={poolScoringRules}
-              prediction={specialPrediction}
-              teams={teams}
-              busy={busy}
-              onSave={(value) =>
-                void run(async () => {
-                  if (!user?.id) throw new Error("Usuário não autenticado.");
-                  const { error: saveError } = await supabase.from("special_predictions").upsert(
-                    {
-                      pool_id: summary.id,
-                      user_id: user.id,
-                      champion_team_id: value.champion_team_id || null,
-                      runner_up_team_id: value.runner_up_team_id || null,
-                      third_place_team_id: value.third_place_team_id || null,
-                      top_scorer: value.top_scorer.trim() || null,
-                    },
-                    { onConflict: "pool_id,user_id" },
-                  );
-                  if (saveError) throw new Error(saveError.message);
-                }, "Apostas especiais salvas.")
-              }
-            />
-
-            {payments.length > 0 && <PaymentsCard payments={payments} />}
-
-            {isOperator && adminSummary && <OperatorSummaryCard summary={adminSummary} />}
-
-            {eligibleForPrize && (
-              <Card className="glass-card border-warning/30">
-                <CardContent className="space-y-3 p-4">
-                  <p className="font-bold">Você está elegível para solicitar prêmio.</p>
-                  <Button
-                    disabled={busy || prizeRequested}
-                    onClick={() =>
-                      void run(
-                        () => callEdgeFunction("pool-enrollment", { action: "request_prize" }),
-                        "Solicitação de prêmio registrada.",
-                      )
-                    }
-                  >
-                    {prizeRequested ? "Prêmio já solicitado" : "Solicitar prêmio"}
-                  </Button>
-                </CardContent>
-              </Card>
-            )}
           </>
         )}
       </main>
@@ -378,16 +459,12 @@ function PoolPage() {
 }
 
 function PoolStatusCard({
-  summary,
+  phase,
   enrollment,
-  poolStartsAt,
 }: {
-  summary: PoolSummary;
+  phase: PoolPhase;
   enrollment: Enrollment | null;
-  poolStartsAt: string | null;
 }) {
-  const phase = getPoolPhase(summary, poolStartsAt);
-
   return (
     <Card className="glass-card overflow-hidden border-brand/25">
       <div className="h-1 bg-brand" />
@@ -395,12 +472,11 @@ function PoolStatusCard({
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="eyebrow text-brand">Status do bolão</p>
-            <h2 className="mt-1 text-2xl font-extrabold tracking-tight">{summary.title}</h2>
-            <p className="mt-1 text-sm text-muted-foreground">{phase.description}</p>
+            <p className="mt-2 text-sm text-muted-foreground">{phase.description}</p>
           </div>
           <StatusPill label={phase.label} tone={phase.tone} />
         </div>
-        <div className="rounded-3xl bg-muted/55 p-4">
+        <div className="rounded-2xl bg-muted/55 p-4">
           <p className="text-xs font-bold uppercase text-muted-foreground">Minha inscrição</p>
           <div className="mt-2">
             <EnrollmentStatus status={enrollment?.status ?? "none"} />
@@ -411,192 +487,131 @@ function PoolStatusCard({
   );
 }
 
-function GoalCard({ summary, progress }: { summary: PoolSummary; progress: number }) {
-  return (
-    <Card className="glass-card">
-      <CardContent className="space-y-2 p-4">
-        <div className="flex justify-between text-xs">
-          <span>Meta mínima</span>
-          <span>
-            {summary.participants_count}/{summary.minimum_participants}
-          </span>
-        </div>
-        <Progress value={progress} />
-        {summary.prize_description && (
-          <p className="text-xs text-muted-foreground">{summary.prize_description}</p>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
-function CountdownGrid({
-  summary,
-  poolStartsAt,
-}: {
-  summary: PoolSummary;
-  poolStartsAt: string | null;
-}) {
-  return (
-    <div className="grid gap-3 sm:grid-cols-2">
-      <CountdownCard
-        title="Inscrições abrem em"
-        target={summary.enrollment_opens_at}
-        fallback={
-          summary.enrollments_mode === "coming_soon"
-            ? "Data de abertura a definir."
-            : "Inscrições disponíveis conforme status do bolão."
-        }
-      />
-      <CountdownCard
-        title="Bolão começa em"
-        target={poolStartsAt}
-        fallback="Data inicial dos jogos ainda não disponível."
-      />
-    </div>
-  );
-}
-
-function CountdownCard({
-  title,
-  target,
-  fallback,
-}: {
-  title: string;
-  target: string | null;
-  fallback: string;
-}) {
-  const targetDate = useMemo(() => (target ? new Date(target) : null), [target]);
-  const [timeLeft, setTimeLeft] = useState(() => (targetDate ? calcTimeLeft(targetDate) : null));
-
-  useEffect(() => {
-    if (!targetDate) {
-      setTimeLeft(null);
-      return;
-    }
-    setTimeLeft(calcTimeLeft(targetDate));
-    const id = window.setInterval(() => setTimeLeft(calcTimeLeft(targetDate)), 30_000);
-    return () => window.clearInterval(id);
-  }, [targetDate]);
-
-  return (
-    <Card className="glass-card">
-      <CardContent className="p-4">
-        <div className="flex items-center gap-2">
-          <div className="grid size-9 place-items-center rounded-xl bg-brand/12 text-brand">
-            <BiCalendar className="size-5" />
-          </div>
-          <p className="font-extrabold">{title}</p>
-        </div>
-        {targetDate && timeLeft ? (
-          <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-            <TimePart label="dias" value={timeLeft.days} />
-            <TimePart label="horas" value={timeLeft.hours} />
-            <TimePart label="min" value={timeLeft.minutes} />
-          </div>
-        ) : (
-          <p className="mt-3 text-sm text-muted-foreground">
-            {targetDate ? "Já começou." : fallback}
-          </p>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
-function TimePart({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="rounded-2xl bg-muted/65 px-2 py-2">
-      <p className="text-xl font-extrabold tabular-nums">{String(value).padStart(2, "0")}</p>
-      <p className="text-[10px] font-bold uppercase text-muted-foreground">{label}</p>
-    </div>
-  );
-}
-
-function EnrollmentCard({
+function StatusTab({
   summary,
   enrollment,
-  termsAccepted,
+  payments,
+  phase,
   busy,
-  onTermsChange,
-  onRequestEnrollment,
+  onOpenTerms,
   onCreateCheckout,
 }: {
   summary: PoolSummary;
   enrollment: Enrollment | null;
-  termsAccepted: boolean;
+  payments: Payment[];
+  phase: PoolPhase;
   busy: boolean;
-  onTermsChange: (checked: boolean) => void;
-  onRequestEnrollment: () => void;
+  onOpenTerms: () => void;
   onCreateCheckout: () => void;
 }) {
-  const closed = summary.status === "closed" || summary.enrollments_mode === "closed";
-  const comingSoon = !enrollment && summary.enrollments_mode === "coming_soon";
+  const status = enrollment?.status ?? "none";
+  const canPay =
+    Boolean(enrollment) &&
+    ["requested", "payment_pending"].includes(status) &&
+    summary.entry_fee_cents > 0 &&
+    phase.kind !== "ended";
 
   return (
-    <Card className="glass-card overflow-hidden">
+    <Card className="glass-card">
       <CardHeader>
-        <CardTitle className="text-base">Inscrição</CardTitle>
+        <CardTitle className="text-base">Minha inscrição</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {comingSoon && (
-          <div className="rounded-2xl bg-muted/60 p-4 text-sm text-muted-foreground">
-            <p className="font-bold text-foreground">Inscrições em breve</p>
-            <p className="mt-1">
-              {summary.coming_soon_message ?? "A abertura será anunciada aqui."}
-            </p>
-          </div>
-        )}
-        {!enrollment && !comingSoon && (
-          <>
-            <div className="max-h-36 overflow-y-auto rounded-2xl bg-muted/70 p-4 text-xs leading-relaxed text-muted-foreground">
-              {summary.terms}
-            </div>
-            <div className="flex items-start gap-2">
-              <Checkbox
-                id="terms"
-                checked={termsAccepted}
-                onCheckedChange={(value) => onTermsChange(value === true)}
-              />
-              <Label htmlFor="terms" className="text-sm leading-snug">
-                Li e aceito os termos de participação.
-              </Label>
-            </div>
+        <div className="rounded-2xl bg-muted/55 p-4">
+          <EnrollmentStatus status={status} />
+          <p className="mt-2 text-xs text-muted-foreground">{enrollmentStatusHelp(status)}</p>
+        </div>
+
+        {!enrollment && (
+          <div className="space-y-2">
             <Button
               className="h-11 w-full rounded-2xl"
-              disabled={busy || !termsAccepted || closed}
-              onClick={onRequestEnrollment}
+              disabled={busy || !phase.ctaEnabled}
+              onClick={onOpenTerms}
             >
-              {closed ? "Inscrições encerradas" : "Entrar no bolão"}
+              Entrar no bolão
             </Button>
-          </>
-        )}
-        {enrollment && ["requested", "payment_pending"].includes(enrollment.status) && (
-          <div className="space-y-2">
-            {summary.entry_fee_cents > 0 && summary.status === "open" && (
-              <Button
-                className="h-11 w-full rounded-2xl"
-                disabled={busy}
-                onClick={onCreateCheckout}
-              >
-                <BiCreditCard className="size-5" />
-                Pagar inscrição
-              </Button>
+            {!phase.ctaEnabled && (
+              <p className="text-xs text-muted-foreground">{phase.ctaDisabledReason}</p>
             )}
+          </div>
+        )}
+
+        {canPay && (
+          <div className="space-y-2">
+            <Button className="h-11 w-full rounded-2xl" disabled={busy} onClick={onCreateCheckout}>
+              <BiCreditCard className="size-5" />
+              Pagar inscrição
+            </Button>
             <p className="text-xs text-muted-foreground">
-              O pagamento passa pela confirmação segura já existente. Sua inscrição ativa aparecerá
-              aqui quando for confirmada.
+              A confirmação do pagamento atualiza esta tela automaticamente em poucos segundos.
             </p>
           </div>
         )}
-        {enrollment && ["active", "confirmed", "paid"].includes(enrollment.status) && (
-          <div className="rounded-2xl border border-success/25 bg-success/10 p-4 text-sm text-success">
-            <p className="font-extrabold">Inscrição confirmada</p>
-            <p className="mt-1 text-xs">Você já está participando do ranking oficial do bolão.</p>
-          </div>
-        )}
+
+        {payments.length > 0 && <PaymentsList payments={payments} />}
       </CardContent>
     </Card>
+  );
+}
+
+function TermsDialog({
+  open,
+  summary,
+  phase,
+  accepted,
+  busy,
+  onAcceptedChange,
+  onOpenChange,
+  onConfirm,
+}: {
+  open: boolean;
+  summary: PoolSummary;
+  phase: PoolPhase;
+  accepted: boolean;
+  busy: boolean;
+  onAcceptedChange: (checked: boolean) => void;
+  onOpenChange: (open: boolean) => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[90vh] overflow-y-auto rounded-3xl sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Termos de participação</DialogTitle>
+          <DialogDescription>
+            Leia os termos antes de confirmar sua entrada no bolão.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="max-h-72 overflow-y-auto rounded-2xl bg-muted/70 p-4 text-sm leading-relaxed text-muted-foreground">
+          {summary.terms}
+        </div>
+        <div className="flex items-start gap-2">
+          <Checkbox
+            id="pool-terms"
+            checked={accepted}
+            onCheckedChange={(value) => onAcceptedChange(value === true)}
+          />
+          <Label htmlFor="pool-terms" className="text-sm leading-snug">
+            Li e aceito os termos de participação.
+          </Label>
+        </div>
+        {!phase.ctaEnabled && (
+          <p className="rounded-2xl bg-muted/55 p-3 text-xs text-muted-foreground">
+            {phase.ctaDisabledReason}
+          </p>
+        )}
+        <DialogFooter>
+          <Button
+            className="w-full sm:w-auto"
+            disabled={busy || !accepted || !phase.ctaEnabled}
+            onClick={onConfirm}
+          >
+            Confirmar inscrição
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -610,7 +625,7 @@ function RulesCard({
   return (
     <Card className="glass-card">
       <CardContent className="p-0">
-        <Accordion type="single" collapsible defaultValue="rules">
+        <Accordion type="single" collapsible>
           <AccordionItem value="rules" className="border-b-0 px-4">
             <AccordionTrigger className="py-4 font-extrabold hover:no-underline">
               <span className="flex items-center gap-2">
@@ -620,20 +635,20 @@ function RulesCard({
             </AccordionTrigger>
             <AccordionContent className="space-y-3 pb-4 text-sm text-muted-foreground">
               <RuleLine
-                title="Pontuação"
+                title="Pontos base por jogo"
                 text={
                   scoreRules
                     ? `Placar exato vale ${scoreRules.exact_score_points ?? 0}; resultado correto vale ${scoreRules.outcome_points ?? 0}; bônus de saldo vale ${scoreRules.goal_difference_bonus ?? 0}.`
-                    : "A pontuação segue a configuração atual do bolão."
+                    : "A pontuação base segue a configuração atual do bolão."
                 }
               />
               <RuleLine
                 title="Prazo dos palpites"
-                text="Cada palpite bloqueia automaticamente no início da partida."
+                text="Cada palpite de jogo bloqueia automaticamente no início da partida."
               />
               <RuleLine
                 title="Ranking oficial"
-                text="O ranking do Bolão considera participantes com inscrição confirmada."
+                text="O ranking do Bolão considera somente participantes com inscrição ativa."
               />
               <RuleLine
                 title="Inscrição e prêmio"
@@ -670,56 +685,75 @@ function KnockoutRulesCard({
 
   return (
     <Card className="glass-card border-brand/20">
-      <CardHeader>
-        <CardTitle className="text-base">Regras do mata-mata</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3 text-sm">
-        <div className="grid grid-cols-2 gap-2">
-          {Object.entries(stageWeights).map(([stage, weight]) => (
-            <MiniStat key={stage} label={knockoutStageLabel(stage) ?? stage} value={`x${weight}`} />
-          ))}
-        </div>
-        <div className="rounded-2xl bg-muted/55 p-3 text-muted-foreground">
-          <p className="font-bold text-foreground">Pontuação por jogo</p>
-          <p className="mt-1">
-            Placar exato: {basePoints.exact_score ?? 3}; resultado no tempo regulamentar:{" "}
-            {basePoints.regulation_result ?? 1}; classificado: {basePoints.qualified_team ?? 2};
-            método: {basePoints.qualification_method ?? 1}; combo perfeito:{" "}
-            {basePoints.perfect_combo ?? 1}.
-          </p>
-        </div>
-        <div className="rounded-2xl bg-muted/55 p-3 text-muted-foreground">
-          <p className="font-bold text-foreground">Apostas especiais</p>
-          <p className="mt-1">
-            Campeão: {specialPoints.champion ?? 60}; vice: {specialPoints.runner_up ?? 35}; 3º
-            lugar: {specialPoints.third_place ?? 25}; artilheiro: {specialPoints.top_scorer ?? 40};
-            pódio perfeito: {specialPoints.perfect_podium ?? 30}.
-          </p>
-        </div>
-        <div className="rounded-2xl bg-muted/55 p-3">
-          <p className="font-bold">Multiplicadores por time</p>
-          {multiplierEntries.length > 0 ? (
-            <div className="mt-2 flex flex-wrap gap-2">
-              {multiplierEntries.map((item) => (
-                <span
-                  key={item.team?.id ?? String(item.multiplier)}
-                  className="rounded-full bg-brand/10 px-2 py-1 text-xs font-bold text-brand"
-                >
-                  {item.team?.short_name || item.team?.name || "Time"} x{item.multiplier}
-                </span>
-              ))}
-            </div>
-          ) : (
-            <p className="mt-1 text-xs text-muted-foreground">Nenhum multiplicador ativo.</p>
-          )}
-        </div>
+      <CardContent className="p-0">
+        <Accordion type="single" collapsible>
+          <AccordionItem value="knockout" className="border-b-0 px-4">
+            <AccordionTrigger className="py-4 font-extrabold hover:no-underline">
+              <span className="flex items-center gap-2">
+                <BiShieldQuarter className="size-5 text-brand" />
+                Regras do mata-mata
+              </span>
+            </AccordionTrigger>
+            <AccordionContent className="space-y-3 pb-4 text-sm">
+              <div className="rounded-2xl bg-muted/55 p-3 text-muted-foreground">
+                <p className="font-bold text-foreground">Pontos base por jogo</p>
+                <p className="mt-1">
+                  Placar exato: {basePoints.exact_score ?? 3}; resultado no tempo regulamentar:{" "}
+                  {basePoints.regulation_result ?? 1}; classificado:{" "}
+                  {basePoints.qualified_team ?? 2}; método de classificação:{" "}
+                  {basePoints.qualification_method ?? 1}; combo perfeito:{" "}
+                  {basePoints.perfect_combo ?? 1}.
+                </p>
+              </div>
+              <div className="space-y-2">
+                <p className="text-xs font-bold uppercase text-muted-foreground">
+                  Multiplicador por fase
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  {Object.entries(stageWeights).map(([stage, weight]) => (
+                    <MiniStat
+                      key={stage}
+                      label={knockoutStageLabel(stage) ?? stage}
+                      value={`x${weight}`}
+                    />
+                  ))}
+                </div>
+              </div>
+              <div className="rounded-2xl bg-muted/55 p-3 text-muted-foreground">
+                <p className="font-bold text-foreground">Bônus de campeão, vice e 3º lugar</p>
+                <p className="mt-1">
+                  Campeão: {specialPoints.champion ?? 60}; vice: {specialPoints.runner_up ?? 35}; 3º
+                  lugar: {specialPoints.third_place ?? 25}; pódio perfeito:{" "}
+                  {specialPoints.perfect_podium ?? 30}. Final e palpites especiais valem mais por
+                  serem cenários mais difíceis e com menos margem para recuperação.
+                </p>
+              </div>
+              <div className="rounded-2xl bg-muted/55 p-3">
+                <p className="font-bold">Multiplicadores por time</p>
+                {multiplierEntries.length > 0 ? (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {multiplierEntries.map((item) => (
+                      <span
+                        key={item.team?.id ?? String(item.multiplier)}
+                        className="rounded-full bg-brand/10 px-2 py-1 text-xs font-bold text-brand"
+                      >
+                        {item.team?.short_name || item.team?.name || "Time"} x{item.multiplier}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-1 text-xs text-muted-foreground">Nenhum multiplicador ativo.</p>
+                )}
+              </div>
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
       </CardContent>
     </Card>
   );
 }
 
 function SpecialPredictionsCard({
-  summary,
   userId,
   enrollment,
   rules,
@@ -728,7 +762,6 @@ function SpecialPredictionsCard({
   busy,
   onSave,
 }: {
-  summary: PoolSummary;
   userId: string | null;
   enrollment: Enrollment | null;
   rules: PoolScoringRules | null;
@@ -739,19 +772,15 @@ function SpecialPredictionsCard({
     champion_team_id: string;
     runner_up_team_id: string;
     third_place_team_id: string;
-    top_scorer: string;
   }) => void;
 }) {
-  const enrolled = Boolean(
-    enrollment && ["active", "confirmed", "paid"].includes(enrollment.status),
-  );
+  const enrolled = isActiveEnrollment(enrollment?.status);
   const lockAt = rules?.specials_lock_at ? new Date(rules.specials_lock_at) : null;
   const locked = Boolean(lockAt && lockAt <= new Date());
   const [form, setForm] = useState({
     champion_team_id: prediction?.champion_team_id ?? "",
     runner_up_team_id: prediction?.runner_up_team_id ?? "",
     third_place_team_id: prediction?.third_place_team_id ?? "",
-    top_scorer: prediction?.top_scorer ?? "",
   });
 
   useEffect(() => {
@@ -759,29 +788,41 @@ function SpecialPredictionsCard({
       champion_team_id: prediction?.champion_team_id ?? "",
       runner_up_team_id: prediction?.runner_up_team_id ?? "",
       third_place_team_id: prediction?.third_place_team_id ?? "",
-      top_scorer: prediction?.top_scorer ?? "",
     });
   }, [prediction]);
 
-  const readonly = !userId || !enrolled || locked;
+  if (!enrolled) {
+    return (
+      <Card className="glass-card border-warning/25">
+        <CardContent className="flex items-start gap-3 p-4">
+          <div className="grid size-10 shrink-0 place-items-center rounded-2xl bg-warning/15 text-warning">
+            <BiLockAlt className="size-5" />
+          </div>
+          <div>
+            <p className="font-extrabold">Palpites Especiais bloqueados</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Disponível após confirmação da inscrição.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const readonly = !userId || locked;
 
   return (
     <Card className="glass-card border-warning/25">
       <CardHeader>
-        <CardTitle className="text-base">Apostas especiais</CardTitle>
+        <CardTitle className="text-base">Palpites Especiais</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
         <p className="text-sm text-muted-foreground">
-          Palpites de campeão, vice, 3º lugar e artilheiro do bolão.
+          Palpites de campeão, vice e 3º lugar do bolão.
         </p>
         {lockAt && (
           <p className="rounded-2xl bg-muted/55 p-3 text-xs text-muted-foreground">
             Lock: {lockAt.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}
-          </p>
-        )}
-        {!enrolled && (
-          <p className="rounded-2xl border border-dashed border-border p-3 text-sm text-muted-foreground">
-            Confirme sua inscrição no {summary.title} para enviar apostas especiais.
           </p>
         )}
         <div className="grid gap-3 sm:grid-cols-2">
@@ -809,17 +850,6 @@ function SpecialPredictionsCard({
             disabled={readonly || busy}
             onChange={(value) => setForm((current) => ({ ...current, third_place_team_id: value }))}
           />
-          <div className="space-y-1.5">
-            <Label htmlFor="special-top-scorer">Artilheiro</Label>
-            <Input
-              id="special-top-scorer"
-              value={form.top_scorer}
-              disabled={readonly || busy}
-              onChange={(event) =>
-                setForm((current) => ({ ...current, top_scorer: event.target.value }))
-              }
-            />
-          </div>
         </div>
         {prediction && (
           <p className="text-xs font-bold text-muted-foreground">
@@ -828,14 +858,168 @@ function SpecialPredictionsCard({
         )}
         {!readonly && (
           <Button className="w-full" disabled={busy} onClick={() => onSave(form)}>
-            {prediction ? "Salvar apostas especiais" : "Enviar apostas especiais"}
+            {prediction ? "Salvar palpites especiais" : "Enviar palpites especiais"}
           </Button>
         )}
         {locked && (
-          <p className="text-xs text-muted-foreground">Apostas especiais bloqueadas para edição.</p>
+          <p className="text-xs text-muted-foreground">
+            Palpites especiais bloqueados para edição.
+          </p>
         )}
       </CardContent>
     </Card>
+  );
+}
+
+function PrizeTab({
+  summary,
+  phase,
+  eligibleForPrize,
+  prizeRequest,
+  prizePixKey,
+  busy,
+  onPrizePixKeyChange,
+  onRequestPrize,
+}: {
+  summary: PoolSummary;
+  phase: PoolPhase;
+  eligibleForPrize: boolean;
+  prizeRequest: PrizeRequest | null;
+  prizePixKey: string;
+  busy: boolean;
+  onPrizePixKeyChange: (value: string) => void;
+  onRequestPrize: () => void;
+}) {
+  const progress = summary.minimum_participants
+    ? Math.min(100, (summary.participants_count / summary.minimum_participants) * 100)
+    : 0;
+  const prizes = prizeBreakdown(summary);
+  const alreadyRequested = Boolean(prizeRequest);
+
+  return (
+    <>
+      <PoolCountdownCard phase={phase} />
+
+      <Card className="glass-card">
+        <CardHeader>
+          <CardTitle className="text-base">Premiação</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <Metric
+              icon={BiGroup}
+              label="Inscritos ativos"
+              value={String(summary.participants_count)}
+            />
+            <Metric icon={BiCreditCard} label="Entrada" value={money(summary.entry_fee_cents)} />
+            <Metric icon={BiSolidTrophy} label="Prêmio estimado" value={money(prizes.pool)} />
+            <Metric
+              icon={BiShieldQuarter}
+              label="Premiação"
+              value={`${summary.prize_percentage}%`}
+            />
+          </div>
+
+          <div className="rounded-2xl bg-muted/55 p-4">
+            <div className="flex justify-between text-xs">
+              <span>Meta mínima</span>
+              <span>
+                {summary.participants_count}/{summary.minimum_participants}
+              </span>
+            </div>
+            <Progress value={progress} className="mt-2" />
+            <p className="mt-2 text-xs text-muted-foreground">
+              Arrecadação bruta atual: {money(prizes.gross)}.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-3 gap-2">
+            <MiniStat label="1º lugar" value={money(prizes.first)} />
+            <MiniStat label="2º lugar" value={money(prizes.second)} />
+            <MiniStat label="3º lugar" value={money(prizes.third)} />
+          </div>
+
+          {summary.prize_description && (
+            <p className="rounded-2xl bg-muted/55 p-3 text-xs text-muted-foreground">
+              {summary.prize_description}
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
+      {phase.kind === "ended" && eligibleForPrize && (
+        <Card className="glass-card border-warning/30">
+          <CardContent className="space-y-3 p-4">
+            <p className="font-bold">Você está elegível para solicitar prêmio.</p>
+            <Field label="Chave Pix">
+              <Input
+                value={prizePixKey}
+                disabled={busy || alreadyRequested}
+                onChange={(event) => onPrizePixKeyChange(event.target.value)}
+                placeholder="Informe sua chave Pix"
+              />
+            </Field>
+            <Button
+              disabled={busy || alreadyRequested || prizePixKey.trim().length < 3}
+              onClick={onRequestPrize}
+            >
+              {alreadyRequested ? "Prêmio já solicitado" : "Solicitar prêmio"}
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+    </>
+  );
+}
+
+function PoolCountdownCard({ phase }: { phase: PoolPhase }) {
+  const [timeLeft, setTimeLeft] = useState(() =>
+    phase.target ? calcTimeLeft(phase.target) : null,
+  );
+
+  useEffect(() => {
+    if (!phase.target) {
+      setTimeLeft(null);
+      return;
+    }
+    setTimeLeft(calcTimeLeft(phase.target));
+    const id = window.setInterval(() => setTimeLeft(calcTimeLeft(phase.target!)), 30_000);
+    return () => window.clearInterval(id);
+  }, [phase.target]);
+
+  return (
+    <Card className="glass-card">
+      <CardContent className="p-4">
+        <div className="flex items-center gap-2">
+          <div className="grid size-9 place-items-center rounded-xl bg-brand/12 text-brand">
+            <BiCalendar className="size-5" />
+          </div>
+          <p className="font-extrabold">{phase.title}</p>
+        </div>
+        {phase.target && timeLeft ? (
+          <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+            <TimePart label="dias" value={timeLeft.days} />
+            <TimePart label="horas" value={timeLeft.hours} />
+            <TimePart label="min" value={timeLeft.minutes} />
+          </div>
+        ) : (
+          <p className="mt-3 text-sm text-muted-foreground">
+            {phase.kind === "ended"
+              ? "Premiação disponível para os vencedores elegíveis."
+              : phase.ctaDisabledReason}
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function TimePart({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-2xl bg-muted/65 px-2 py-2">
+      <p className="text-xl font-extrabold tabular-nums">{String(value).padStart(2, "0")}</p>
+      <p className="text-[10px] font-bold uppercase text-muted-foreground">{label}</p>
+    </div>
   );
 }
 
@@ -884,42 +1068,38 @@ function RuleLine({ title, text }: { title: string; text: string }) {
   );
 }
 
-function PaymentsCard({ payments }: { payments: Payment[] }) {
+function PaymentsList({ payments }: { payments: Payment[] }) {
   return (
-    <Card className="glass-card">
-      <CardHeader>
-        <CardTitle className="text-base">Pagamentos</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-2">
-        {payments.map((payment) => (
-          <div
-            key={payment.id}
-            className="flex items-center justify-between rounded-2xl bg-muted/70 p-3"
-          >
-            <div>
-              <p className="text-sm font-bold">{money(payment.amount_cents)}</p>
-              <p className="text-xs text-muted-foreground">{paymentStatusLabel(payment.status)}</p>
-            </div>
-            <div className="flex gap-1">
-              {payment.checkout_url && payment.status === "pending" && (
-                <Button asChild size="icon" variant="ghost" aria-label="Abrir pagamento">
-                  <a href={payment.checkout_url} target="_blank" rel="noreferrer">
-                    <BiLinkExternal className="size-5" />
-                  </a>
-                </Button>
-              )}
-              {payment.receipt_url && (
-                <Button asChild size="icon" variant="ghost" aria-label="Abrir comprovante">
-                  <a href={payment.receipt_url} target="_blank" rel="noreferrer">
-                    <BiReceipt className="size-5" />
-                  </a>
-                </Button>
-              )}
-            </div>
+    <div className="space-y-2">
+      <p className="text-xs font-bold uppercase text-muted-foreground">Pagamentos</p>
+      {payments.map((payment) => (
+        <div
+          key={payment.id}
+          className="flex items-center justify-between rounded-2xl bg-muted/70 p-3"
+        >
+          <div>
+            <p className="text-sm font-bold">{money(payment.amount_cents)}</p>
+            <p className="text-xs text-muted-foreground">{paymentStatusLabel(payment.status)}</p>
           </div>
-        ))}
-      </CardContent>
-    </Card>
+          <div className="flex gap-1">
+            {payment.checkout_url && payment.status === "pending" && (
+              <Button asChild size="icon" variant="ghost" aria-label="Abrir pagamento">
+                <a href={payment.checkout_url} target="_blank" rel="noreferrer">
+                  <BiLinkExternal className="size-5" />
+                </a>
+              </Button>
+            )}
+            {payment.receipt_url && (
+              <Button asChild size="icon" variant="ghost" aria-label="Abrir comprovante">
+                <a href={payment.receipt_url} target="_blank" rel="noreferrer">
+                  <BiReceipt className="size-5" />
+                </a>
+              </Button>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -935,14 +1115,15 @@ function OperatorSummaryCard({ summary }: { summary: AdminPoolSummary }) {
       <CardContent className="grid grid-cols-2 gap-2 text-sm">
         <MiniStat label="Ativos" value={summary.active} />
         <MiniStat label="Solicitados" value={summary.requested} />
-        <MiniStat label="Inscrições pendentes" value={summary.paymentPending} />
+        <MiniStat label="Pendentes" value={summary.paymentPending} />
+        <MiniStat label="Removidos" value={summary.refundPending} />
         <MiniStat label="Pagamentos pendentes" value={summary.paymentsPending} />
       </CardContent>
     </Card>
   );
 }
 
-function MiniStat({ label, value }: { label: string; value: number | string }) {
+function MiniStat({ label, value }: { label: number | string; value: number | string }) {
   return (
     <div className="rounded-2xl bg-muted/60 p-3">
       <p className="text-xl font-extrabold tabular-nums">{value}</p>
@@ -970,43 +1151,6 @@ function StatusPill({ label, tone }: { label: string; tone: Tone }) {
   );
 }
 
-function getPoolPhase(summary: PoolSummary, poolStartsAt: string | null) {
-  const startsAt = poolStartsAt ? new Date(poolStartsAt) : null;
-  if (summary.status === "closed") {
-    return {
-      label: "Bolão encerrado",
-      tone: "neutral" as const,
-      description: "A competição oficial já foi encerrada.",
-    };
-  }
-  if (startsAt && startsAt <= new Date()) {
-    return {
-      label: "Bolão iniciado",
-      tone: "success" as const,
-      description: "Acompanhe seu desempenho pelo ranking oficial do bolão.",
-    };
-  }
-  if (summary.enrollments_mode === "coming_soon") {
-    return {
-      label: "Inscrições em breve",
-      tone: "warning" as const,
-      description: "Prepare-se para entrar quando as inscrições abrirem.",
-    };
-  }
-  if (summary.status === "open") {
-    return {
-      label: "Inscrições abertas",
-      tone: "brand" as const,
-      description: "Entre no bolão, confirme a inscrição e acompanhe seu status aqui.",
-    };
-  }
-  return {
-    label: "Bolão em breve",
-    tone: "warning" as const,
-    description: "A competição oficial será liberada conforme a configuração atual.",
-  };
-}
-
 type TimeLeft = { days: number; hours: number; minutes: number };
 
 function calcTimeLeft(target: Date): TimeLeft | null {
@@ -1021,15 +1165,22 @@ function calcTimeLeft(target: Date): TimeLeft | null {
 
 function Metric({ icon: Icon, label, value }: { icon: IconType; label: string; value: string }) {
   return (
-    <Card className="glass-card interactive-card">
-      <CardContent className="p-4">
-        <div className="grid size-9 place-items-center rounded-xl bg-brand/12 text-brand">
-          <Icon className="size-5" />
-        </div>
-        <p className="mt-2 text-xl font-extrabold">{value}</p>
-        <p className="text-[11px] text-muted-foreground">{label}</p>
-      </CardContent>
-    </Card>
+    <div className="rounded-2xl bg-muted/60 p-4">
+      <div className="grid size-9 place-items-center rounded-xl bg-brand/12 text-brand">
+        <Icon className="size-5" />
+      </div>
+      <p className="mt-2 text-xl font-extrabold">{value}</p>
+      <p className="text-[11px] text-muted-foreground">{label}</p>
+    </div>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-1.5">
+      <Label>{label}</Label>
+      {children}
+    </div>
   );
 }
 
@@ -1037,10 +1188,18 @@ function EnrollmentStatus({ status }: { status: string }) {
   const map: Record<string, { icon: IconType; label: string; className: string }> = {
     none: { icon: BiTimeFive, label: "Não inscrito", className: "text-muted-foreground" },
     requested: { icon: BiTimeFive, label: "Solicitação enviada", className: "text-warning" },
-    payment_pending: { icon: BiTimeFive, label: "Pagamento pendente", className: "text-warning" },
+    payment_pending: {
+      icon: BiTimeFive,
+      label: "Pendente de pagamento",
+      className: "text-warning",
+    },
     active: { icon: BiCheckCircle, label: "Inscrição confirmada", className: "text-success" },
-    confirmed: { icon: BiCheckCircle, label: "Inscrição confirmada", className: "text-success" },
-    paid: { icon: BiCheckCircle, label: "Pagamento confirmado", className: "text-success" },
+    removed: { icon: BiLockAlt, label: "Removido do bolão", className: "text-muted-foreground" },
+    refund_pending: {
+      icon: BiLockAlt,
+      label: "Removido do bolão",
+      className: "text-muted-foreground",
+    },
     rejected: { icon: BiTimeFive, label: "Solicitação recusada", className: "text-destructive" },
     cancelled: {
       icon: BiTimeFive,
@@ -1058,6 +1217,22 @@ function EnrollmentStatus({ status }: { status: string }) {
   );
 }
 
+function enrollmentStatusHelp(status: string) {
+  const map: Record<string, string> = {
+    none: "Entre no bolão quando as inscrições estiverem abertas.",
+    requested: "Solicitação enviada. Faça o pagamento para ativar sua inscrição.",
+    payment_pending: "Pendente de pagamento. Use o botão abaixo para pagar a inscrição.",
+    active: "Você já participa do ranking oficial do bolão.",
+    removed:
+      "Você não faz mais parte do bolão. O reembolso será tratado manualmente pelo administrador.",
+    refund_pending:
+      "Você não faz mais parte do bolão. O reembolso será tratado manualmente pelo administrador.",
+    rejected: "Sua solicitação não foi aprovada.",
+    cancelled: "Sua inscrição foi cancelada.",
+  };
+  return map[status] ?? "Status em análise.";
+}
+
 function paymentStatusLabel(status: string) {
   const map: Record<string, string> = {
     pending: "Aguardando pagamento",
@@ -1065,74 +1240,208 @@ function paymentStatusLabel(status: string) {
     confirmed: "Pagamento confirmado",
     failed: "Pagamento não concluído",
     cancelled: "Pagamento cancelado",
+    expired: "Pagamento expirado",
     refunded: "Pagamento estornado",
   };
   return map[status] ?? "Status em análise";
+}
+
+function isActiveEnrollment(status?: string | null) {
+  return status === "active";
 }
 
 function money(cents: number) {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(cents / 100);
 }
 
+function prizeBreakdown(summary: PoolSummary) {
+  const gross = summary.participants_count * summary.entry_fee_cents;
+  const pool = Math.round((gross * summary.prize_percentage) / 100);
+  const first = Math.round(pool * 0.5);
+  const second = Math.round(pool * 0.3);
+  const third = Math.max(0, pool - first - second);
+  return { gross, pool, first, second, third };
+}
+
+function parseDate(value: string | null | undefined) {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function getPoolEndDate(summary: PoolSummary | null, fallback: string | null) {
+  return parseDate(summary?.pool_ends_at) ?? parseDate(fallback);
+}
+
+function isPoolEnded(summary: PoolSummary | null, fallback: string | null) {
+  const endsAt = getPoolEndDate(summary, fallback);
+  return Boolean(endsAt && endsAt <= new Date());
+}
+
+function getPoolPhase(summary: PoolSummary, poolEndsFallbackAt: string | null): PoolPhase {
+  const now = new Date();
+  const opensAt = parseDate(summary.enrollment_opens_at);
+  const closesAt = parseDate(summary.enrollment_closes_at);
+  const endsAt = getPoolEndDate(summary, poolEndsFallbackAt);
+
+  if (endsAt && now >= endsAt) {
+    return {
+      kind: "ended",
+      title: "Bolão encerrado",
+      label: "Encerrado",
+      description: "O bolão foi encerrado. A premiação pode ser solicitada pelos vencedores.",
+      target: null,
+      tone: "neutral",
+      ctaEnabled: false,
+      ctaDisabledReason: "Bolão encerrado",
+    };
+  }
+
+  if (opensAt && now < opensAt) {
+    return {
+      kind: "before_enrollment",
+      title: "Inscrições abrem em",
+      label: "Em breve",
+      description: "As inscrições ainda não começaram.",
+      target: opensAt,
+      tone: "warning",
+      ctaEnabled: false,
+      ctaDisabledReason: "Inscrições ainda não abriram",
+    };
+  }
+
+  if (closesAt && now < closesAt && summary.enrollments_mode !== "closed") {
+    return {
+      kind: "enrollment_open",
+      title: "Inscrições encerram em",
+      label: "Inscrições abertas",
+      description: "Entre no bolão, confirme a inscrição e acompanhe seu status aqui.",
+      target: closesAt,
+      tone: "brand",
+      ctaEnabled: summary.status !== "closed" && summary.status !== "archived",
+      ctaDisabledReason: "Inscrições encerradas",
+    };
+  }
+
+  if (closesAt && now >= closesAt) {
+    return {
+      kind: "running",
+      title: "Bolão finaliza em",
+      label: "Em andamento",
+      description: "Novas inscrições estão bloqueadas. Acompanhe a classificação oficial.",
+      target: endsAt,
+      tone: "success",
+      ctaEnabled: false,
+      ctaDisabledReason: "Inscrições encerradas",
+    };
+  }
+
+  if (summary.enrollments_mode === "coming_soon") {
+    return {
+      kind: "before_enrollment",
+      title: "Inscrições abrem em",
+      label: "Em breve",
+      description: summary.coming_soon_message ?? "A abertura será anunciada aqui.",
+      target: opensAt,
+      tone: "warning",
+      ctaEnabled: false,
+      ctaDisabledReason: "Inscrições ainda não abriram",
+    };
+  }
+
+  if (summary.status === "open" && summary.enrollments_mode !== "closed") {
+    return {
+      kind: "enrollment_open",
+      title: "Inscrições encerram em",
+      label: "Inscrições abertas",
+      description: "Entre no bolão, confirme a inscrição e acompanhe seu status aqui.",
+      target: closesAt,
+      tone: "brand",
+      ctaEnabled: true,
+      ctaDisabledReason: "Inscrições encerradas",
+    };
+  }
+
+  return {
+    kind: "blocked",
+    title: "Bolão finaliza em",
+    label: "Inscrições fechadas",
+    description: "As inscrições não estão disponíveis no momento.",
+    target: endsAt,
+    tone: "neutral",
+    ctaEnabled: false,
+    ctaDisabledReason: "Inscrições indisponíveis",
+  };
+}
+
 async function fetchPool(userId: string, isOperator: boolean): Promise<PoolData> {
-  const [
-    summaryResult,
-    enrollmentResult,
-    prizeResult,
-    rankingResult,
-    scoreResult,
-    firstMatchResult,
-    teamsResult,
-  ] = await Promise.all([
-    supabase.from("pool_public_summary").select("*").maybeSingle(),
-    supabase
-      .from("enrollments")
-      .select("id,status,terms_accepted_at")
-      .eq("user_id", userId)
-      .maybeSingle(),
-    supabase.from("prize_requests").select("id,status").eq("user_id", userId).maybeSingle(),
-    supabase.from("ranking_pool").select("rank_position").eq("user_id", userId).maybeSingle(),
-    supabase
-      .from("score_rules")
-      .select("exact_score_points,outcome_points,goal_difference_bonus")
-      .order("created_at")
-      .limit(1)
-      .maybeSingle(),
-    supabase.from("matches").select("kickoff_at").order("kickoff_at").limit(1).maybeSingle(),
-    supabase.from("teams").select("id,name,short_name,external_key").order("name"),
-  ]);
+  const [summaryResult, scoreResult, finalMatchResult, lastMatchResult, teamsResult] =
+    await Promise.all([
+      supabase.from("pool_public_summary").select("*").maybeSingle(),
+      supabase
+        .from("score_rules")
+        .select("exact_score_points,outcome_points,goal_difference_bonus")
+        .order("created_at")
+        .limit(1)
+        .maybeSingle(),
+      supabase
+        .from("matches")
+        .select("kickoff_at")
+        .eq("stage", "final")
+        .order("kickoff_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      supabase
+        .from("matches")
+        .select("kickoff_at")
+        .order("kickoff_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      supabase.from("teams").select("id,name,short_name,external_key").order("name"),
+    ]);
+
   const summary = summaryResult.data as PoolSummary | null;
+  const poolEndsFallbackAt =
+    finalMatchResult.data?.kickoff_at ?? lastMatchResult.data?.kickoff_at ?? null;
+
+  const [enrollmentResult, prizeResult, rankingResult, poolScoringResult, specialPredictionResult] =
+    summary?.id
+      ? await Promise.all([
+          supabase
+            .from("enrollments")
+            .select("id,status,terms_accepted_at")
+            .eq("pool_id", summary.id)
+            .eq("user_id", userId)
+            .maybeSingle(),
+          supabase
+            .from("prize_requests")
+            .select("*")
+            .eq("pool_id", summary.id)
+            .eq("user_id", userId)
+            .maybeSingle(),
+          supabase.from("ranking_pool").select("rank_position").eq("user_id", userId).maybeSingle(),
+          supabase
+            .from("pool_scoring_rules")
+            .select(
+              "id,pool_id,stage_weights,base_points,team_multipliers,special_points,special_results,specials_lock_at",
+            )
+            .eq("pool_id", summary.id)
+            .maybeSingle(),
+          supabase
+            .from("special_predictions")
+            .select(
+              "id,champion_team_id,runner_up_team_id,third_place_team_id,submitted_at,locked_at,points,points_breakdown",
+            )
+            .eq("pool_id", summary.id)
+            .eq("user_id", userId)
+            .maybeSingle(),
+        ])
+      : [nullResult(), nullResult(), nullResult(), nullResult(), nullResult()];
+
   const enrollment = enrollmentResult.data as Enrollment | null;
   const teams = (teamsResult.data ?? []) as PoolTeam[];
   let payments: Payment[] = [];
   let adminSummary: AdminPoolSummary | null = null;
-  let poolScoringRules: PoolScoringRules | null = null;
-  let specialPrediction: SpecialPrediction | null = null;
-  let poolExtrasError: string | null = null;
-
-  if (summary?.id) {
-    const [poolScoringResult, specialPredictionResult] = await Promise.all([
-      supabase
-        .from("pool_scoring_rules")
-        .select(
-          "id,pool_id,stage_weights,base_points,team_multipliers,special_points,special_results,specials_lock_at",
-        )
-        .eq("pool_id", summary.id)
-        .maybeSingle(),
-      supabase
-        .from("special_predictions")
-        .select(
-          "id,champion_team_id,runner_up_team_id,third_place_team_id,top_scorer,submitted_at,locked_at,points,points_breakdown",
-        )
-        .eq("pool_id", summary.id)
-        .eq("user_id", userId)
-        .maybeSingle(),
-    ]);
-    poolScoringRules = poolScoringResult.data as PoolScoringRules | null;
-    specialPrediction = specialPredictionResult.data as SpecialPrediction | null;
-    poolExtrasError =
-      poolScoringResult.error?.message ?? specialPredictionResult.error?.message ?? null;
-  }
 
   if (enrollment) {
     const { data } = await supabase
@@ -1151,10 +1460,12 @@ async function fetchPool(userId: string, isOperator: boolean): Promise<PoolData>
     const enrollments = (allEnrollmentsResult.data ?? []) as Array<{ status: string }>;
     const allPayments = (allPaymentsResult.data ?? []) as Array<{ status: string }>;
     adminSummary = {
-      active: enrollments.filter((item) => ["active", "confirmed", "paid"].includes(item.status))
-        .length,
+      active: enrollments.filter((item) => item.status === "active").length,
       requested: enrollments.filter((item) => item.status === "requested").length,
       paymentPending: enrollments.filter((item) => item.status === "payment_pending").length,
+      refundPending: enrollments.filter((item) =>
+        ["removed", "refund_pending"].includes(item.status),
+      ).length,
       paymentsPending: allPayments.filter((item) => item.status === "pending").length,
     };
   }
@@ -1164,24 +1475,30 @@ async function fetchPool(userId: string, isOperator: boolean): Promise<PoolData>
     enrollment,
     payments,
     scoreRules: scoreResult.data as ScoreRules | null,
-    poolScoringRules,
-    specialPrediction,
+    poolScoringRules: poolScoringResult.data as PoolScoringRules | null,
+    specialPrediction: specialPredictionResult.data as SpecialPrediction | null,
     teams,
-    poolStartsAt: firstMatchResult.data?.kickoff_at ?? null,
+    poolEndsFallbackAt,
     adminSummary,
     eligibleForPrize:
-      summary?.status === "closed" &&
+      isPoolEnded(summary, poolEndsFallbackAt) &&
       Boolean(rankingResult.data && Number(rankingResult.data.rank_position) <= 3),
-    prizeRequested: Boolean(prizeResult.data),
+    prizeRequest: prizeResult.data as PrizeRequest | null,
     error:
       summaryResult.error?.message ??
       enrollmentResult.error?.message ??
       prizeResult.error?.message ??
       rankingResult.error?.message ??
       scoreResult.error?.message ??
-      firstMatchResult.error?.message ??
+      finalMatchResult.error?.message ??
+      lastMatchResult.error?.message ??
       teamsResult.error?.message ??
-      poolExtrasError ??
+      poolScoringResult.error?.message ??
+      specialPredictionResult.error?.message ??
       null,
   };
+}
+
+function nullResult() {
+  return { data: null, error: null };
 }

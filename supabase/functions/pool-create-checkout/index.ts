@@ -30,8 +30,8 @@ Deno.serve(async (req) => {
       .eq("slug", "world-cup-2026")
       .single();
     if (settingsError) throw new HttpError(500, settingsError.message);
-    if (settings.status !== "open")
-      throw new HttpError(400, "O bolão não está aberto para pagamento.");
+    const availability = enrollmentAvailability(settings);
+    if (!availability.open) throw new HttpError(400, availability.reason);
     if (settings.entry_fee_cents <= 0)
       throw new HttpError(400, "Esta inscrição não exige pagamento.");
 
@@ -44,6 +44,9 @@ Deno.serve(async (req) => {
     if (enrollmentError) throw new HttpError(500, enrollmentError.message);
     if (!enrollment) throw new HttpError(400, "Solicite a inscrição e aceite os termos primeiro.");
     if (enrollment.status === "active") return json({ already_active: true });
+    if (["removed", "refund_pending"].includes(enrollment.status)) {
+      throw new HttpError(400, "Sua inscrição foi removida pelo administrador.");
+    }
 
     const { data: previous } = await admin
       .from("payments")
@@ -128,4 +131,40 @@ function pickString(value: Record<string, unknown>, keys: string[]) {
   const data = value.data;
   if (data && typeof data === "object") return pickString(data as Record<string, unknown>, keys);
   return null;
+}
+
+function parseDate(value: unknown) {
+  if (typeof value !== "string" || !value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function enrollmentAvailability(settings: {
+  status: string;
+  enrollments_mode?: string | null;
+  enrollment_opens_at?: string | null;
+  enrollment_closes_at?: string | null;
+  pool_ends_at?: string | null;
+}) {
+  const now = new Date();
+  const opensAt = parseDate(settings.enrollment_opens_at);
+  const closesAt = parseDate(settings.enrollment_closes_at);
+  const endsAt = parseDate(settings.pool_ends_at);
+
+  if (settings.status === "closed" || settings.status === "archived") {
+    return { open: false, reason: "O bolão não está aberto para pagamento." };
+  }
+  if (endsAt && now >= endsAt) {
+    return { open: false, reason: "O bolão já foi encerrado." };
+  }
+  if (opensAt && now < opensAt) {
+    return { open: false, reason: "As inscrições ainda não estão abertas." };
+  }
+  if (closesAt && now >= closesAt) {
+    return { open: false, reason: "As inscrições estão encerradas." };
+  }
+  if (settings.enrollments_mode === "closed") {
+    return { open: false, reason: "As inscrições estão encerradas." };
+  }
+  return { open: true, reason: "" };
 }
