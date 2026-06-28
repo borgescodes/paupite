@@ -371,28 +371,23 @@ function PoolPage() {
 
         {summary && phase && (
           <>
-            <PoolStatusCard phase={phase} enrollment={enrollment} />
+            <PoolStatusCard
+              summary={summary}
+              phase={phase}
+              enrollment={enrollment}
+              payments={payments}
+              busy={busy}
+              onOpenTerms={() => setTermsDialogOpen(true)}
+              onCreateCheckout={() => void createCheckout()}
+            />
+            {isOperator && adminSummary && <OperatorSummaryCard summary={adminSummary} />}
 
-            <Tabs defaultValue="status" className="space-y-3">
-              <TabsList className="grid h-auto w-full grid-cols-2 gap-1 sm:grid-cols-4">
-                <TabsTrigger value="status">Status</TabsTrigger>
+            <Tabs defaultValue="rules" className="space-y-3">
+              <TabsList className="grid h-auto w-full grid-cols-3 gap-1">
                 <TabsTrigger value="rules">Regras</TabsTrigger>
                 <TabsTrigger value="specials">Palpites Especiais</TabsTrigger>
                 <TabsTrigger value="prizes">Premiação</TabsTrigger>
               </TabsList>
-
-              <TabsContent value="status" className="space-y-3">
-                <StatusTab
-                  summary={summary}
-                  enrollment={enrollment}
-                  payments={payments}
-                  phase={phase}
-                  busy={busy}
-                  onOpenTerms={() => setTermsDialogOpen(true)}
-                  onCreateCheckout={() => void createCheckout()}
-                />
-                {isOperator && adminSummary && <OperatorSummaryCard summary={adminSummary} />}
-              </TabsContent>
 
               <TabsContent value="rules" className="space-y-3">
                 <RulesCard summary={summary} scoreRules={scoreRules} />
@@ -470,47 +465,18 @@ function PoolPage() {
 }
 
 function PoolStatusCard({
-  phase,
-  enrollment,
-}: {
-  phase: PoolPhase;
-  enrollment: Enrollment | null;
-}) {
-  return (
-    <Card className="glass-card overflow-hidden border-brand/25">
-      <div className="h-1 bg-brand" />
-      <CardContent className="space-y-4 p-5">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="eyebrow text-brand">Status do bolão</p>
-            <p className="mt-2 text-sm text-muted-foreground">{phase.description}</p>
-          </div>
-          <StatusPill label={phase.label} tone={phase.tone} />
-        </div>
-        <div className="rounded-2xl bg-muted/55 p-4">
-          <p className="text-xs font-bold uppercase text-muted-foreground">Minha inscrição</p>
-          <div className="mt-2">
-            <EnrollmentStatus status={enrollment?.status ?? "none"} />
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-function StatusTab({
   summary,
+  phase,
   enrollment,
   payments,
-  phase,
   busy,
   onOpenTerms,
   onCreateCheckout,
 }: {
   summary: PoolSummary;
+  phase: PoolPhase;
   enrollment: Enrollment | null;
   payments: Payment[];
-  phase: PoolPhase;
   busy: boolean;
   onOpenTerms: () => void;
   onCreateCheckout: () => void;
@@ -523,13 +489,24 @@ function StatusTab({
     phase.kind !== "ended";
 
   return (
-    <Card className="glass-card">
-      <CardHeader>
-        <CardTitle className="text-base">Minha inscrição</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
+    <Card className="glass-card overflow-hidden border-brand/25">
+      <div className="h-1 bg-brand" />
+      <CardContent className="space-y-4 p-5">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="eyebrow text-brand">Status do bolão</p>
+            <p className="mt-2 text-sm text-muted-foreground">{phase.description}</p>
+          </div>
+          <StatusPill label={phase.label} tone={phase.tone} />
+        </div>
+
+        <PoolCountdownBlock phase={phase} />
+
         <div className="rounded-2xl bg-muted/55 p-4">
-          <EnrollmentStatus status={status} />
+          <p className="text-xs font-bold uppercase text-muted-foreground">Minha inscrição</p>
+          <div className="mt-2">
+            <EnrollmentStatus status={status} />
+          </div>
           <p className="mt-2 text-xs text-muted-foreground">{enrollmentStatusHelp(status)}</p>
         </div>
 
@@ -540,6 +517,7 @@ function StatusTab({
               disabled={busy || !phase.ctaEnabled}
               onClick={onOpenTerms}
             >
+              {!phase.ctaEnabled && <BiLockAlt className="size-5" />}
               Entrar no bolão
             </Button>
             {!phase.ctaEnabled && (
@@ -909,8 +887,6 @@ function PrizeTab({
 
   return (
     <>
-      <PoolCountdownCard phase={phase} />
-
       <Card className="glass-card">
         <CardHeader>
           <CardTitle className="text-base">Premiação</CardTitle>
@@ -983,7 +959,7 @@ function PrizeTab({
   );
 }
 
-function PoolCountdownCard({ phase }: { phase: PoolPhase }) {
+function PoolCountdownBlock({ phase }: { phase: PoolPhase }) {
   const [timeLeft, setTimeLeft] = useState(() =>
     phase.target ? calcTimeLeft(phase.target) : null,
   );
@@ -994,34 +970,33 @@ function PoolCountdownCard({ phase }: { phase: PoolPhase }) {
       return;
     }
     setTimeLeft(calcTimeLeft(phase.target));
-    const id = window.setInterval(() => setTimeLeft(calcTimeLeft(phase.target!)), 30_000);
+    const id = window.setInterval(() => setTimeLeft(calcTimeLeft(phase.target!)), 1_000);
     return () => window.clearInterval(id);
   }, [phase.target]);
 
   return (
-    <Card className="glass-card">
-      <CardContent className="p-4">
-        <div className="flex items-center gap-2">
-          <div className="grid size-9 place-items-center rounded-xl bg-brand/12 text-brand">
-            <BiCalendar className="size-5" />
-          </div>
-          <p className="font-extrabold">{phase.title}</p>
+    <div className="rounded-2xl bg-muted/55 p-4">
+      <div className="flex items-center gap-2">
+        <div className="grid size-9 place-items-center rounded-xl bg-brand/12 text-brand">
+          <BiCalendar className="size-5" />
         </div>
-        {phase.target && timeLeft ? (
-          <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-            <TimePart label="dias" value={timeLeft.days} />
-            <TimePart label="horas" value={timeLeft.hours} />
-            <TimePart label="min" value={timeLeft.minutes} />
-          </div>
-        ) : (
-          <p className="mt-3 text-sm text-muted-foreground">
-            {phase.kind === "ended"
-              ? "Premiação disponível para os vencedores elegíveis."
-              : phase.ctaDisabledReason}
-          </p>
-        )}
-      </CardContent>
-    </Card>
+        <p className="font-extrabold">{phase.title}</p>
+      </div>
+      {phase.target && timeLeft ? (
+        <div className="mt-3 grid grid-cols-4 gap-2 text-center">
+          <TimePart label="dias" value={timeLeft.days} />
+          <TimePart label="horas" value={timeLeft.hours} />
+          <TimePart label="min" value={timeLeft.minutes} />
+          <TimePart label="seg" value={timeLeft.seconds} />
+        </div>
+      ) : (
+        <p className="mt-3 text-sm text-muted-foreground">
+          {phase.kind === "ended"
+            ? "Premiação disponível para os vencedores elegíveis."
+            : phase.ctaDisabledReason}
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -1162,7 +1137,7 @@ function StatusPill({ label, tone }: { label: string; tone: Tone }) {
   );
 }
 
-type TimeLeft = { days: number; hours: number; minutes: number };
+type TimeLeft = { days: number; hours: number; minutes: number; seconds: number };
 
 function calcTimeLeft(target: Date): TimeLeft | null {
   const diff = target.getTime() - Date.now();
@@ -1171,6 +1146,7 @@ function calcTimeLeft(target: Date): TimeLeft | null {
     days: Math.floor(diff / 86_400_000),
     hours: Math.floor((diff % 86_400_000) / 3_600_000),
     minutes: Math.floor((diff % 3_600_000) / 60_000),
+    seconds: Math.floor((diff % 60_000) / 1_000),
   };
 }
 
