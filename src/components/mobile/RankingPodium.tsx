@@ -14,10 +14,12 @@ export function RankingPodium({
   rows,
   currentUserId,
   onOpenProfile,
+  onOpenOwnProfile,
 }: {
   rows: RankingEntry[];
   currentUserId?: string;
   onOpenProfile?: (row: RankingEntry) => void;
+  onOpenOwnProfile?: () => void;
 }) {
   if (!rows.length) return null;
 
@@ -27,7 +29,17 @@ export function RankingPodium({
         const position = row.rank_position ?? 0;
         const name = rankingName(row);
         const isMe = row.user_id === currentUserId;
-        const canOpenProfile = Boolean(row.user_id && !isMe && onOpenProfile);
+        const canOpenPublicProfile = Boolean(row.user_id && !isMe && onOpenProfile);
+        const canOpenOwnProfile = Boolean(isMe && onOpenOwnProfile);
+
+        function handleOpenProfile() {
+          if (canOpenOwnProfile) {
+            onOpenOwnProfile?.();
+            return;
+          }
+          if (canOpenPublicProfile) onOpenProfile?.(row);
+        }
+
         return (
           <article
             key={row.user_id}
@@ -56,11 +68,11 @@ export function RankingPodium({
               type="button"
               className={cn(
                 "flex w-full min-w-0 flex-col items-center rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                canOpenProfile ? "hover:text-brand" : "cursor-default",
+                canOpenPublicProfile || canOpenOwnProfile ? "hover:text-brand" : "cursor-default",
               )}
-              onClick={() => canOpenProfile && onOpenProfile?.(row)}
-              disabled={!canOpenProfile}
-              aria-label={canOpenProfile ? `Abrir perfil público de ${name}` : undefined}
+              onClick={handleOpenProfile}
+              disabled={!canOpenPublicProfile && !canOpenOwnProfile}
+              aria-label={isMe ? "Abrir meu perfil" : `Abrir perfil público de ${name}`}
             >
               <Avatar
                 className={cn(

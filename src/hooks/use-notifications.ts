@@ -4,7 +4,17 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
 
-export type Notification = Tables<"notifications">;
+export type NotificationMatchPreview = {
+  id: string;
+  home: string;
+  away: string;
+  homeCountryCode: string | null;
+  awayCountryCode: string | null;
+};
+
+export type Notification = Tables<"notifications"> & {
+  matchPreview?: NotificationMatchPreview | null;
+};
 
 const notificationsQueryKey = (userId: string | null | undefined) =>
   ["notifications", userId ?? null] as const;
@@ -18,6 +28,55 @@ const notificationUnreadQueryKey = (userId: string | null | undefined) =>
 function requireUserId(userId: string | null | undefined) {
   if (!userId) throw new Error("Usuário não autenticado.");
   return userId;
+}
+
+function notificationMatchId(notification: Tables<"notifications">) {
+  if (notification.type !== "bet_scored") return null;
+  const data = notification.data;
+  if (!data || typeof data !== "object" || Array.isArray(data)) return null;
+  const matchId = data.match_id;
+  return typeof matchId === "string" && matchId.length > 0 ? matchId : null;
+}
+
+async function withMatchPreviews(
+  notifications: Tables<"notifications">[],
+): Promise<Notification[]> {
+  const matchIds = Array.from(
+    new Set(
+      notifications
+        .map((notification) => notificationMatchId(notification))
+        .filter((matchId): matchId is string => Boolean(matchId)),
+    ),
+  );
+
+  if (matchIds.length === 0) return notifications;
+
+  const { data, error } = await supabase
+    .from("matches")
+    .select(
+      "id,home_team:teams!matches_home_team_id_fkey(short_name,name,country_code),away_team:teams!matches_away_team_id_fkey(short_name,name,country_code)",
+    )
+    .in("id", matchIds);
+
+  if (error) return notifications;
+
+  const previews = new Map<string, NotificationMatchPreview>();
+  for (const match of data ?? []) {
+    const homeTeam = Array.isArray(match.home_team) ? match.home_team[0] : match.home_team;
+    const awayTeam = Array.isArray(match.away_team) ? match.away_team[0] : match.away_team;
+    previews.set(match.id, {
+      id: match.id,
+      home: homeTeam?.short_name || homeTeam?.name || "CASA",
+      away: awayTeam?.short_name || awayTeam?.name || "FORA",
+      homeCountryCode: homeTeam?.country_code ?? null,
+      awayCountryCode: awayTeam?.country_code ?? null,
+    });
+  }
+
+  return notifications.map((notification) => ({
+    ...notification,
+    matchPreview: previews.get(notificationMatchId(notification) ?? "") ?? null,
+  }));
 }
 
 export function useNotifications(userId: string | null | undefined) {
@@ -37,7 +96,7 @@ export function useNotifications(userId: string | null | undefined) {
         .limit(50);
 
       if (error) throw new Error(error.message);
-      return (data ?? []) as Notification[];
+      return withMatchPreviews((data ?? []) as Tables<"notifications">[]);
     },
   });
 
@@ -109,6 +168,18 @@ export function useNotifications(userId: string | null | undefined) {
     },
   });
 
+  const clearAllNotificationsMutation = useMutation({
+    mutationFn: async () => {
+      const ownerId = requireUserId(userId);
+      const { error } = await supabase.from("notifications").delete().eq("user_id", ownerId);
+
+      if (error) throw new Error(error.message);
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: notificationsQueryKey(userId) });
+    },
+  });
+
   return {
     notifications: notificationsQuery.data ?? [],
     unreadCount: unreadQuery.data ?? 0,
@@ -117,7 +188,9 @@ export function useNotifications(userId: string | null | undefined) {
     error: notificationsQuery.error ?? unreadQuery.error,
     markAsRead: markAsReadMutation.mutateAsync,
     markAllAsRead: markAllAsReadMutation.mutateAsync,
+    clearAllNotifications: clearAllNotificationsMutation.mutateAsync,
     isMarkingAsRead: markAsReadMutation.isPending,
     isMarkingAllAsRead: markAllAsReadMutation.isPending,
+    isClearingAllNotifications: clearAllNotificationsMutation.isPending,
   };
 }

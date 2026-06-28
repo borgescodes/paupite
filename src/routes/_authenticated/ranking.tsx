@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { useState } from "react";
@@ -65,6 +65,24 @@ type PublicClosedBetHistoryItem = {
   points: number;
 };
 
+type PublicClosedBetHistoryRow = {
+  match_id: string;
+  home: string | null;
+  away: string | null;
+  final_home: number | null;
+  final_away: number | null;
+  guess_home: number | null;
+  guess_away: number | null;
+  points: number | null;
+};
+
+type PublicProfileRpcClient = {
+  rpc: (
+    fn: "get_public_profile_closed_bets",
+    args: { _user_id: string },
+  ) => Promise<{ data: PublicClosedBetHistoryRow[] | null; error: { message: string } | null }>;
+};
+
 const rankingQueryKey = (mode: RankingMode, userId: string | null | undefined) =>
   ["ranking", mode, userId] as const;
 const scoreRulesQueryKey = ["score-rules"] as const;
@@ -73,6 +91,7 @@ const publicProfileHistoryQueryKey = (userId: string | null | undefined) =>
 
 function RankingPage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [mode, setMode] = useState<RankingMode>("free");
   const [selectedPlayer, setSelectedPlayer] = useState<RankingEntry | null>(null);
 
@@ -93,6 +112,7 @@ function RankingPage() {
   const podium = rows.filter((row) => (row.rank_position ?? 99) <= 3);
   const remaining = rows.filter((row) => (row.rank_position ?? 0) > 3);
   const participates = isActiveEnrollment(enrollmentStatus);
+  const openOwnProfile = () => void navigate({ to: "/profile" });
 
   return (
     <MobileShell active="ranking">
@@ -178,6 +198,7 @@ function RankingPage() {
               rows={podium}
               currentUserId={user?.id}
               onOpenProfile={setSelectedPlayer}
+              onOpenOwnProfile={openOwnProfile}
             />
             <div className="space-y-2">
               {remaining.map((row) => (
@@ -186,6 +207,7 @@ function RankingPage() {
                   row={row}
                   isMe={row.user_id === user?.id}
                   onOpenProfile={setSelectedPlayer}
+                  onOpenOwnProfile={openOwnProfile}
                 />
               ))}
             </div>
@@ -233,55 +255,23 @@ async function fetchScoreRules(): Promise<ScoreRules | null> {
 }
 
 async function fetchPublicClosedBetHistory(userId: string): Promise<PublicClosedBetHistoryItem[]> {
-  const [betsResult, matchesResult] = await Promise.all([
-    supabase.from("bets").select("match_id,home_score,away_score,points").eq("user_id", userId),
-    supabase
-      .from("matches")
-      .select(
-        "id,status,home_score,away_score,home_team:teams!matches_home_team_id_fkey(short_name,name),away_team:teams!matches_away_team_id_fkey(short_name,name)",
-      )
-      .in("status", ["finished", "closed"])
-      .order("kickoff_at", { ascending: false }),
-  ]);
+  const rpcClient = supabase as unknown as PublicProfileRpcClient;
+  const { data, error } = await rpcClient.rpc("get_public_profile_closed_bets", {
+    _user_id: userId,
+  });
 
-  if (betsResult.error || matchesResult.error) {
-    throw new Error(
-      betsResult.error?.message ?? matchesResult.error?.message ?? "Falha ao carregar perfil.",
-    );
-  }
+  if (error) throw new Error(error.message);
 
-  return buildPublicClosedBetHistory(betsResult.data ?? [], matchesResult.data ?? []);
-}
-
-function buildPublicClosedBetHistory(
-  bets: Array<{ match_id: string; home_score: number; away_score: number; points: number }>,
-  matches: Array<{
-    id: string;
-    home_score: number;
-    away_score: number;
-    home_team?: { short_name: string | null; name: string | null } | null;
-    away_team?: { short_name: string | null; name: string | null } | null;
-  }>,
-) {
-  const betByMatch = new Map(bets.map((bet) => [bet.match_id, bet]));
-
-  return matches
-    .map((match) => {
-      const bet = betByMatch.get(match.id);
-      if (!bet) return null;
-      return {
-        matchId: match.id,
-        home: match.home_team?.short_name || match.home_team?.name || "Casa",
-        away: match.away_team?.short_name || match.away_team?.name || "Fora",
-        finalHome: match.home_score ?? 0,
-        finalAway: match.away_score ?? 0,
-        guessHome: bet.home_score ?? 0,
-        guessAway: bet.away_score ?? 0,
-        points: bet.points ?? 0,
-      };
-    })
-    .filter((item): item is PublicClosedBetHistoryItem => Boolean(item))
-    .slice(0, 8);
+  return ((data ?? []) as PublicClosedBetHistoryRow[]).map((item) => ({
+    matchId: item.match_id,
+    home: item.home || "Casa",
+    away: item.away || "Fora",
+    finalHome: item.final_home ?? 0,
+    finalAway: item.final_away ?? 0,
+    guessHome: item.guess_home ?? 0,
+    guessAway: item.guess_away ?? 0,
+    points: item.points ?? 0,
+  }));
 }
 
 function ScoreExplanationCard({ rules }: { rules: ScoreRules | null }) {

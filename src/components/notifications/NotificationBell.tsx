@@ -14,7 +14,9 @@ export function NotificationBell({ userId }: { userId?: string | null }) {
     error,
     markAsRead,
     markAllAsRead,
+    clearAllNotifications,
     isMarkingAllAsRead,
+    isClearingAllNotifications,
   } = useNotifications(userId);
 
   if (!userId) return null;
@@ -30,6 +32,10 @@ export function NotificationBell({ userId }: { userId?: string | null }) {
 
   async function handleMarkAllAsRead() {
     await markAllAsRead();
+  }
+
+  async function handleClearAllNotifications() {
+    await clearAllNotifications();
   }
 
   const badgeLabel = unreadCount > 99 ? "99+" : String(unreadCount);
@@ -61,8 +67,10 @@ export function NotificationBell({ userId }: { userId?: string | null }) {
         error={error}
         markingId={markingId}
         isMarkingAllAsRead={isMarkingAllAsRead}
+        isClearingAllNotifications={isClearingAllNotifications}
         onMarkAsRead={(notificationId) => void handleMarkAsRead(notificationId)}
         onMarkAllAsRead={() => void handleMarkAllAsRead()}
+        onClearAllNotifications={() => void handleClearAllNotifications()}
       />
     </>
   );

@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import { toast } from "sonner";
 import {
   BiCalendar,
   BiCheckCircle,
@@ -41,6 +42,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
 import { callEdgeFunction } from "@/lib/edge";
+import { cn } from "@/lib/utils";
 import {
   defaultKnockoutBasePoints,
   defaultKnockoutStageWeights,
@@ -279,16 +281,19 @@ function PoolPage() {
       .finally(() => setBusy(false));
   }, [enrollment, payments, refetchPool]);
 
-  async function run(operation: () => Promise<unknown>, success: string) {
+  async function run(operation: () => Promise<unknown>, success: string, friendlyError?: string) {
     setBusy(true);
     setLocalError(null);
     setMessage(null);
     try {
       await operation();
       setMessage(success);
+      toast.success(success);
       await refetchPool();
     } catch (caught) {
-      setLocalError(caught instanceof Error ? caught.message : "Falha na operação.");
+      const detail = friendlyError ?? friendlyPoolError(caught);
+      setLocalError(detail);
+      toast.error(detail);
     } finally {
       setBusy(false);
     }
@@ -371,28 +376,23 @@ function PoolPage() {
 
         {summary && phase && (
           <>
-            <PoolStatusCard phase={phase} enrollment={enrollment} />
+            <PoolStatusCard
+              summary={summary}
+              phase={phase}
+              enrollment={enrollment}
+              payments={payments}
+              busy={busy}
+              onOpenTerms={() => setTermsDialogOpen(true)}
+              onCreateCheckout={() => void createCheckout()}
+            />
+            {isOperator && adminSummary && <OperatorSummaryCard summary={adminSummary} />}
 
-            <Tabs defaultValue="status" className="space-y-3">
-              <TabsList className="grid h-auto w-full grid-cols-2 gap-1 sm:grid-cols-4">
-                <TabsTrigger value="status">Status</TabsTrigger>
+            <Tabs defaultValue="rules" className="space-y-3">
+              <TabsList className="grid h-auto w-full grid-cols-3 gap-1">
                 <TabsTrigger value="rules">Regras</TabsTrigger>
                 <TabsTrigger value="specials">Palpites Especiais</TabsTrigger>
                 <TabsTrigger value="prizes">Premiação</TabsTrigger>
               </TabsList>
-
-              <TabsContent value="status" className="space-y-3">
-                <StatusTab
-                  summary={summary}
-                  enrollment={enrollment}
-                  payments={payments}
-                  phase={phase}
-                  busy={busy}
-                  onOpenTerms={() => setTermsDialogOpen(true)}
-                  onCreateCheckout={() => void createCheckout()}
-                />
-                {isOperator && adminSummary && <OperatorSummaryCard summary={adminSummary} />}
-              </TabsContent>
 
               <TabsContent value="rules" className="space-y-3">
                 <RulesCard summary={summary} scoreRules={scoreRules} />
@@ -410,6 +410,13 @@ function PoolPage() {
                   onSave={(value) =>
                     void run(async () => {
                       if (!user?.id) throw new Error("Usuário não autenticado.");
+                      const lockAt = poolScoringRules?.specials_lock_at
+                        ? new Date(poolScoringRules.specials_lock_at)
+                        : null;
+                      if (lockAt && lockAt <= new Date()) {
+                        throw new Error("special_predictions_locked");
+                      }
+
                       const { error: saveError } = await supabase
                         .from("special_predictions")
                         .upsert(
@@ -470,47 +477,18 @@ function PoolPage() {
 }
 
 function PoolStatusCard({
-  phase,
-  enrollment,
-}: {
-  phase: PoolPhase;
-  enrollment: Enrollment | null;
-}) {
-  return (
-    <Card className="glass-card overflow-hidden border-brand/25">
-      <div className="h-1 bg-brand" />
-      <CardContent className="space-y-4 p-5">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="eyebrow text-brand">Status do bolão</p>
-            <p className="mt-2 text-sm text-muted-foreground">{phase.description}</p>
-          </div>
-          <StatusPill label={phase.label} tone={phase.tone} />
-        </div>
-        <div className="rounded-2xl bg-muted/55 p-4">
-          <p className="text-xs font-bold uppercase text-muted-foreground">Minha inscrição</p>
-          <div className="mt-2">
-            <EnrollmentStatus status={enrollment?.status ?? "none"} />
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-function StatusTab({
   summary,
+  phase,
   enrollment,
   payments,
-  phase,
   busy,
   onOpenTerms,
   onCreateCheckout,
 }: {
   summary: PoolSummary;
+  phase: PoolPhase;
   enrollment: Enrollment | null;
   payments: Payment[];
-  phase: PoolPhase;
   busy: boolean;
   onOpenTerms: () => void;
   onCreateCheckout: () => void;
@@ -523,13 +501,24 @@ function StatusTab({
     phase.kind !== "ended";
 
   return (
-    <Card className="glass-card">
-      <CardHeader>
-        <CardTitle className="text-base">Minha inscrição</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
+    <Card className="glass-card overflow-hidden border-brand/25">
+      <div className="h-1 bg-brand" />
+      <CardContent className="space-y-4 p-5">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="eyebrow text-brand">Status do bolão</p>
+            <p className="mt-2 text-sm text-muted-foreground">{phase.description}</p>
+          </div>
+          <StatusPill label={phase.label} tone={phase.tone} />
+        </div>
+
+        <PoolCountdownBlock phase={phase} />
+
         <div className="rounded-2xl bg-muted/55 p-4">
-          <EnrollmentStatus status={status} />
+          <p className="text-xs font-bold uppercase text-muted-foreground">Minha inscrição</p>
+          <div className="mt-2">
+            <EnrollmentStatus status={status} />
+          </div>
           <p className="mt-2 text-xs text-muted-foreground">{enrollmentStatusHelp(status)}</p>
         </div>
 
@@ -540,6 +529,7 @@ function StatusTab({
               disabled={busy || !phase.ctaEnabled}
               onClick={onOpenTerms}
             >
+              {!phase.ctaEnabled && <BiLockAlt className="size-5" />}
               Entrar no bolão
             </Button>
             {!phase.ctaEnabled && (
@@ -832,8 +822,15 @@ function SpecialPredictionsCard({
           Palpites de campeão, vice e 3º lugar do bolão.
         </p>
         {lockAt && (
-          <p className="rounded-2xl bg-muted/55 p-3 text-xs text-muted-foreground">
-            Lock: {lockAt.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}
+          <p
+            className={cn(
+              "rounded-2xl p-3 text-xs font-bold",
+              locked ? "bg-destructive/10 text-destructive" : "bg-muted/55 text-muted-foreground",
+            )}
+          >
+            {locked
+              ? `Prazo encerrado em ${formatPoolDateTime(lockAt)}. Palpites especiais não podem mais ser editados.`
+              : `Prazo para enviar: ${formatPoolDateTime(lockAt)}.`}
           </p>
         )}
         <div className="grid gap-3 sm:grid-cols-2">
@@ -873,8 +870,8 @@ function SpecialPredictionsCard({
           </Button>
         )}
         {locked && (
-          <p className="text-xs text-muted-foreground">
-            Palpites especiais bloqueados para edição.
+          <p className="text-xs font-bold text-destructive">
+            Prazo encerrado. Palpites especiais bloqueados para edição.
           </p>
         )}
       </CardContent>
@@ -909,8 +906,6 @@ function PrizeTab({
 
   return (
     <>
-      <PoolCountdownCard phase={phase} />
-
       <Card className="glass-card">
         <CardHeader>
           <CardTitle className="text-base">Premiação</CardTitle>
@@ -983,7 +978,7 @@ function PrizeTab({
   );
 }
 
-function PoolCountdownCard({ phase }: { phase: PoolPhase }) {
+function PoolCountdownBlock({ phase }: { phase: PoolPhase }) {
   const [timeLeft, setTimeLeft] = useState(() =>
     phase.target ? calcTimeLeft(phase.target) : null,
   );
@@ -994,34 +989,33 @@ function PoolCountdownCard({ phase }: { phase: PoolPhase }) {
       return;
     }
     setTimeLeft(calcTimeLeft(phase.target));
-    const id = window.setInterval(() => setTimeLeft(calcTimeLeft(phase.target!)), 30_000);
+    const id = window.setInterval(() => setTimeLeft(calcTimeLeft(phase.target!)), 1_000);
     return () => window.clearInterval(id);
   }, [phase.target]);
 
   return (
-    <Card className="glass-card">
-      <CardContent className="p-4">
-        <div className="flex items-center gap-2">
-          <div className="grid size-9 place-items-center rounded-xl bg-brand/12 text-brand">
-            <BiCalendar className="size-5" />
-          </div>
-          <p className="font-extrabold">{phase.title}</p>
+    <div className="rounded-2xl bg-muted/55 p-4">
+      <div className="flex items-center gap-2">
+        <div className="grid size-9 place-items-center rounded-xl bg-brand/12 text-brand">
+          <BiCalendar className="size-5" />
         </div>
-        {phase.target && timeLeft ? (
-          <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-            <TimePart label="dias" value={timeLeft.days} />
-            <TimePart label="horas" value={timeLeft.hours} />
-            <TimePart label="min" value={timeLeft.minutes} />
-          </div>
-        ) : (
-          <p className="mt-3 text-sm text-muted-foreground">
-            {phase.kind === "ended"
-              ? "Premiação disponível para os vencedores elegíveis."
-              : phase.ctaDisabledReason}
-          </p>
-        )}
-      </CardContent>
-    </Card>
+        <p className="font-extrabold">{phase.title}</p>
+      </div>
+      {phase.target && timeLeft ? (
+        <div className="mt-3 grid grid-cols-4 gap-2 text-center">
+          <TimePart label="dias" value={timeLeft.days} />
+          <TimePart label="horas" value={timeLeft.hours} />
+          <TimePart label="min" value={timeLeft.minutes} />
+          <TimePart label="seg" value={timeLeft.seconds} />
+        </div>
+      ) : (
+        <p className="mt-3 text-sm text-muted-foreground">
+          {phase.kind === "ended"
+            ? "Premiação disponível para os vencedores elegíveis."
+            : phase.ctaDisabledReason}
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -1162,7 +1156,7 @@ function StatusPill({ label, tone }: { label: string; tone: Tone }) {
   );
 }
 
-type TimeLeft = { days: number; hours: number; minutes: number };
+type TimeLeft = { days: number; hours: number; minutes: number; seconds: number };
 
 function calcTimeLeft(target: Date): TimeLeft | null {
   const diff = target.getTime() - Date.now();
@@ -1171,6 +1165,7 @@ function calcTimeLeft(target: Date): TimeLeft | null {
     days: Math.floor(diff / 86_400_000),
     hours: Math.floor((diff % 86_400_000) / 3_600_000),
     minutes: Math.floor((diff % 3_600_000) / 60_000),
+    seconds: Math.floor((diff % 60_000) / 1_000),
   };
 }
 
@@ -1259,6 +1254,35 @@ function paymentStatusLabel(status: string) {
 
 function isActiveEnrollment(status?: string | null) {
   return status === "active";
+}
+
+function formatPoolDateTime(value: Date) {
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(value);
+}
+
+function friendlyPoolError(caught: unknown) {
+  const message = caught instanceof Error ? caught.message : "";
+  const normalized = message.toLowerCase();
+
+  if (
+    normalized.includes("special_predictions_locked") ||
+    normalized.includes("row-level security") ||
+    normalized.includes("policy")
+  ) {
+    return "Prazo encerrado ou inscrição não ativa. Não foi possível concluir a operação.";
+  }
+
+  if (normalized.includes("permission denied")) {
+    return "Permissão insuficiente para concluir a operação. Atualize a página ou fale com o admin.";
+  }
+
+  return message || "Falha na operação.";
 }
 
 function money(cents: number) {

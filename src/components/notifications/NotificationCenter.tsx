@@ -1,5 +1,6 @@
-import { Check, CheckCheck, Circle, Loader2 } from "lucide-react";
+import { Check, CheckCheck, Circle, Loader2, Trash2 } from "lucide-react";
 
+import { Flag } from "@/components/mobile/Flag";
 import { Button } from "@/components/ui/button";
 import {
   Drawer,
@@ -22,8 +23,10 @@ interface NotificationCenterProps {
   error: Error | null;
   markingId: string | null;
   isMarkingAllAsRead: boolean;
+  isClearingAllNotifications: boolean;
   onMarkAsRead: (notificationId: string) => void;
   onMarkAllAsRead: () => void;
+  onClearAllNotifications: () => void;
 }
 
 export function NotificationCenter({
@@ -35,9 +38,14 @@ export function NotificationCenter({
   error,
   markingId,
   isMarkingAllAsRead,
+  isClearingAllNotifications,
   onMarkAsRead,
   onMarkAllAsRead,
+  onClearAllNotifications,
 }: NotificationCenterProps) {
+  const hasNotifications = notifications.length > 0;
+  const actionBusy = isMarkingAllAsRead || isClearingAllNotifications;
+
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerContent className="mx-auto max-h-[88vh] max-w-xl rounded-t-3xl">
@@ -51,21 +59,36 @@ export function NotificationCenter({
                   : "Tudo em dia"}
               </DrawerDescription>
             </div>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="shrink-0"
-              disabled={unreadCount === 0 || isMarkingAllAsRead}
-              onClick={onMarkAllAsRead}
-            >
-              {isMarkingAllAsRead ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : (
-                <CheckCheck className="size-4" />
-              )}
-              Marcar todas
-            </Button>
+            <div className="flex shrink-0 items-center gap-1">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                disabled={unreadCount === 0 || actionBusy}
+                onClick={onMarkAllAsRead}
+              >
+                {isMarkingAllAsRead ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <CheckCheck className="size-4" />
+                )}
+                Lidas
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                disabled={!hasNotifications || actionBusy}
+                onClick={onClearAllNotifications}
+              >
+                {isClearingAllNotifications ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <Trash2 className="size-4" />
+                )}
+                Limpar
+              </Button>
+            </div>
           </div>
         </DrawerHeader>
 
@@ -91,7 +114,7 @@ export function NotificationCenter({
                   key={notification.id}
                   notification={notification}
                   marking={markingId === notification.id}
-                  disabled={isMarkingAllAsRead}
+                  disabled={actionBusy}
                   onMarkAsRead={onMarkAsRead}
                 />
               ))}
@@ -147,6 +170,9 @@ function NotificationItem({
             </span>
           </div>
           <p className="mt-1 text-sm leading-snug text-muted-foreground">{notification.message}</p>
+          {notification.type === "bet_scored" && notification.matchPreview && (
+            <MatchMiniPreview notification={notification} />
+          )}
           <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
             <time className="text-xs text-muted-foreground" dateTime={notification.created_at}>
               {formatNotificationDate(notification.created_at)}
@@ -172,6 +198,33 @@ function NotificationItem({
         </div>
       </div>
     </article>
+  );
+}
+
+function MatchMiniPreview({ notification }: { notification: Notification }) {
+  const match = notification.matchPreview;
+  if (!match) return null;
+
+  return (
+    <div className="mt-2 inline-flex items-center gap-2 rounded-full border border-border/70 bg-background/60 px-2.5 py-1.5 text-xs font-extrabold">
+      <TeamMiniIcon code={match.homeCountryCode} label={match.home} />
+      <span>{match.home}</span>
+      <span className="text-muted-foreground">x</span>
+      <TeamMiniIcon code={match.awayCountryCode} label={match.away} />
+      <span>{match.away}</span>
+    </div>
+  );
+}
+
+function TeamMiniIcon({ code, label }: { code: string | null; label: string }) {
+  if (code) {
+    return <Flag code={code.toLowerCase()} label={label} size="sm" className="h-4 w-6 rounded" />;
+  }
+
+  return (
+    <span className="grid size-5 place-items-center rounded-full bg-muted text-[9px] font-extrabold text-muted-foreground">
+      {label.slice(0, 2).toUpperCase()}
+    </span>
   );
 }
 
