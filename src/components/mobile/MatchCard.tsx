@@ -8,11 +8,22 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Flag } from "@/components/mobile/Flag";
 import { ScoreStepper } from "@/components/mobile/ScoreStepper";
 import { StatusBadge } from "@/components/mobile/StatusBadge";
-import type { MatchCardData, MegaBrainForecast, ScoreValue } from "@/components/mobile/types";
+import type {
+  MatchCardData,
+  MegaBrainForecast,
+  PredictionValue,
+  ScoreValue,
+  TeamInfo,
+} from "@/components/mobile/types";
+import {
+  deriveKnockoutPredictionFields,
+  qualificationMethodLabel,
+  type QualificationMethod,
+} from "@/lib/knockout";
 
 export interface MatchCardProps {
   data: MatchCardData;
-  onGuessChange?: (value: ScoreValue) => void;
+  onGuessChange?: (value: PredictionValue) => void;
   onSubmitGuess?: () => void;
   onEditGuess?: () => void;
   editing?: boolean;
@@ -61,40 +72,40 @@ function MatchContextRow({ data }: { data: MatchCardData }) {
   );
 }
 
-function TeamLogo({ flagCode, shortName }: { flagCode: string; shortName: string }) {
-  if (flagCode === "un") {
+function TeamLogo({ team }: { team: TeamInfo }) {
+  if (team.flagCode === "un") {
     return (
       <div
         className="grid size-8 place-items-center rounded-full border border-dashed border-border bg-muted text-[10px] font-extrabold text-muted-foreground"
-        aria-label={shortName}
+        aria-label={team.name ?? team.shortName}
       >
         ?
       </div>
     );
   }
-  const url = getTeamLogoUrl(flagCode);
+  const url = getTeamLogoUrl(team.flagCode);
   if (url) {
     return (
       <img
         src={url}
-        alt={shortName}
+        alt={team.name ?? team.shortName}
         className="size-8 object-contain"
         loading="lazy"
         decoding="async"
       />
     );
   }
-  return <Flag code={flagCode} label={shortName} size="sm" />;
+  return <Flag code={team.flagCode} label={team.name ?? team.shortName} size="sm" />;
 }
 
 function TeamsRow({ data }: { data: MatchCardData }) {
   return (
     <div className="flex items-center justify-center gap-2 text-sm font-extrabold uppercase">
-      <span className="w-10 text-right">{data.home.shortName}</span>
-      <TeamLogo flagCode={data.home.flagCode} shortName={data.home.shortName} />
+      <TeamName team={data.home} align="right" />
+      <TeamLogo team={data.home} />
       <span className="px-1 text-xs font-semibold text-muted-foreground">×</span>
-      <TeamLogo flagCode={data.away.flagCode} shortName={data.away.shortName} />
-      <span className="w-10 text-left">{data.away.shortName}</span>
+      <TeamLogo team={data.away} />
+      <TeamName team={data.away} />
     </div>
   );
 }
@@ -102,11 +113,11 @@ function TeamsRow({ data }: { data: MatchCardData }) {
 function FinalScoreRow({ data, score }: { data: MatchCardData; score: ScoreValue }) {
   return (
     <div className="flex items-center justify-center gap-4">
-      <TeamLogo flagCode={data.home.flagCode} shortName={data.home.shortName} />
+      <TeamLogo team={data.home} />
       <p className="text-3xl font-extrabold tabular-nums text-foreground">
         {score.home} - {score.away}
       </p>
-      <TeamLogo flagCode={data.away.flagCode} shortName={data.away.shortName} />
+      <TeamLogo team={data.away} />
     </div>
   );
 }
@@ -186,6 +197,124 @@ function ScoreText({ score }: { score: ScoreValue }) {
   );
 }
 
+function TeamName({ team, align = "left" }: { team: TeamInfo; align?: "left" | "right" }) {
+  const label = team.placeholder ? (team.sourceLabel ?? "A definir") : team.shortName;
+  return (
+    <span
+      className={cn(
+        "w-20 truncate text-xs sm:w-24",
+        team.placeholder && "normal-case text-muted-foreground",
+        align === "right" ? "text-right" : "text-left",
+      )}
+      title={team.name ?? label}
+    >
+      {label}
+    </span>
+  );
+}
+
+function KnockoutPredictionFields({
+  data,
+  value,
+  disabled,
+  onChange,
+}: {
+  data: MatchCardData;
+  value: PredictionValue;
+  disabled?: boolean;
+  onChange?: (value: PredictionValue) => void;
+}) {
+  if (!data.knockout) return null;
+
+  const derived = deriveKnockoutPredictionFields({
+    homeScore: value.home,
+    awayScore: value.away,
+    homeTeamId: data.home.id,
+    awayTeamId: data.away.id,
+    qualifiedTeamId: value.qualifiedTeamId,
+    qualificationMethod: value.qualificationMethod,
+  });
+  const tied = value.home === value.away;
+  const qualifiedTeamName =
+    derived.qualifiedTeamId === data.home.id
+      ? (data.home.name ?? data.home.shortName)
+      : derived.qualifiedTeamId === data.away.id
+        ? (data.away.name ?? data.away.shortName)
+        : "A definir";
+
+  if (!tied) {
+    return (
+      <div className="rounded-2xl bg-brand/8 p-3 text-xs text-muted-foreground">
+        <p className="font-bold text-foreground">Classificação automática</p>
+        <p className="mt-1">
+          {qualifiedTeamName} se classifica por {qualificationMethodLabel("regulation")}.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3 rounded-2xl bg-background/45 p-3">
+      <p className="text-xs font-extrabold uppercase text-muted-foreground">Quem se classifica?</p>
+      <div className="grid grid-cols-2 gap-2">
+        <ChoiceButton
+          active={value.qualifiedTeamId === data.home.id}
+          disabled={disabled}
+          onClick={() => onChange?.({ ...value, qualifiedTeamId: data.home.id })}
+        >
+          {data.home.name ?? data.home.shortName}
+        </ChoiceButton>
+        <ChoiceButton
+          active={value.qualifiedTeamId === data.away.id}
+          disabled={disabled}
+          onClick={() => onChange?.({ ...value, qualifiedTeamId: data.away.id })}
+        >
+          {data.away.name ?? data.away.shortName}
+        </ChoiceButton>
+      </div>
+
+      <p className="text-xs font-extrabold uppercase text-muted-foreground">Como se classifica?</p>
+      <div className="grid grid-cols-2 gap-2">
+        {(["extra_time", "penalties"] as QualificationMethod[]).map((method) => (
+          <ChoiceButton
+            key={method}
+            active={value.qualificationMethod === method}
+            disabled={disabled}
+            onClick={() => onChange?.({ ...value, qualificationMethod: method })}
+          >
+            {qualificationMethodLabel(method)}
+          </ChoiceButton>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ChoiceButton({
+  active,
+  disabled,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  disabled?: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <Button
+      type="button"
+      variant={active ? "default" : "outline"}
+      size="sm"
+      disabled={disabled}
+      className={cn("h-auto min-h-10 whitespace-normal rounded-2xl text-xs", active && "bg-brand")}
+      onClick={onClick}
+    >
+      {children}
+    </Button>
+  );
+}
+
 function MatchCard({
   data,
   onGuessChange,
@@ -198,6 +327,7 @@ function MatchCard({
 }: MatchCardProps) {
   const hasSavedGuess = Boolean(data.guess.saved && data.guess.value);
   const showEditor = data.paupiteOpen && (!hasSavedGuess || editing);
+  const currentGuess = data.guess.value ?? { home: 0, away: 0 };
 
   return (
     <Card
@@ -214,6 +344,21 @@ function MatchCard({
 
         {data.status === "scheduled" && (
           <div className="space-y-2">
+            {data.knockout && (
+              <div className="flex flex-wrap items-center justify-center gap-2 rounded-2xl bg-muted/45 px-3 py-2 text-[11px] font-bold text-muted-foreground">
+                <span>{data.knockout.stageLabel}</span>
+                <span>·</span>
+                <span>Peso x{data.knockout.phaseWeight}</span>
+                {data.knockout.teamMultiplier > 1 && (
+                  <>
+                    <span>·</span>
+                    <span>Multiplicador x{data.knockout.teamMultiplier}</span>
+                  </>
+                )}
+                <span>·</span>
+                <span>Até {data.knockout.maxPoints} pts</span>
+              </div>
+            )}
             {(!showEditor || !data.paupiteOpen) && <TeamsRow data={data} />}
             {hasSavedGuess && data.guess.value && (
               <div className="flex items-center justify-between gap-2 rounded-2xl bg-success/10 px-3 py-2 text-xs">
@@ -223,18 +368,40 @@ function MatchCard({
                 </StatusBadge>
                 <span className="text-muted-foreground">
                   Seu palpite: <ScoreText score={data.guess.value} />
+                  {data.knockout && data.guess.value.qualifiedTeamId && (
+                    <span>
+                      {" "}
+                      · {teamLabelById(data, data.guess.value.qualifiedTeamId)} ·{" "}
+                      {qualificationMethodLabel(data.guess.value.qualificationMethod)}
+                    </span>
+                  )}
                 </span>
               </div>
             )}
             {showEditor && (
               <div className={cn(!data.paupiteOpen && "opacity-60")}>
+                {data.knockout && (
+                  <p className="mb-2 text-center text-xs font-bold text-muted-foreground">
+                    Placar no tempo regulamentar
+                  </p>
+                )}
                 <ScoreStepper
                   home={data.home}
                   away={data.away}
-                  value={data.guess.value ?? { home: 0, away: 0 }}
-                  onChange={onGuessChange}
+                  value={currentGuess}
+                  onChange={(next) => onGuessChange?.({ ...currentGuess, ...next })}
                   disabled={!data.paupiteOpen}
                 />
+                {data.knockout && (
+                  <div className="mt-2">
+                    <KnockoutPredictionFields
+                      data={data}
+                      value={currentGuess}
+                      disabled={!data.paupiteOpen}
+                      onChange={onGuessChange}
+                    />
+                  </div>
+                )}
               </div>
             )}
             {data.paupiteOpen ? (
@@ -257,14 +424,14 @@ function MatchCard({
                   onClick={onEditGuess}
                   disabled={saving}
                 >
-                  Alterar palpite
+                  Editar palpite
                 </Button>
               )
             ) : (
               <LockedBar
                 label={
                   data.teamsDefined === false
-                    ? "Palpites abrem quando os confrontos forem definidos"
+                    ? "Palpites abrem quando o confronto for definido."
                     : "Palpite bloqueado"
                 }
               />
@@ -278,6 +445,13 @@ function MatchCard({
             {data.guess.value && (
               <p className="text-center text-xs text-muted-foreground">
                 Seu palpite: <ScoreText score={data.guess.value} />
+                {data.knockout && data.guess.value.qualifiedTeamId && (
+                  <span>
+                    {" "}
+                    · {teamLabelById(data, data.guess.value.qualifiedTeamId)} ·{" "}
+                    {qualificationMethodLabel(data.guess.value.qualificationMethod)}
+                  </span>
+                )}
               </p>
             )}
             <LockedBar label="Palpite bloqueado" />
@@ -291,6 +465,13 @@ function MatchCard({
             {data.guess.value ? (
               <div className="rounded-2xl bg-muted/70 px-3 py-2.5 text-center text-xs text-muted-foreground">
                 Seu palpite: <ScoreText score={data.guess.value} />
+                {data.knockout && data.guess.value.qualifiedTeamId && (
+                  <span>
+                    {" "}
+                    · {teamLabelById(data, data.guess.value.qualifiedTeamId)} ·{" "}
+                    {qualificationMethodLabel(data.guess.value.qualificationMethod)}
+                  </span>
+                )}
                 {typeof data.guess.points === "number" && (
                   <span> · Pontos: {data.guess.points}</span>
                 )}
@@ -312,6 +493,12 @@ function MatchCard({
       </CardContent>
     </Card>
   );
+}
+
+function teamLabelById(data: MatchCardData, teamId: string) {
+  if (teamId === data.home.id) return data.home.name ?? data.home.shortName;
+  if (teamId === data.away.id) return data.away.name ?? data.away.shortName;
+  return "A definir";
 }
 
 export { MatchCard };

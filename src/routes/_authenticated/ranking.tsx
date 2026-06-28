@@ -5,6 +5,7 @@ import { useState } from "react";
 import {
   BiBarChartAlt2,
   BiBullseye,
+  BiCheckDouble,
   BiGroup,
   BiInfoCircle,
   BiRefresh,
@@ -303,7 +304,9 @@ function ScoreExplanationCard({ rules }: { rules: ScoreRules | null }) {
               O ranking usa somente pontos já apurados em jogos encerrados. Placar exato vale{" "}
               <strong className="text-foreground">{exact}</strong> ponto(s); resultado correto vale{" "}
               <strong className="text-foreground">{outcome}</strong>. Quando o saldo de gols também
-              bate, há bônus de <strong className="text-foreground">{bonus}</strong> ponto(s).
+              bate, há bônus de <strong className="text-foreground">{bonus}</strong> ponto(s). No
+              mata-mata entram também classificado, método, pesos por fase, multiplicadores por time
+              e apostas especiais.
             </AccordionContent>
           </AccordionItem>
         </Accordion>
@@ -362,7 +365,7 @@ function PublicProfileDrawer({
             </div>
           </section>
 
-          <section className="mt-3 grid grid-cols-3 gap-2">
+          <section className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-5">
             <PublicMetric
               icon={<BiBarChartAlt2 className="size-4" />}
               label="Palpites"
@@ -377,6 +380,16 @@ function PublicProfileDrawer({
               icon={<BiSolidTrophy className="size-4" />}
               label="Acertos"
               value={player.outcome_hits_count ?? 0}
+            />
+            <PublicMetric
+              icon={<BiCheckDouble className="size-4" />}
+              label="Classif."
+              value={player.knockout_qualified_count ?? 0}
+            />
+            <PublicMetric
+              icon={<BiSolidTrophy className="size-4" />}
+              label="Especiais"
+              value={player.special_points ?? 0}
             />
           </section>
 

@@ -15,6 +15,12 @@ import {
 } from "@/components/ui/drawer";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  deriveKnockoutPredictionFields,
+  isKnockoutStage,
+  qualificationMethodLabel,
+  type QualificationMethod,
+} from "@/lib/knockout";
 
 export function AdminResultSheet({
   open,
@@ -28,21 +34,54 @@ export function AdminResultSheet({
   match: AdminMatch | null;
   busy: boolean;
   onOpenChange: (open: boolean) => void;
-  onSave: (value: { home_score: number; away_score: number; status: string }) => void;
+  onSave: (value: {
+    home_score: number;
+    away_score: number;
+    status: string;
+    qualified_team_id?: string | null;
+    qualification_method?: QualificationMethod | null;
+  }) => void;
   onCloseMatch: () => void;
 }) {
   const [homeScore, setHomeScore] = useState(0);
   const [awayScore, setAwayScore] = useState(0);
   const [status, setStatus] = useState("finished");
+  const [qualifiedTeamId, setQualifiedTeamId] = useState<string | null>(null);
+  const [qualificationMethod, setQualificationMethod] = useState<QualificationMethod | null>(null);
 
   useEffect(() => {
     if (!match || !open) return;
-    setHomeScore(match.home_score);
-    setAwayScore(match.away_score);
+    setHomeScore(match.regulation_home_score ?? match.home_score);
+    setAwayScore(match.regulation_away_score ?? match.away_score);
     setStatus(match.status === "live" ? "live" : "finished");
+    setQualifiedTeamId(match.qualified_team_id);
+    setQualificationMethod(match.qualification_method);
   }, [match, open]);
 
   const future = match ? new Date(match.kickoff_at) > new Date() : true;
+  const knockout = isKnockoutStage(match?.stage);
+  const tied = homeScore === awayScore;
+  const derived = deriveKnockoutPredictionFields({
+    homeScore,
+    awayScore,
+    homeTeamId: match?.home_team_id,
+    awayTeamId: match?.away_team_id,
+    qualifiedTeamId,
+    qualificationMethod,
+  });
+  const officialQualifiedTeamId = knockout ? derived.qualifiedTeamId : undefined;
+  const officialQualificationMethod = knockout ? derived.qualificationMethod : undefined;
+  const qualifiedTeamName =
+    officialQualifiedTeamId === match?.home_team_id
+      ? (match?.home_team?.name ?? "Seleção A")
+      : officialQualifiedTeamId === match?.away_team_id
+        ? (match?.away_team?.name ?? "Seleção B")
+        : "A definir";
+  const knockoutTeamsDefined = Boolean(match?.home_team_id && match?.away_team_id);
+  const tiedKnockoutComplete = Boolean(
+    !knockout || !tied || (qualifiedTeamId && qualificationMethod),
+  );
+  const canSaveResult = !busy && (!knockout || (knockoutTeamsDefined && tiedKnockoutComplete));
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
@@ -66,6 +105,11 @@ export function AdminResultSheet({
           </div>
         ) : (
           <div className="space-y-5 px-5">
+            {knockout && (
+              <div className="rounded-2xl border border-warning/25 bg-warning/8 p-3 text-xs text-muted-foreground">
+                Encerrar este jogo pode atualizar confrontos futuros.
+              </div>
+            )}
             <div className="grid grid-cols-[1fr_auto_1fr] items-end gap-3">
               <ScoreField
                 id="home-score"
@@ -81,6 +125,60 @@ export function AdminResultSheet({
                 onChange={setAwayScore}
               />
             </div>
+            {knockout && !knockoutTeamsDefined && (
+              <p className="rounded-2xl bg-muted p-3 text-sm text-muted-foreground">
+                Defina as duas seleções antes de lançar o resultado do mata-mata.
+              </p>
+            )}
+            {knockout && knockoutTeamsDefined && (
+              <div className="space-y-3 rounded-2xl bg-muted/45 p-3">
+                <p className="text-xs font-extrabold uppercase text-muted-foreground">
+                  Classificação oficial
+                </p>
+                {!tied ? (
+                  <p className="text-sm text-muted-foreground">
+                    {qualifiedTeamName} se classifica por {qualificationMethodLabel("regulation")}.
+                  </p>
+                ) : (
+                  <>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="qualified-team">Quem se classifica?</Label>
+                      <select
+                        id="qualified-team"
+                        className="h-11 w-full rounded-xl border border-input bg-background/65 px-3 text-sm font-bold"
+                        value={qualifiedTeamId ?? ""}
+                        onChange={(event) => setQualifiedTeamId(event.target.value || null)}
+                      >
+                        <option value="">Selecione</option>
+                        <option value={match.home_team_id}>
+                          {match.home_team?.name ?? "Seleção A"}
+                        </option>
+                        <option value={match.away_team_id}>
+                          {match.away_team?.name ?? "Seleção B"}
+                        </option>
+                      </select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="qualification-method">Como se classifica?</Label>
+                      <select
+                        id="qualification-method"
+                        className="h-11 w-full rounded-xl border border-input bg-background/65 px-3 text-sm font-bold"
+                        value={qualificationMethod ?? ""}
+                        onChange={(event) =>
+                          setQualificationMethod(
+                            (event.target.value || null) as QualificationMethod | null,
+                          )
+                        }
+                      >
+                        <option value="">Selecione</option>
+                        <option value="extra_time">{qualificationMethodLabel("extra_time")}</option>
+                        <option value="penalties">{qualificationMethodLabel("penalties")}</option>
+                      </select>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
             <div className="space-y-1.5">
               <Label htmlFor="result-status">Situação da partida</Label>
               <select
@@ -101,8 +199,16 @@ export function AdminResultSheet({
             </div>
             <Button
               className="w-full"
-              disabled={busy}
-              onClick={() => onSave({ home_score: homeScore, away_score: awayScore, status })}
+              disabled={!canSaveResult}
+              onClick={() =>
+                onSave({
+                  home_score: homeScore,
+                  away_score: awayScore,
+                  status,
+                  qualified_team_id: officialQualifiedTeamId,
+                  qualification_method: officialQualificationMethod,
+                })
+              }
             >
               <BiSave className="size-5" />
               Salvar resultado

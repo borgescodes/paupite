@@ -1,6 +1,8 @@
+import { knockoutStageLabel } from "@/lib/knockout";
+
 export const matchStageOptions = [
   { value: "group_stage", label: "Fase de grupos" },
-  { value: "round_of_32", label: "16 avos / Round of 32" },
+  { value: "round_of_32", label: "Fase de 32" },
   { value: "round_of_16", label: "Oitavas" },
   { value: "quarterfinal", label: "Quartas" },
   { value: "semifinal", label: "Semifinal" },
@@ -15,6 +17,10 @@ export const resultStatusOptions = [
 
 export function matchStageLabel(stage: string | null | undefined) {
   if (!stage) return "Fase a definir";
+  return knockoutStageLabel(stage) ?? stageLabelFallback(stage);
+}
+
+function stageLabelFallback(stage: string) {
   return (
     matchStageOptions.find((option) => option.value === stage)?.label ?? stage.replaceAll("_", " ")
   );

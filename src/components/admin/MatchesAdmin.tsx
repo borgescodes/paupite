@@ -19,6 +19,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
 import { callEdgeFunction } from "@/lib/edge";
+import type { QualificationMethod } from "@/lib/knockout";
 
 export function MatchesAdmin() {
   const [teams, setTeams] = useState<AdminTeam[]>([]);
@@ -43,12 +44,12 @@ export function MatchesAdmin() {
   const load = useCallback(async () => {
     setLoading(true);
     const [teamResult, competitionResult, matchResult] = await Promise.all([
-      supabase.from("teams").select("id,name,short_name,country_code").order("name"),
+      supabase.from("teams").select("id,external_key,name,short_name,country_code").order("name"),
       supabase.from("competitions").select("id,name").order("created_at"),
       supabase
         .from("matches")
         .select(
-          "id,kickoff_at,status,home_team_id,away_team_id,home_score,away_score,competition_id,stage,group_name,venue,city,home_team:teams!matches_home_team_id_fkey(name,short_name,country_code),away_team:teams!matches_away_team_id_fkey(name,short_name,country_code)",
+          "id,kickoff_at,status,home_team_id,away_team_id,home_score,away_score,regulation_home_score,regulation_away_score,qualified_team_id,qualification_method,bracket_source_home,bracket_source_away,competition_id,stage,group_name,venue,city,home_team:teams!matches_home_team_id_fkey(name,short_name,country_code),away_team:teams!matches_away_team_id_fkey(name,short_name,country_code)",
         )
         .order("kickoff_at"),
     ]);
@@ -144,7 +145,13 @@ export function MatchesAdmin() {
     if (saved) setEditing(null);
   }
 
-  async function saveResult(value: { home_score: number; away_score: number; status: string }) {
+  async function saveResult(value: {
+    home_score: number;
+    away_score: number;
+    status: string;
+    qualified_team_id?: string | null;
+    qualification_method?: QualificationMethod | null;
+  }) {
     if (!resultMatch) return;
     const saved = await run(
       () =>

@@ -52,9 +52,15 @@ export type Database = {
           created_at: string;
           home_score: number;
           id: string;
+          knockout_points_breakdown: Json;
           locked_at: string | null;
           match_id: string;
           points: number;
+          predicted_qualification_method: string | null;
+          predicted_qualified_team_id: string | null;
+          regulation_away_score: number | null;
+          regulation_home_score: number | null;
+          special_points_breakdown: Json;
           updated_at: string;
           user_id: string;
         };
@@ -63,9 +69,15 @@ export type Database = {
           created_at?: string;
           home_score: number;
           id?: string;
+          knockout_points_breakdown?: Json;
           locked_at?: string | null;
           match_id: string;
           points?: number;
+          predicted_qualification_method?: string | null;
+          predicted_qualified_team_id?: string | null;
+          regulation_away_score?: number | null;
+          regulation_home_score?: number | null;
+          special_points_breakdown?: Json;
           updated_at?: string;
           user_id: string;
         };
@@ -74,9 +86,15 @@ export type Database = {
           created_at?: string;
           home_score?: number;
           id?: string;
+          knockout_points_breakdown?: Json;
           locked_at?: string | null;
           match_id?: string;
           points?: number;
+          predicted_qualification_method?: string | null;
+          predicted_qualified_team_id?: string | null;
+          regulation_away_score?: number | null;
+          regulation_home_score?: number | null;
+          special_points_breakdown?: Json;
           updated_at?: string;
           user_id?: string;
         };
@@ -86,6 +104,13 @@ export type Database = {
             columns: ["match_id"];
             isOneToOne: false;
             referencedRelation: "matches";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "bets_predicted_qualified_team_id_fkey";
+            columns: ["predicted_qualified_team_id"];
+            isOneToOne: false;
+            referencedRelation: "teams";
             referencedColumns: ["id"];
           },
           {
@@ -275,6 +300,12 @@ export type Database = {
           api_match_id: string | null;
           api_provider: string | null;
           away_score: number;
+          bracket_away_source_match_number: number | null;
+          bracket_away_source_result: string | null;
+          bracket_home_source_match_number: number | null;
+          bracket_home_source_result: string | null;
+          bracket_source_away: string | null;
+          bracket_source_home: string | null;
           away_team_id: string | null;
           city: string | null;
           competition_id: string | null;
@@ -289,6 +320,10 @@ export type Database = {
           last_synced_at: string | null;
           manual_override: boolean;
           match_number: number | null;
+          qualification_method: string | null;
+          qualified_team_id: string | null;
+          regulation_away_score: number | null;
+          regulation_home_score: number | null;
           stage: string | null;
           status: string;
           update_mode: string;
@@ -299,6 +334,12 @@ export type Database = {
           api_match_id?: string | null;
           api_provider?: string | null;
           away_score?: number;
+          bracket_away_source_match_number?: number | null;
+          bracket_away_source_result?: string | null;
+          bracket_home_source_match_number?: number | null;
+          bracket_home_source_result?: string | null;
+          bracket_source_away?: string | null;
+          bracket_source_home?: string | null;
           away_team_id?: string | null;
           city?: string | null;
           competition_id?: string | null;
@@ -313,6 +354,10 @@ export type Database = {
           last_synced_at?: string | null;
           manual_override?: boolean;
           match_number?: number | null;
+          qualification_method?: string | null;
+          qualified_team_id?: string | null;
+          regulation_away_score?: number | null;
+          regulation_home_score?: number | null;
           stage?: string | null;
           status?: string;
           update_mode?: string;
@@ -323,6 +368,12 @@ export type Database = {
           api_match_id?: string | null;
           api_provider?: string | null;
           away_score?: number;
+          bracket_away_source_match_number?: number | null;
+          bracket_away_source_result?: string | null;
+          bracket_home_source_match_number?: number | null;
+          bracket_home_source_result?: string | null;
+          bracket_source_away?: string | null;
+          bracket_source_home?: string | null;
           away_team_id?: string | null;
           city?: string | null;
           competition_id?: string | null;
@@ -337,6 +388,10 @@ export type Database = {
           last_synced_at?: string | null;
           manual_override?: boolean;
           match_number?: number | null;
+          qualification_method?: string | null;
+          qualified_team_id?: string | null;
+          regulation_away_score?: number | null;
+          regulation_home_score?: number | null;
           stage?: string | null;
           status?: string;
           update_mode?: string;
@@ -361,6 +416,13 @@ export type Database = {
           {
             foreignKeyName: "matches_home_team_id_fkey";
             columns: ["home_team_id"];
+            isOneToOne: false;
+            referencedRelation: "teams";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "matches_qualified_team_id_fkey";
+            columns: ["qualified_team_id"];
             isOneToOne: false;
             referencedRelation: "teams";
             referencedColumns: ["id"];
@@ -517,6 +579,60 @@ export type Database = {
           },
         ];
       };
+      pool_scoring_rules: {
+        Row: {
+          base_points: Json;
+          created_at: string;
+          id: string;
+          pool_id: string | null;
+          special_points: Json;
+          special_results: Json;
+          specials_lock_at: string | null;
+          stage_weights: Json;
+          team_multipliers: Json;
+          updated_at: string;
+        };
+        Insert: {
+          base_points: Json;
+          created_at?: string;
+          id?: string;
+          pool_id?: string | null;
+          special_points: Json;
+          special_results?: Json;
+          specials_lock_at?: string | null;
+          stage_weights: Json;
+          team_multipliers?: Json;
+          updated_at?: string;
+        };
+        Update: {
+          base_points?: Json;
+          created_at?: string;
+          id?: string;
+          pool_id?: string | null;
+          special_points?: Json;
+          special_results?: Json;
+          specials_lock_at?: string | null;
+          stage_weights?: Json;
+          team_multipliers?: Json;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "pool_scoring_rules_pool_id_fkey";
+            columns: ["pool_id"];
+            isOneToOne: false;
+            referencedRelation: "pool_public_summary";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "pool_scoring_rules_pool_id_fkey";
+            columns: ["pool_id"];
+            isOneToOne: false;
+            referencedRelation: "pool_settings";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       prize_requests: {
         Row: {
           created_at: string;
@@ -662,6 +778,94 @@ export type Database = {
         };
         Relationships: [];
       };
+      special_predictions: {
+        Row: {
+          champion_team_id: string | null;
+          id: string;
+          locked_at: string | null;
+          points: number;
+          points_breakdown: Json;
+          pool_id: string;
+          runner_up_team_id: string | null;
+          submitted_at: string;
+          third_place_team_id: string | null;
+          top_scorer: string | null;
+          updated_at: string;
+          user_id: string;
+        };
+        Insert: {
+          champion_team_id?: string | null;
+          id?: string;
+          locked_at?: string | null;
+          points?: number;
+          points_breakdown?: Json;
+          pool_id: string;
+          runner_up_team_id?: string | null;
+          submitted_at?: string;
+          third_place_team_id?: string | null;
+          top_scorer?: string | null;
+          updated_at?: string;
+          user_id: string;
+        };
+        Update: {
+          champion_team_id?: string | null;
+          id?: string;
+          locked_at?: string | null;
+          points?: number;
+          points_breakdown?: Json;
+          pool_id?: string;
+          runner_up_team_id?: string | null;
+          submitted_at?: string;
+          third_place_team_id?: string | null;
+          top_scorer?: string | null;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "special_predictions_champion_team_id_fkey";
+            columns: ["champion_team_id"];
+            isOneToOne: false;
+            referencedRelation: "teams";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "special_predictions_pool_id_fkey";
+            columns: ["pool_id"];
+            isOneToOne: false;
+            referencedRelation: "pool_public_summary";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "special_predictions_pool_id_fkey";
+            columns: ["pool_id"];
+            isOneToOne: false;
+            referencedRelation: "pool_settings";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "special_predictions_runner_up_team_id_fkey";
+            columns: ["runner_up_team_id"];
+            isOneToOne: false;
+            referencedRelation: "teams";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "special_predictions_third_place_team_id_fkey";
+            columns: ["third_place_team_id"];
+            isOneToOne: false;
+            referencedRelation: "teams";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "special_predictions_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       teams: {
         Row: {
           country_code: string | null;
@@ -709,6 +913,9 @@ export type Database = {
       };
       pool_public_summary: {
         Row: {
+          coming_soon_message: string | null;
+          enrollment_opens_at: string | null;
+          enrollments_mode: string | null;
           entry_fee_cents: number | null;
           estimated_prize_cents: number | null;
           id: string | null;
@@ -721,6 +928,9 @@ export type Database = {
           title: string | null;
         };
         Insert: {
+          coming_soon_message?: string | null;
+          enrollment_opens_at?: string | null;
+          enrollments_mode?: string | null;
           entry_fee_cents?: number | null;
           estimated_prize_cents?: never;
           id?: string | null;
@@ -733,6 +943,9 @@ export type Database = {
           title?: string | null;
         };
         Update: {
+          coming_soon_message?: string | null;
+          enrollment_opens_at?: string | null;
+          enrollments_mode?: string | null;
           entry_fee_cents?: number | null;
           estimated_prize_cents?: never;
           id?: string | null;
@@ -752,9 +965,12 @@ export type Database = {
           bets_count: number | null;
           display_name: string | null;
           exact_scores_count: number | null;
+          knockout_combo_count: number | null;
+          knockout_qualified_count: number | null;
           nickname: string | null;
           outcome_hits_count: number | null;
           rank_position: number | null;
+          special_points: number | null;
           total_points: number | null;
           user_id: string | null;
         };
@@ -766,9 +982,12 @@ export type Database = {
           bets_count: number | null;
           display_name: string | null;
           exact_scores_count: number | null;
+          knockout_combo_count: number | null;
+          knockout_qualified_count: number | null;
           nickname: string | null;
           outcome_hits_count: number | null;
           rank_position: number | null;
+          special_points: number | null;
           total_points: number | null;
           user_id: string | null;
         };
@@ -780,9 +999,12 @@ export type Database = {
           bets_count: number | null;
           display_name: string | null;
           exact_scores_count: number | null;
+          knockout_combo_count: number | null;
+          knockout_qualified_count: number | null;
           nickname: string | null;
           outcome_hits_count: number | null;
           rank_position: number | null;
+          special_points: number | null;
           total_points: number | null;
           user_id: string | null;
         };

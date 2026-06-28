@@ -26,11 +26,18 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
 import { callEdgeFunction } from "@/lib/edge";
+import {
+  defaultKnockoutBasePoints,
+  defaultKnockoutStageWeights,
+  defaultSpecialPoints,
+  knockoutStageLabel,
+} from "@/lib/knockout";
 
 interface PoolSummary {
   id: string;
@@ -69,6 +76,36 @@ interface ScoreRules {
   goal_difference_bonus: number | null;
 }
 
+interface PoolScoringRules {
+  id: string;
+  pool_id: string;
+  stage_weights: Record<string, number>;
+  base_points: Record<string, number>;
+  team_multipliers: Record<string, number>;
+  special_points: Record<string, number>;
+  special_results: Record<string, string | null>;
+  specials_lock_at: string | null;
+}
+
+interface SpecialPrediction {
+  id: string;
+  champion_team_id: string | null;
+  runner_up_team_id: string | null;
+  third_place_team_id: string | null;
+  top_scorer: string | null;
+  submitted_at: string;
+  locked_at: string | null;
+  points: number;
+  points_breakdown: Record<string, unknown>;
+}
+
+interface PoolTeam {
+  id: string;
+  name: string;
+  short_name: string | null;
+  external_key: string | null;
+}
+
 interface AdminPoolSummary {
   active: number;
   requested: number;
@@ -81,6 +118,9 @@ type PoolData = {
   enrollment: Enrollment | null;
   payments: Payment[];
   scoreRules: ScoreRules | null;
+  poolScoringRules: PoolScoringRules | null;
+  specialPrediction: SpecialPrediction | null;
+  teams: PoolTeam[];
   poolStartsAt: string | null;
   adminSummary: AdminPoolSummary | null;
   eligibleForPrize: boolean;
@@ -115,6 +155,9 @@ function PoolPage() {
   const enrollment = poolQuery.data?.enrollment ?? null;
   const payments = poolQuery.data?.payments ?? emptyPayments;
   const scoreRules = poolQuery.data?.scoreRules ?? null;
+  const poolScoringRules = poolQuery.data?.poolScoringRules ?? null;
+  const specialPrediction = poolQuery.data?.specialPrediction ?? null;
+  const teams = poolQuery.data?.teams ?? [];
   const poolStartsAt = poolQuery.data?.poolStartsAt ?? null;
   const adminSummary = poolQuery.data?.adminSummary ?? null;
   const eligibleForPrize = poolQuery.data?.eligibleForPrize ?? false;
@@ -275,6 +318,35 @@ function PoolPage() {
             />
 
             <RulesCard summary={summary} scoreRules={scoreRules} />
+
+            <KnockoutRulesCard rules={poolScoringRules} teams={teams} />
+
+            <SpecialPredictionsCard
+              summary={summary}
+              userId={user?.id ?? null}
+              enrollment={enrollment}
+              rules={poolScoringRules}
+              prediction={specialPrediction}
+              teams={teams}
+              busy={busy}
+              onSave={(value) =>
+                void run(async () => {
+                  if (!user?.id) throw new Error("Usuário não autenticado.");
+                  const { error: saveError } = await supabase.from("special_predictions").upsert(
+                    {
+                      pool_id: summary.id,
+                      user_id: user.id,
+                      champion_team_id: value.champion_team_id || null,
+                      runner_up_team_id: value.runner_up_team_id || null,
+                      third_place_team_id: value.third_place_team_id || null,
+                      top_scorer: value.top_scorer.trim() || null,
+                    },
+                    { onConflict: "pool_id,user_id" },
+                  );
+                  if (saveError) throw new Error(saveError.message);
+                }, "Apostas especiais salvas.")
+              }
+            />
 
             {payments.length > 0 && <PaymentsCard payments={payments} />}
 
@@ -578,6 +650,231 @@ function RulesCard({
   );
 }
 
+function KnockoutRulesCard({
+  rules,
+  teams,
+}: {
+  rules: PoolScoringRules | null;
+  teams: PoolTeam[];
+}) {
+  const stageWeights = rules?.stage_weights ?? defaultKnockoutStageWeights;
+  const basePoints = rules?.base_points ?? defaultKnockoutBasePoints;
+  const specialPoints = rules?.special_points ?? defaultSpecialPoints;
+  const multipliers = rules?.team_multipliers ?? {};
+  const multiplierEntries = Object.entries(multipliers)
+    .map(([teamId, multiplier]) => ({
+      team: teams.find((team) => team.id === teamId || team.external_key === teamId),
+      multiplier,
+    }))
+    .filter((item) => item.multiplier > 1);
+
+  return (
+    <Card className="glass-card border-brand/20">
+      <CardHeader>
+        <CardTitle className="text-base">Regras do mata-mata</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3 text-sm">
+        <div className="grid grid-cols-2 gap-2">
+          {Object.entries(stageWeights).map(([stage, weight]) => (
+            <MiniStat key={stage} label={knockoutStageLabel(stage) ?? stage} value={`x${weight}`} />
+          ))}
+        </div>
+        <div className="rounded-2xl bg-muted/55 p-3 text-muted-foreground">
+          <p className="font-bold text-foreground">Pontuação por jogo</p>
+          <p className="mt-1">
+            Placar exato: {basePoints.exact_score ?? 3}; resultado no tempo regulamentar:{" "}
+            {basePoints.regulation_result ?? 1}; classificado: {basePoints.qualified_team ?? 2};
+            método: {basePoints.qualification_method ?? 1}; combo perfeito:{" "}
+            {basePoints.perfect_combo ?? 1}.
+          </p>
+        </div>
+        <div className="rounded-2xl bg-muted/55 p-3 text-muted-foreground">
+          <p className="font-bold text-foreground">Apostas especiais</p>
+          <p className="mt-1">
+            Campeão: {specialPoints.champion ?? 60}; vice: {specialPoints.runner_up ?? 35}; 3º
+            lugar: {specialPoints.third_place ?? 25}; artilheiro: {specialPoints.top_scorer ?? 40};
+            pódio perfeito: {specialPoints.perfect_podium ?? 30}.
+          </p>
+        </div>
+        <div className="rounded-2xl bg-muted/55 p-3">
+          <p className="font-bold">Multiplicadores por time</p>
+          {multiplierEntries.length > 0 ? (
+            <div className="mt-2 flex flex-wrap gap-2">
+              {multiplierEntries.map((item) => (
+                <span
+                  key={item.team?.id ?? String(item.multiplier)}
+                  className="rounded-full bg-brand/10 px-2 py-1 text-xs font-bold text-brand"
+                >
+                  {item.team?.short_name || item.team?.name || "Time"} x{item.multiplier}
+                </span>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-1 text-xs text-muted-foreground">Nenhum multiplicador ativo.</p>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function SpecialPredictionsCard({
+  summary,
+  userId,
+  enrollment,
+  rules,
+  prediction,
+  teams,
+  busy,
+  onSave,
+}: {
+  summary: PoolSummary;
+  userId: string | null;
+  enrollment: Enrollment | null;
+  rules: PoolScoringRules | null;
+  prediction: SpecialPrediction | null;
+  teams: PoolTeam[];
+  busy: boolean;
+  onSave: (value: {
+    champion_team_id: string;
+    runner_up_team_id: string;
+    third_place_team_id: string;
+    top_scorer: string;
+  }) => void;
+}) {
+  const enrolled = Boolean(
+    enrollment && ["active", "confirmed", "paid"].includes(enrollment.status),
+  );
+  const lockAt = rules?.specials_lock_at ? new Date(rules.specials_lock_at) : null;
+  const locked = Boolean(lockAt && lockAt <= new Date());
+  const [form, setForm] = useState({
+    champion_team_id: prediction?.champion_team_id ?? "",
+    runner_up_team_id: prediction?.runner_up_team_id ?? "",
+    third_place_team_id: prediction?.third_place_team_id ?? "",
+    top_scorer: prediction?.top_scorer ?? "",
+  });
+
+  useEffect(() => {
+    setForm({
+      champion_team_id: prediction?.champion_team_id ?? "",
+      runner_up_team_id: prediction?.runner_up_team_id ?? "",
+      third_place_team_id: prediction?.third_place_team_id ?? "",
+      top_scorer: prediction?.top_scorer ?? "",
+    });
+  }, [prediction]);
+
+  const readonly = !userId || !enrolled || locked;
+
+  return (
+    <Card className="glass-card border-warning/25">
+      <CardHeader>
+        <CardTitle className="text-base">Apostas especiais</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <p className="text-sm text-muted-foreground">
+          Palpites de campeão, vice, 3º lugar e artilheiro do bolão.
+        </p>
+        {lockAt && (
+          <p className="rounded-2xl bg-muted/55 p-3 text-xs text-muted-foreground">
+            Lock: {lockAt.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}
+          </p>
+        )}
+        {!enrolled && (
+          <p className="rounded-2xl border border-dashed border-border p-3 text-sm text-muted-foreground">
+            Confirme sua inscrição no {summary.title} para enviar apostas especiais.
+          </p>
+        )}
+        <div className="grid gap-3 sm:grid-cols-2">
+          <TeamField
+            id="special-champion"
+            label="Campeão"
+            value={form.champion_team_id}
+            teams={teams}
+            disabled={readonly || busy}
+            onChange={(value) => setForm((current) => ({ ...current, champion_team_id: value }))}
+          />
+          <TeamField
+            id="special-runner-up"
+            label="Vice"
+            value={form.runner_up_team_id}
+            teams={teams}
+            disabled={readonly || busy}
+            onChange={(value) => setForm((current) => ({ ...current, runner_up_team_id: value }))}
+          />
+          <TeamField
+            id="special-third-place"
+            label="3º lugar"
+            value={form.third_place_team_id}
+            teams={teams}
+            disabled={readonly || busy}
+            onChange={(value) => setForm((current) => ({ ...current, third_place_team_id: value }))}
+          />
+          <div className="space-y-1.5">
+            <Label htmlFor="special-top-scorer">Artilheiro</Label>
+            <Input
+              id="special-top-scorer"
+              value={form.top_scorer}
+              disabled={readonly || busy}
+              onChange={(event) =>
+                setForm((current) => ({ ...current, top_scorer: event.target.value }))
+              }
+            />
+          </div>
+        </div>
+        {prediction && (
+          <p className="text-xs font-bold text-muted-foreground">
+            Pontuação especial atual: {prediction.points} pts
+          </p>
+        )}
+        {!readonly && (
+          <Button className="w-full" disabled={busy} onClick={() => onSave(form)}>
+            {prediction ? "Salvar apostas especiais" : "Enviar apostas especiais"}
+          </Button>
+        )}
+        {locked && (
+          <p className="text-xs text-muted-foreground">Apostas especiais bloqueadas para edição.</p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function TeamField({
+  id,
+  label,
+  value,
+  teams,
+  disabled,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  teams: PoolTeam[];
+  disabled?: boolean;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <Label htmlFor={id}>{label}</Label>
+      <select
+        id={id}
+        value={value}
+        disabled={disabled}
+        onChange={(event) => onChange(event.target.value)}
+        className="h-11 w-full rounded-xl border border-input bg-background/65 px-3 text-sm"
+      >
+        <option value="">Selecione</option>
+        {teams.map((team) => (
+          <option key={team.id} value={team.id}>
+            {team.name}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
 function RuleLine({ title, text }: { title: string; text: string }) {
   return (
     <div className="rounded-2xl bg-muted/55 p-3">
@@ -645,7 +942,7 @@ function OperatorSummaryCard({ summary }: { summary: AdminPoolSummary }) {
   );
 }
 
-function MiniStat({ label, value }: { label: string; value: number }) {
+function MiniStat({ label, value }: { label: string; value: number | string }) {
   return (
     <div className="rounded-2xl bg-muted/60 p-3">
       <p className="text-xl font-extrabold tabular-nums">{value}</p>
@@ -785,6 +1082,7 @@ async function fetchPool(userId: string, isOperator: boolean): Promise<PoolData>
     rankingResult,
     scoreResult,
     firstMatchResult,
+    teamsResult,
   ] = await Promise.all([
     supabase.from("pool_public_summary").select("*").maybeSingle(),
     supabase
@@ -801,11 +1099,40 @@ async function fetchPool(userId: string, isOperator: boolean): Promise<PoolData>
       .limit(1)
       .maybeSingle(),
     supabase.from("matches").select("kickoff_at").order("kickoff_at").limit(1).maybeSingle(),
+    supabase.from("teams").select("id,name,short_name,external_key").order("name"),
   ]);
   const summary = summaryResult.data as PoolSummary | null;
   const enrollment = enrollmentResult.data as Enrollment | null;
+  const teams = (teamsResult.data ?? []) as PoolTeam[];
   let payments: Payment[] = [];
   let adminSummary: AdminPoolSummary | null = null;
+  let poolScoringRules: PoolScoringRules | null = null;
+  let specialPrediction: SpecialPrediction | null = null;
+  let poolExtrasError: string | null = null;
+
+  if (summary?.id) {
+    const [poolScoringResult, specialPredictionResult] = await Promise.all([
+      supabase
+        .from("pool_scoring_rules")
+        .select(
+          "id,pool_id,stage_weights,base_points,team_multipliers,special_points,special_results,specials_lock_at",
+        )
+        .eq("pool_id", summary.id)
+        .maybeSingle(),
+      supabase
+        .from("special_predictions")
+        .select(
+          "id,champion_team_id,runner_up_team_id,third_place_team_id,top_scorer,submitted_at,locked_at,points,points_breakdown",
+        )
+        .eq("pool_id", summary.id)
+        .eq("user_id", userId)
+        .maybeSingle(),
+    ]);
+    poolScoringRules = poolScoringResult.data as PoolScoringRules | null;
+    specialPrediction = specialPredictionResult.data as SpecialPrediction | null;
+    poolExtrasError =
+      poolScoringResult.error?.message ?? specialPredictionResult.error?.message ?? null;
+  }
 
   if (enrollment) {
     const { data } = await supabase
@@ -837,6 +1164,9 @@ async function fetchPool(userId: string, isOperator: boolean): Promise<PoolData>
     enrollment,
     payments,
     scoreRules: scoreResult.data as ScoreRules | null,
+    poolScoringRules,
+    specialPrediction,
+    teams,
     poolStartsAt: firstMatchResult.data?.kickoff_at ?? null,
     adminSummary,
     eligibleForPrize:
@@ -850,6 +1180,8 @@ async function fetchPool(userId: string, isOperator: boolean): Promise<PoolData>
       rankingResult.error?.message ??
       scoreResult.error?.message ??
       firstMatchResult.error?.message ??
+      teamsResult.error?.message ??
+      poolExtrasError ??
       null,
   };
 }

@@ -5,8 +5,19 @@ import type {
   DayOption,
   MatchCardData,
   MegaBrainForecast,
+  PredictionValue,
   ScoreValue,
 } from "@/components/mobile/types";
+import {
+  defaultKnockoutBasePoints,
+  defaultKnockoutStageWeights,
+  isKnockoutStage,
+  knockoutStageLabel,
+  normalizeKnockoutStage,
+  parseBracketSource,
+  type KnockoutScoringRules,
+  type QualificationMethod,
+} from "@/lib/knockout";
 
 export interface BetTrend {
   match_id: string;
@@ -18,6 +29,7 @@ export interface BetTrend {
 
 export interface MatchTeamRow {
   id: string;
+  external_key?: string | null;
   name: string;
   short_name: string | null;
   country_code: string | null;
@@ -26,6 +38,7 @@ export interface MatchTeamRow {
 
 export interface MatchRow {
   id: string;
+  match_number?: number | null;
   kickoff_at: string;
   status: string;
   stage: string | null;
@@ -35,6 +48,12 @@ export interface MatchRow {
   country?: string | null;
   home_score: number;
   away_score: number;
+  bracket_source_home?: string | null;
+  bracket_source_away?: string | null;
+  qualification_method?: QualificationMethod | null;
+  qualified_team_id?: string | null;
+  regulation_home_score?: number | null;
+  regulation_away_score?: number | null;
   home_team: MatchTeamRow | null;
   away_team: MatchTeamRow | null;
 }
@@ -43,6 +62,11 @@ export interface BetRow {
   match_id: string;
   home_score: number;
   away_score: number;
+  regulation_home_score?: number | null;
+  regulation_away_score?: number | null;
+  predicted_qualified_team_id?: string | null;
+  predicted_qualification_method?: QualificationMethod | null;
+  knockout_points_breakdown?: Record<string, unknown> | null;
   points: number;
 }
 
@@ -80,14 +104,45 @@ export function trendsToForecast(trend: BetTrend | undefined): MegaBrainForecast
 export function toMatchCard(
   match: MatchRow,
   savedBet: BetRow | undefined,
-  draft: ScoreValue | undefined,
+  draft: PredictionValue | undefined,
   trend?: BetTrend,
+  scoringRules?: KnockoutScoringRules | null,
 ): MatchCardData {
   const kickoff = new Date(match.kickoff_at);
   const locked = kickoff.getTime() <= Date.now();
   const status = normalizeStatus(match.status);
-  const score = { home: match.home_score, away: match.away_score };
-  const teamsDefined = Boolean(match.home_team && match.away_team);
+  const knockout = isKnockoutStage(match.stage);
+  const score = {
+    home: match.regulation_home_score ?? match.home_score,
+    away: match.regulation_away_score ?? match.away_score,
+  };
+  const homeSource = parseBracketSource(match.bracket_source_home);
+  const awaySource = parseBracketSource(match.bracket_source_away);
+  const teamsDefined = Boolean(match.home_team?.id && match.away_team?.id);
+  const stage = normalizeKnockoutStage(match.stage);
+  const phaseWeight = stage
+    ? (scoringRules?.stage_weights?.[stage] ?? defaultKnockoutStageWeights[stage])
+    : 1;
+  const teamMultiplier = knockout
+    ? Math.max(
+        multiplierFor(scoringRules, match.home_team),
+        multiplierFor(scoringRules, match.away_team),
+        1,
+      )
+    : 1;
+  const maxBasePoints =
+    defaultKnockoutBasePoints.exact_score +
+    defaultKnockoutBasePoints.qualified_team +
+    defaultKnockoutBasePoints.qualification_method +
+    defaultKnockoutBasePoints.perfect_combo;
+  const savedValue = savedBet
+    ? {
+        home: savedBet.regulation_home_score ?? savedBet.home_score,
+        away: savedBet.regulation_away_score ?? savedBet.away_score,
+        qualifiedTeamId: savedBet.predicted_qualified_team_id ?? null,
+        qualificationMethod: savedBet.predicted_qualification_method ?? null,
+      }
+    : null;
 
   return {
     id: match.id,
@@ -95,11 +150,23 @@ export function toMatchCard(
     venue: [match.venue, match.city].filter(Boolean).join(", ") || "Local a confirmar",
     kickoffAt: match.kickoff_at,
     status,
-    home: toTeam(match.home_team),
-    away: toTeam(match.away_team),
+    home: toTeam(match.home_team, homeSource?.label),
+    away: toTeam(match.away_team, awaySource?.label),
     teamsDefined,
     liveScore: status === "live" ? score : undefined,
     finalScore: status === "finished" ? score : undefined,
+    knockout: knockout
+      ? {
+          stage: stage ?? "round_of_32",
+          stageLabel: knockoutStageLabel(match.stage) ?? formatStage(match.stage),
+          phaseWeight,
+          teamMultiplier,
+          maxBasePoints,
+          maxPoints: Math.round(maxBasePoints * phaseWeight * teamMultiplier),
+          qualifiedTeamId: match.qualified_team_id ?? null,
+          qualificationMethod: match.qualification_method ?? null,
+        }
+      : undefined,
     paupiteOpen: status === "scheduled" && !locked && teamsDefined,
     paupiteClosedLabel: "Paupites encerrados",
     paupiteClosesAtLabel:
@@ -107,9 +174,10 @@ export function toMatchCard(
         ? kickoff.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
         : undefined,
     guess: {
-      value: draft ?? (savedBet ? { home: savedBet.home_score, away: savedBet.away_score } : null),
+      value: draft ?? savedValue,
       saved: Boolean(savedBet),
       points: savedBet?.points ?? 0,
+      pointsBreakdown: savedBet?.knockout_points_breakdown ?? undefined,
     },
     megaBrain: status === "finished" ? trendsToForecast(trend) : undefined,
   };
@@ -121,11 +189,15 @@ function normalizeStatus(status: string): MatchCardData["status"] {
   return "scheduled";
 }
 
-function toTeam(team: MatchTeamRow | null) {
+function toTeam(team: MatchTeamRow | null, sourceLabel?: string | null) {
   const flagFromUrl = team?.flag_url?.match(/\/flags\/([^/.]+)\./)?.[1];
   return {
+    id: team?.id ?? null,
+    name: team?.name ?? sourceLabel ?? "A definir",
     shortName: team?.short_name || team?.name?.slice(0, 3).toUpperCase() || "A definir",
     flagCode: (flagFromUrl || team?.country_code || "un").toLowerCase(),
+    placeholder: !team?.id,
+    sourceLabel,
   };
 }
 
@@ -134,11 +206,22 @@ export function formatStage(stage: string | null) {
   const labels: Record<string, string> = {
     group_stage: "Fase de grupos",
     groups: "Fase de grupos",
-    round_of_32: "16-avos",
+    round_of_32: "Fase de 32",
     round_of_16: "Oitavas",
     quarterfinal: "Quartas",
+    quarter_finals: "Quartas",
     semifinal: "Semifinal",
+    semi_finals: "Semifinal",
+    third_place: "3º lugar",
     final: "Final",
   };
   return labels[stage] ?? stage.replaceAll("_", " ");
+}
+
+function multiplierFor(rules: KnockoutScoringRules | null | undefined, team: MatchTeamRow | null) {
+  const multipliers = rules?.team_multipliers ?? {};
+  return Math.max(
+    Number(multipliers[team?.id ?? ""] ?? 1),
+    Number(multipliers[team?.external_key ?? ""] ?? 1),
+  );
 }

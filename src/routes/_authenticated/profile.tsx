@@ -29,7 +29,14 @@ import type { RankingEntry } from "@/lib/ranking";
 
 type Stats = Pick<
   RankingEntry,
-  "total_points" | "rank_position" | "exact_scores_count" | "outcome_hits_count" | "bets_count"
+  | "total_points"
+  | "rank_position"
+  | "exact_scores_count"
+  | "outcome_hits_count"
+  | "knockout_qualified_count"
+  | "knockout_combo_count"
+  | "special_points"
+  | "bets_count"
 >;
 
 export const Route = createFileRoute("/_authenticated/profile")({
@@ -389,6 +396,14 @@ function StatsCard({
           <span className="inline-flex items-center gap-1">
             <BiCheckCircle className="size-3" />
             {stats?.outcome_hits_count ?? 0} acertos
+          </span>
+          <span className="inline-flex items-center gap-1">
+            <BiCheckCircle className="size-3" />
+            {stats?.knockout_qualified_count ?? 0} classif.
+          </span>
+          <span className="inline-flex items-center gap-1">
+            <BiSolidTrophy className="size-3" />
+            {stats?.special_points ?? 0} especiais
           </span>
           <span className="inline-flex items-center gap-1">
             <BiBarChartAlt2 className="size-3" />
