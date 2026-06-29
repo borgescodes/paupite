@@ -89,7 +89,7 @@ export function matchDateKey(kickoffAt: string) {
   return format(new Date(kickoffAt), "yyyy-MM-dd");
 }
 
-const MIN_BETS_FOR_MEGABRAIN = 3;
+const MIN_BETS_FOR_MEGABRAIN = 1;
 
 export function trendsToForecast(trend: BetTrend | undefined): MegaBrainForecast | undefined {
   if (!trend || !trend.total_bets || trend.total_bets < MIN_BETS_FOR_MEGABRAIN) return undefined;
@@ -180,7 +180,7 @@ export function toMatchCard(
       points: savedBet?.points ?? 0,
       pointsBreakdown: savedBet?.knockout_points_breakdown ?? undefined,
     },
-    megaBrain: status === "finished" ? trendsToForecast(trend) : undefined,
+    megaBrain: trendsToForecast(trend),
   };
 }
 
@@ -207,7 +207,7 @@ export function formatStage(stage: string | null) {
   const labels: Record<string, string> = {
     group_stage: "Fase de grupos",
     groups: "Fase de grupos",
-    round_of_32: "Fase de 32",
+    round_of_32: "16-avos de final",
     round_of_16: "Oitavas",
     quarterfinal: "Quartas",
     quarter_finals: "Quartas",

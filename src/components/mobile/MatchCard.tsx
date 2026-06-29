@@ -33,19 +33,9 @@ export interface MatchCardProps {
 }
 
 function MatchContextRow({ data }: { data: MatchCardData }) {
-  const time = new Date(data.kickoffAt).toLocaleTimeString("pt-BR", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-
   return (
-    <div className="flex items-start justify-between gap-2">
-      <div>
-        <p className="eyebrow text-brand">Paupite o placar</p>
-        <p className="mt-1 text-xs text-muted-foreground">
-          {data.group} · {data.venue} · {time}
-        </p>
-      </div>
+    <div className="flex min-h-7 items-center justify-between gap-2">
+      <p className="eyebrow text-brand leading-none">Paupite o placar</p>
       {data.status === "scheduled" && data.paupiteOpen && data.paupiteClosesAtLabel && (
         <StatusBadge variant="brand" className="shrink-0">
           <BiSolidTimeFive className="size-3" />
@@ -131,51 +121,42 @@ function MegaBrainBlock({
   home: MatchCardData["home"];
   away: MatchCardData["away"];
 }) {
+  if (!forecast) return null;
+
   return (
     <div className="space-y-2 rounded-2xl border border-border/70 bg-muted/35 p-3">
       <p className="flex items-center gap-1.5 text-xs font-extrabold uppercase text-foreground">
         <BiSolidBrain className="size-3.5 text-brand" />
         MegaBrain
       </p>
-      {forecast ? (
-        <>
-          <div className="flex h-2 gap-px overflow-hidden rounded-full">
-            <div
-              className="bg-success transition-all duration-500"
-              style={{ width: `${forecast.home}%` }}
-            />
-            <div
-              className="bg-muted-foreground/25 transition-all duration-500"
-              style={{ width: `${forecast.draw}%` }}
-            />
-            <div
-              className="bg-danger transition-all duration-500"
-              style={{ width: `${forecast.away}%` }}
-            />
-          </div>
-          <div className="flex items-center justify-between text-[11px] font-semibold text-muted-foreground">
-            <span className="flex items-center gap-1">
-              <span className="size-2 rounded-full bg-success" />
-              {home.shortName} <strong className="ml-0.5 text-foreground">{forecast.home}%</strong>
-            </span>
-            <span className="flex items-center gap-1">
-              <span className="size-2 rounded-full bg-muted-foreground/25" />
-              <strong className="text-foreground">{forecast.draw}%</strong>
-            </span>
-            <span className="flex items-center gap-1">
-              <span className="size-2 rounded-full bg-danger" />
-              {away.shortName} <strong className="ml-0.5 text-foreground">{forecast.away}%</strong>
-            </span>
-          </div>
-          {typeof forecast.totalBets === "number" && (
-            <p className="text-[11px] text-muted-foreground">
-              {forecast.totalBets} palpite(s) considerado(s)
-            </p>
-          )}
-        </>
-      ) : (
-        <p className="text-[11px] text-muted-foreground">Ainda sem palpites suficientes</p>
-      )}
+      <div className="flex h-2 gap-px overflow-hidden rounded-full">
+        <div
+          className="bg-success transition-all duration-500"
+          style={{ width: `${forecast.home}%` }}
+        />
+        <div
+          className="bg-muted-foreground/25 transition-all duration-500"
+          style={{ width: `${forecast.draw}%` }}
+        />
+        <div
+          className="bg-danger transition-all duration-500"
+          style={{ width: `${forecast.away}%` }}
+        />
+      </div>
+      <div className="flex items-center justify-between text-[11px] font-semibold text-muted-foreground">
+        <span className="flex items-center gap-1">
+          <span className="size-2 rounded-full bg-success" />
+          {home.shortName} <strong className="ml-0.5 text-foreground">{forecast.home}%</strong>
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="size-2 rounded-full bg-muted-foreground/25" />
+          <strong className="text-foreground">{forecast.draw}%</strong>
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="size-2 rounded-full bg-danger" />
+          {away.shortName} <strong className="ml-0.5 text-foreground">{forecast.away}%</strong>
+        </span>
+      </div>
     </div>
   );
 }
@@ -328,12 +309,15 @@ function MatchCard({
   const hasSavedGuess = Boolean(data.guess.saved && data.guess.value);
   const showEditor = data.paupiteOpen && (!hasSavedGuess || editing);
   const currentGuess = data.guess.value ?? { home: 0, away: 0 };
+  const hasTeamMultiplier = Boolean(data.knockout && data.knockout.teamMultiplier > 1);
 
   return (
     <Card
       className={cn(
         "glass-card interactive-card overflow-hidden rounded-3xl border-border/80 shadow-xl shadow-foreground/5",
         data.status === "live" && "border-live/35",
+        hasTeamMultiplier &&
+          "border-warning/55 bg-gradient-to-br from-warning/10 via-surface to-brand/8 shadow-warning/15 ring-1 ring-warning/20",
         className,
       )}
     >
@@ -345,9 +329,12 @@ function MatchCard({
         {data.status === "scheduled" && (
           <div className="space-y-2">
             {data.knockout && (
-              <div className="flex flex-wrap items-center justify-center gap-2 rounded-2xl bg-muted/45 px-3 py-2 text-[11px] font-bold text-muted-foreground">
-                <span>{data.knockout.stageLabel}</span>
-                <span>·</span>
+              <div
+                className={cn(
+                  "flex flex-wrap items-center justify-center gap-2 rounded-2xl bg-muted/45 px-3 py-2 text-[11px] font-bold text-muted-foreground",
+                  hasTeamMultiplier && "border border-warning/30 bg-warning/12 text-foreground",
+                )}
+              >
                 <span>Peso x{data.knockout.phaseWeight}</span>
                 {data.knockout.teamMultiplier > 1 && (
                   <>
@@ -403,6 +390,9 @@ function MatchCard({
                   </div>
                 )}
               </div>
+            )}
+            {data.paupiteOpen && (
+              <MegaBrainBlock forecast={data.megaBrain} home={data.home} away={data.away} />
             )}
             {data.paupiteOpen ? (
               showEditor ? (
