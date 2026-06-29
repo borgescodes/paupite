@@ -1,9 +1,19 @@
 import { useEffect, useState } from "react";
 import { BiCalculator, BiLockAlt, BiMinus, BiPlus, BiSave, BiTrophy } from "react-icons/bi";
 
-import { resultStatusOptions } from "@/components/admin/match-labels";
-import type { AdminMatch } from "@/components/admin/match-types";
-import { Button } from "@/components/ui/button";
+import { resultStatusOptions } from "../../../../../../Videos/ALM Sync Lite/paupite-main-admin-result-fix (1)/paupite-main/src/components/admin/match-labels.ts";
+import type { AdminMatch } from "../../../../../../Videos/ALM Sync Lite/paupite-main-admin-result-fix (1)/paupite-main/src/components/admin/match-types.ts";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "../../../../../../Videos/ALM Sync Lite/paupite-main-admin-result-fix (1)/paupite-main/src/components/ui/alert-dialog.tsx";
+import { Button } from "../../../../../../Videos/ALM Sync Lite/paupite-main-admin-result-fix (1)/paupite-main/src/components/ui/button.tsx";
 import {
   Drawer,
   DrawerClose,
@@ -12,16 +22,15 @@ import {
   DrawerFooter,
   DrawerHeader,
   DrawerTitle,
-} from "@/components/ui/drawer";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+} from "../../../../../../Videos/ALM Sync Lite/paupite-main-admin-result-fix (1)/paupite-main/src/components/ui/drawer.tsx";
+import { Input } from "../../../../../../Videos/ALM Sync Lite/paupite-main-admin-result-fix (1)/paupite-main/src/components/ui/input.tsx";
+import { Label } from "../../../../../../Videos/ALM Sync Lite/paupite-main-admin-result-fix (1)/paupite-main/src/components/ui/label.tsx";
 import {
-  deriveKnockoutPredictionFields,
   isKnockoutStage,
   qualificationMethodLabel,
   type QualificationMethod,
-} from "@/lib/knockout";
-import { deriveMatchTemporalStatus, isMatchFuture } from "@/lib/match-status";
+} from "../../../../../../Videos/ALM Sync Lite/paupite-main-admin-result-fix (1)/paupite-main/src/lib/knockout.ts";
+import { deriveMatchTemporalStatus, isMatchFuture } from "../../../../../../Videos/ALM Sync Lite/paupite-main-admin-result-fix (1)/paupite-main/src/lib/match-status.ts";
 
 export function AdminResultSheet({
   open,
@@ -49,6 +58,7 @@ export function AdminResultSheet({
   const [status, setStatus] = useState("finished");
   const [qualifiedTeamId, setQualifiedTeamId] = useState<string | null>(null);
   const [qualificationMethod, setQualificationMethod] = useState<QualificationMethod | null>(null);
+  const [closeDialogOpen, setCloseDialogOpen] = useState(false);
 
   useEffect(() => {
     if (!match || !open) return;
@@ -61,19 +71,38 @@ export function AdminResultSheet({
     setQualificationMethod(match.qualification_method);
   }, [match, open]);
 
+  useEffect(() => {
+    if (!open) setCloseDialogOpen(false);
+  }, [open]);
+
   const future = match ? isMatchFuture(match.kickoff_at) : true;
   const knockout = isKnockoutStage(match?.stage);
+  const liveResult = status === "live";
   const tied = homeScore === awayScore;
-  const derived = deriveKnockoutPredictionFields({
-    homeScore,
-    awayScore,
-    homeTeamId: match?.home_team_id,
-    awayTeamId: match?.away_team_id,
-    qualifiedTeamId,
-    qualificationMethod,
-  });
-  const officialQualifiedTeamId = knockout ? derived.qualifiedTeamId : undefined;
-  const officialQualificationMethod = knockout ? derived.qualificationMethod : undefined;
+  const automaticQualifiedTeamId =
+    homeScore > awayScore
+      ? match?.home_team_id
+      : awayScore > homeScore
+        ? match?.away_team_id
+        : null;
+  const tiedQualificationMethodValid =
+    qualificationMethod === "extra_time" || qualificationMethod === "penalties";
+  const officialQualifiedTeamId = knockout
+    ? liveResult
+      ? null
+      : tied
+        ? qualifiedTeamId
+        : automaticQualifiedTeamId
+    : undefined;
+  const officialQualificationMethod = knockout
+    ? liveResult
+      ? null
+      : tied
+        ? tiedQualificationMethodValid
+          ? qualificationMethod
+          : null
+        : ("regulation" as QualificationMethod)
+    : undefined;
   const qualifiedTeamName =
     officialQualifiedTeamId === match?.home_team_id
       ? (match?.home_team?.name ?? "Seleção A")
@@ -81,10 +110,12 @@ export function AdminResultSheet({
         ? (match?.away_team?.name ?? "Seleção B")
         : "A definir";
   const knockoutTeamsDefined = Boolean(match?.home_team_id && match?.away_team_id);
+  const requiresKnockoutDecision = knockout && !liveResult && tied;
   const tiedKnockoutComplete = Boolean(
-    !knockout || !tied || (qualifiedTeamId && qualificationMethod),
+    !requiresKnockoutDecision || (qualifiedTeamId && tiedQualificationMethodValid),
   );
   const canSaveResult = !busy && (!knockout || (knockoutTeamsDefined && tiedKnockoutComplete));
+  const canCloseCurrentMatch = match?.status === "finished" && status === "finished";
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
@@ -110,7 +141,9 @@ export function AdminResultSheet({
           <div className="space-y-5 px-5">
             {knockout && (
               <div className="rounded-2xl border border-warning/25 bg-warning/8 p-3 text-xs text-muted-foreground">
-                Encerrar este jogo pode atualizar confrontos futuros.
+                {liveResult
+                  ? "Placar em andamento salva parcial sem exigir classificado ou método."
+                  : "Resultado encerrado pode liberar fechamento e atualizar confrontos futuros."}
               </div>
             )}
             <div className="grid grid-cols-[1fr_auto_1fr] items-end gap-3">
@@ -133,7 +166,7 @@ export function AdminResultSheet({
                 Defina as duas seleções antes de lançar o resultado do mata-mata.
               </p>
             )}
-            {knockout && knockoutTeamsDefined && (
+            {knockout && knockoutTeamsDefined && !liveResult && (
               <div className="space-y-3 rounded-2xl bg-muted/45 p-3">
                 <p className="text-xs font-extrabold uppercase text-muted-foreground">
                   Classificação oficial
@@ -197,7 +230,9 @@ export function AdminResultSheet({
                 ))}
               </select>
               <p className="text-xs text-muted-foreground">
-                Use “Pontuação calculada” após salvar o resultado e fechar a partida.
+                {liveResult
+                  ? "Salva placar parcial sem calcular pontos."
+                  : "Após salvar como encerrado, use “Fechar partida e recalcular”."}
               </p>
             </div>
             <Button
@@ -216,22 +251,22 @@ export function AdminResultSheet({
               <BiSave className="size-5" />
               Salvar resultado
             </Button>
-            {match?.status !== "scheduled" && match?.status !== "closed" && (
+            {match?.status === "live" && status === "finished" && (
+              <p className="rounded-2xl bg-muted p-3 text-xs text-muted-foreground">
+                Salve o resultado como encerrado para liberar fechamento e recálculo.
+              </p>
+            )}
+            {canCloseCurrentMatch && (
               <div className="rounded-2xl border border-warning/25 bg-warning/8 p-4">
                 <p className="font-extrabold">Fechar e recalcular</p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Esta ação encerra a partida e atualiza os pontos de todos os palpites.
+                  Esta ação fecha a partida e recalcula pontos. Use só após conferir placar final.
                 </p>
                 <Button
                   className="mt-3 w-full"
                   variant="outline"
                   disabled={busy}
-                  onClick={() => {
-                    const confirmed = window.confirm(
-                      "Fechar esta partida e recalcular a pontuação do bolão?",
-                    );
-                    if (confirmed) onCloseMatch();
-                  }}
+                  onClick={() => setCloseDialogOpen(true)}
                 >
                   <BiCalculator className="size-5" />
                   Fechar partida e recalcular
@@ -240,6 +275,31 @@ export function AdminResultSheet({
             )}
           </div>
         )}
+
+        <AlertDialog open={closeDialogOpen} onOpenChange={setCloseDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Fechar partida e recalcular?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Confirme só se o placar final já foi salvo. A partida vira “Pontuação calculada” e
+                os pontos dos palpites serão recalculados.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={busy}>Cancelar</AlertDialogCancel>
+              <AlertDialogAction
+                disabled={busy}
+                onClick={(event) => {
+                  event.preventDefault();
+                  setCloseDialogOpen(false);
+                  onCloseMatch();
+                }}
+              >
+                Confirmar fechamento
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
         <DrawerFooter className="px-5">
           <DrawerClose asChild>

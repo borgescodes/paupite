@@ -6,7 +6,7 @@ import {
   json,
   requireRole,
   writeAudit,
-} from "../_shared/paupite.ts";
+} from "../../../../../../Videos/ALM Sync Lite/paupite-main-admin-result-fix (1)/paupite-main/supabase/functions/_shared/paupite.ts";
 
 type MatchAction = "create" | "update" | "result" | "close";
 
@@ -120,16 +120,19 @@ Deno.serve(async (req) => {
       const awayScore = score(body.away_score);
       const status = body.status === "live" ? "live" : "finished";
       const knockout = isKnockoutStage(current.stage);
-      const qualification = knockout
-        ? validateKnockoutResult(current, homeScore, awayScore, body)
-        : { qualified_team_id: null, qualification_method: null };
+      const qualification =
+        status === "live"
+          ? { qualified_team_id: null, qualification_method: null }
+          : knockout
+            ? validateKnockoutResult(current, homeScore, awayScore, body)
+            : { qualified_team_id: null, qualification_method: null };
       const { error } = await admin
         .from("matches")
         .update({
           home_score: homeScore,
           away_score: awayScore,
-          regulation_home_score: knockout ? homeScore : null,
-          regulation_away_score: knockout ? awayScore : null,
+          regulation_home_score: knockout && status === "finished" ? homeScore : null,
+          regulation_away_score: knockout && status === "finished" ? awayScore : null,
           qualified_team_id: qualification.qualified_team_id,
           qualification_method: qualification.qualification_method,
           status,
@@ -147,8 +150,8 @@ Deno.serve(async (req) => {
       return json({ ok: true });
     }
 
-    if (current.status === "scheduled") {
-      throw new HttpError(400, "Lance o resultado antes de fechar a partida.");
+    if (current.status !== "finished") {
+      throw new HttpError(400, "Salve o resultado como encerrado antes de fechar a partida.");
     }
     const { data: updated, error: rpcError } = await admin.rpc("admin_recalculate_match_points", {
       _match_id: body.match_id,
