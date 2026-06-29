@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import {
   BiCalendar,
   BiCheckCircle,
+  BiChevronDown,
   BiCreditCard,
   BiGroup,
   BiInfoCircle,
@@ -167,6 +168,8 @@ export const Route = createFileRoute("/_authenticated/pool")({
 const emptyPayments: Payment[] = [];
 const poolQueryKey = (userId: string | null | undefined, isOperator: boolean) =>
   ["pool", userId, isOperator] as const;
+const softTabTriggerClass =
+  "rounded-xl text-muted-foreground transition-all hover:bg-brand/10 hover:text-brand data-[state=active]:bg-brand/12 data-[state=active]:text-brand data-[state=active]:shadow-none data-[state=active]:ring-1 data-[state=active]:ring-brand/15";
 
 function PoolPage() {
   const { user, profile } = useAuth();
@@ -209,6 +212,13 @@ function PoolPage() {
   const phase = useMemo(
     () => (summary ? getPoolPhase(summary, poolEndsFallbackAt) : null),
     [summary, poolEndsFallbackAt],
+  );
+  const specialsLockAt = poolScoringRules?.specials_lock_at
+    ? new Date(poolScoringRules.specials_lock_at)
+    : null;
+  const specialsLocked = Boolean(specialsLockAt && specialsLockAt <= new Date());
+  const specialsPending = Boolean(
+    isActiveEnrollment(enrollment?.status) && !specialPrediction && !specialsLocked,
   );
 
   useEffect(() => {
@@ -376,27 +386,57 @@ function PoolPage() {
 
         {summary && phase && (
           <>
-            <PoolStatusCard
-              summary={summary}
-              phase={phase}
-              enrollment={enrollment}
-              payments={payments}
-              busy={busy}
-              onOpenTerms={() => setTermsDialogOpen(true)}
-              onCreateCheckout={() => void createCheckout()}
-            />
-            {isOperator && adminSummary && <OperatorSummaryCard summary={adminSummary} />}
-
-            <Tabs defaultValue="rules" className="space-y-3">
-              <TabsList className="grid h-auto w-full grid-cols-3 gap-1">
-                <TabsTrigger value="rules">Regras</TabsTrigger>
-                <TabsTrigger value="specials">Palpites Especiais</TabsTrigger>
-                <TabsTrigger value="prizes">Premiação</TabsTrigger>
+            <Tabs defaultValue="status" className="space-y-3">
+              <TabsList className="grid h-auto w-full grid-cols-3 gap-1 rounded-2xl bg-muted/45 p-1 ring-1 ring-border/40">
+                <TabsTrigger value="status" className={softTabTriggerClass}>
+                  Status
+                </TabsTrigger>
+                <TabsTrigger value="prizes" className={softTabTriggerClass}>
+                  Premiação
+                </TabsTrigger>
+                <TabsTrigger value="specials" className={cn(softTabTriggerClass, "relative")}>
+                  Especiais
+                  {specialsPending && (
+                    <span className="absolute right-2 top-2 size-2 rounded-full bg-destructive ring-2 ring-background" />
+                  )}
+                </TabsTrigger>
               </TabsList>
 
-              <TabsContent value="rules" className="space-y-3">
+              <TabsContent value="status" className="space-y-3">
+                <PoolStatusCard
+                  summary={summary}
+                  phase={phase}
+                  enrollment={enrollment}
+                  payments={payments}
+                  busy={busy}
+                  onOpenTerms={() => setTermsDialogOpen(true)}
+                  onCreateCheckout={() => void createCheckout()}
+                />
                 <RulesCard summary={summary} />
                 <KnockoutRulesCard rules={poolScoringRules} teams={teams} />
+                {isOperator && adminSummary && <OperatorSummaryCard summary={adminSummary} />}
+              </TabsContent>
+
+              <TabsContent value="prizes" className="space-y-3">
+                <PrizeTab
+                  summary={summary}
+                  phase={phase}
+                  eligibleForPrize={eligibleForPrize}
+                  prizeRequest={prizeRequest}
+                  prizePixKey={prizePixKey}
+                  busy={busy}
+                  onPrizePixKeyChange={setPrizePixKey}
+                  onRequestPrize={() =>
+                    void run(
+                      () =>
+                        callEdgeFunction("pool-enrollment", {
+                          action: "request_prize",
+                          pix_key: prizePixKey.trim(),
+                        }),
+                      "Solicitação de prêmio registrada.",
+                    )
+                  }
+                />
               </TabsContent>
 
               <TabsContent value="specials">
@@ -432,28 +472,6 @@ function PoolPage() {
                         );
                       if (saveError) throw new Error(saveError.message);
                     }, "Palpites especiais salvos.")
-                  }
-                />
-              </TabsContent>
-
-              <TabsContent value="prizes" className="space-y-3">
-                <PrizeTab
-                  summary={summary}
-                  phase={phase}
-                  eligibleForPrize={eligibleForPrize}
-                  prizeRequest={prizeRequest}
-                  prizePixKey={prizePixKey}
-                  busy={busy}
-                  onPrizePixKeyChange={setPrizePixKey}
-                  onRequestPrize={() =>
-                    void run(
-                      () =>
-                        callEdgeFunction("pool-enrollment", {
-                          action: "request_prize",
-                          pix_key: prizePixKey.trim(),
-                        }),
-                      "Solicitação de prêmio registrada.",
-                    )
                   }
                 />
               </TabsContent>
@@ -499,16 +517,17 @@ function PoolStatusCard({
     ["requested", "payment_pending"].includes(status) &&
     summary.entry_fee_cents > 0 &&
     phase.kind !== "ended";
+  const statusHelp = enrollmentStatusHelp(status);
+  const visiblePayments = isActiveEnrollment(status)
+    ? payments.filter((payment) => !["paid", "confirmed"].includes(payment.status))
+    : payments;
 
   return (
     <Card className="glass-card overflow-hidden border-brand/25">
       <div className="h-1 bg-brand" />
       <CardContent className="space-y-4 p-5">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="eyebrow text-brand">Status do bolão</p>
-            <p className="mt-2 text-sm text-muted-foreground">{phase.description}</p>
-          </div>
+        <div className="flex items-center justify-between gap-3">
+          <p className="eyebrow min-w-0 text-brand">Status do bolão</p>
           <StatusPill label={phase.label} tone={phase.tone} />
         </div>
 
@@ -519,7 +538,7 @@ function PoolStatusCard({
           <div className="mt-2">
             <EnrollmentStatus status={status} />
           </div>
-          <p className="mt-2 text-xs text-muted-foreground">{enrollmentStatusHelp(status)}</p>
+          {statusHelp && <p className="mt-2 text-xs text-muted-foreground">{statusHelp}</p>}
         </div>
 
         {!enrollment && (
@@ -550,7 +569,7 @@ function PoolStatusCard({
           </div>
         )}
 
-        {payments.length > 0 && <PaymentsList payments={payments} />}
+        {visiblePayments.length > 0 && <PaymentsList payments={visiblePayments} />}
       </CardContent>
     </Card>
   );
@@ -792,6 +811,7 @@ function SpecialPredictionsCard({
     runner_up_team_id: prediction?.runner_up_team_id ?? "",
     third_place_team_id: prediction?.third_place_team_id ?? "",
   });
+  const [isEditing, setIsEditing] = useState(false);
 
   useEffect(() => {
     setForm({
@@ -799,6 +819,7 @@ function SpecialPredictionsCard({
       runner_up_team_id: prediction?.runner_up_team_id ?? "",
       third_place_team_id: prediction?.third_place_team_id ?? "",
     });
+    setIsEditing(false);
   }, [prediction]);
 
   if (!enrolled) {
@@ -819,30 +840,29 @@ function SpecialPredictionsCard({
     );
   }
 
-  const readonly = !userId || locked;
+  const readonly = !userId || locked || (Boolean(prediction) && !isEditing);
+  const filled = Boolean(
+    form.champion_team_id && form.runner_up_team_id && form.third_place_team_id,
+  );
 
   return (
-    <Card className="glass-card border-warning/25">
+    <Card className="glass-card overflow-hidden border-warning/25">
+      <div className="h-1 bg-warning" />
       <CardHeader>
-        <CardTitle className="text-base">Palpites Especiais</CardTitle>
+        <CardTitle className="flex items-center justify-between gap-3 text-base leading-none">
+          <span className="min-w-0 leading-none">Palpites Especiais</span>
+          <StatusPill
+            label={filled ? "Definido" : "Pendente"}
+            tone={filled ? "success" : "warning"}
+          />
+        </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
         <p className="text-sm text-muted-foreground">
-          Palpites de campeão, vice e 3º lugar do bolão.
+          Defina campeão, vice e 3º lugar antes do prazo. Última edição válida vira definitiva.
         </p>
-        {lockAt && (
-          <p
-            className={cn(
-              "rounded-2xl p-3 text-xs font-bold",
-              locked ? "bg-destructive/10 text-destructive" : "bg-muted/55 text-muted-foreground",
-            )}
-          >
-            {locked
-              ? `Prazo encerrado em ${formatPoolDateTime(lockAt)}. Palpites especiais não podem mais ser editados.`
-              : `Prazo para enviar: ${formatPoolDateTime(lockAt)}.`}
-          </p>
-        )}
-        <div className="grid gap-3 sm:grid-cols-2">
+        {lockAt && <SpecialCountdown lockAt={lockAt} locked={locked} />}
+        <div className="grid gap-3 md:grid-cols-3">
           <TeamField
             id="special-champion"
             label="Campeão"
@@ -873,9 +893,25 @@ function SpecialPredictionsCard({
             Pontuação especial atual: {prediction.points} pts
           </p>
         )}
+        {!locked && prediction && !isEditing && (
+          <Button
+            className="h-11 w-full rounded-2xl"
+            disabled={busy}
+            onClick={() => setIsEditing(true)}
+          >
+            Editar palpites especiais
+          </Button>
+        )}
         {!readonly && (
-          <Button className="w-full" disabled={busy} onClick={() => onSave(form)}>
-            {prediction ? "Salvar palpites especiais" : "Enviar palpites especiais"}
+          <Button
+            className="h-11 w-full rounded-2xl"
+            disabled={busy || !filled}
+            onClick={() => {
+              onSave(form);
+              setIsEditing(false);
+            }}
+          >
+            {prediction ? "Salvar edição" : "Salvar palpites especiais"}
           </Button>
         )}
         {locked && (
@@ -915,47 +951,60 @@ function PrizeTab({
 
   return (
     <>
-      <Card className="glass-card">
+      <Card className="glass-card overflow-hidden border-warning/25">
+        <div className="h-1 bg-warning" />
         <CardHeader>
-          <CardTitle className="text-base">Premiação</CardTitle>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <BiSolidTrophy className="size-5 text-warning" />
+            Premiação
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="rounded-3xl bg-warning/10 p-4 text-center ring-1 ring-warning/20">
+            <p className="text-xs font-extrabold uppercase text-warning">Prêmio estimado</p>
+            <p className="mt-1 break-words text-3xl font-black tracking-tight text-foreground sm:text-4xl">
+              {money(prizes.pool)}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {summary.prize_percentage}% da arrecadação atual do bolão.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+            <PrizePlaceCard place="1º" label="Campeão" value={money(prizes.first)} tone="warning" />
+            <PrizePlaceCard place="2º" label="Vice" value={money(prizes.second)} tone="brand" />
+            <PrizePlaceCard
+              place="3º"
+              label="Terceiro"
+              value={money(prizes.third)}
+              tone="success"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Metric
               icon={BiGroup}
               label="Inscritos ativos"
               value={String(summary.participants_count)}
             />
             <Metric icon={BiCreditCard} label="Entrada" value={money(summary.entry_fee_cents)} />
-            <Metric icon={BiSolidTrophy} label="Prêmio estimado" value={money(prizes.pool)} />
-            <Metric
-              icon={BiShieldQuarter}
-              label="Premiação"
-              value={`${summary.prize_percentage}%`}
-            />
           </div>
 
           <div className="rounded-2xl bg-muted/55 p-4">
-            <div className="flex justify-between text-xs">
+            <div className="flex flex-wrap justify-between gap-2 text-xs font-bold">
               <span>Meta mínima</span>
               <span>
                 {summary.participants_count}/{summary.minimum_participants}
               </span>
             </div>
             <Progress value={progress} className="mt-2" />
-            <p className="mt-2 text-xs text-muted-foreground">
+            <p className="mt-2 break-words text-xs text-muted-foreground">
               Arrecadação bruta atual: {money(prizes.gross)}.
             </p>
           </div>
 
-          <div className="grid grid-cols-3 gap-2">
-            <MiniStat label="1º lugar" value={money(prizes.first)} />
-            <MiniStat label="2º lugar" value={money(prizes.second)} />
-            <MiniStat label="3º lugar" value={money(prizes.third)} />
-          </div>
-
           {summary.prize_description && (
-            <p className="rounded-2xl bg-muted/55 p-3 text-xs text-muted-foreground">
+            <p className="rounded-2xl bg-muted/55 p-3 text-xs leading-relaxed text-muted-foreground">
               {summary.prize_description}
             </p>
           )}
@@ -984,6 +1033,42 @@ function PrizeTab({
         </Card>
       )}
     </>
+  );
+}
+
+function SpecialCountdown({ lockAt, locked }: { lockAt: Date; locked: boolean }) {
+  const [timeLeft, setTimeLeft] = useState(() => calcTimeLeft(lockAt));
+
+  useEffect(() => {
+    setTimeLeft(calcTimeLeft(lockAt));
+    const id = window.setInterval(() => setTimeLeft(calcTimeLeft(lockAt)), 1_000);
+    return () => window.clearInterval(id);
+  }, [lockAt]);
+
+  const display = timeLeft ?? { days: 0, hours: 0, minutes: 0, seconds: 0 };
+
+  return (
+    <div
+      className={cn(
+        "rounded-2xl p-3",
+        locked ? "bg-destructive/10 text-destructive" : "bg-warning/10 text-warning",
+      )}
+    >
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs font-extrabold uppercase">
+          {locked ? "Prazo encerrado" : "Encerra em"}
+        </p>
+        <p className="text-xs font-bold tabular-nums">
+          {String(display.days).padStart(2, "0")}d {String(display.hours).padStart(2, "0")}h{" "}
+          {String(display.minutes).padStart(2, "0")}m {String(display.seconds).padStart(2, "0")}s
+        </p>
+      </div>
+      <p className="mt-1 text-xs opacity-80">
+        {locked
+          ? `Encerrado em ${formatPoolDateTime(lockAt)}. Última edição ficou definitiva.`
+          : `Prazo final: ${formatPoolDateTime(lockAt)}.`}
+      </p>
+    </div>
   );
 }
 
@@ -1054,21 +1139,26 @@ function TeamField({
 }) {
   return (
     <div className="space-y-1.5">
-      <Label htmlFor={id}>{label}</Label>
-      <select
-        id={id}
-        value={value}
-        disabled={disabled}
-        onChange={(event) => onChange(event.target.value)}
-        className="h-11 w-full rounded-xl border border-input bg-background/65 px-3 text-sm"
-      >
-        <option value="">Selecione</option>
-        {teams.map((team) => (
-          <option key={team.id} value={team.id}>
-            {team.name}
-          </option>
-        ))}
-      </select>
+      <Label htmlFor={id} className="text-xs font-extrabold uppercase text-muted-foreground">
+        {label}
+      </Label>
+      <div className="relative">
+        <select
+          id={id}
+          value={value}
+          disabled={disabled}
+          onChange={(event) => onChange(event.target.value)}
+          className="h-12 w-full appearance-none rounded-2xl border border-brand/15 bg-background/80 px-3 pr-11 text-sm font-bold outline-none transition-colors focus:border-brand/40 focus:ring-2 focus:ring-brand/15 disabled:cursor-not-allowed disabled:opacity-65"
+        >
+          <option value="">Selecione</option>
+          {teams.map((team) => (
+            <option key={team.id} value={team.id}>
+              {team.name}
+            </option>
+          ))}
+        </select>
+        <BiChevronDown className="pointer-events-none absolute right-4 top-1/2 size-5 -translate-y-1/2 text-muted-foreground" />
+      </div>
     </div>
   );
 }
@@ -1139,9 +1229,42 @@ function OperatorSummaryCard({ summary }: { summary: AdminPoolSummary }) {
 
 function MiniStat({ label, value }: { label: number | string; value: number | string }) {
   return (
-    <div className="rounded-2xl bg-muted/60 p-3">
-      <p className="text-xl font-extrabold tabular-nums">{value}</p>
+    <div className="min-w-0 rounded-2xl bg-muted/60 p-3">
+      <p className="break-words text-lg font-extrabold tabular-nums sm:text-xl">{value}</p>
       <p className="text-[10px] font-bold uppercase text-muted-foreground">{label}</p>
+    </div>
+  );
+}
+
+function PrizePlaceCard({
+  place,
+  label,
+  value,
+  tone,
+}: {
+  place: string;
+  label: string;
+  value: string;
+  tone: Exclude<Tone, "neutral">;
+}) {
+  const toneClass =
+    tone === "warning"
+      ? "bg-warning/10 text-warning ring-warning/20"
+      : tone === "success"
+        ? "bg-success/10 text-success ring-success/20"
+        : "bg-brand/10 text-brand ring-brand/20";
+
+  return (
+    <div className={cn("min-w-0 rounded-2xl p-3 ring-1", toneClass)}>
+      <div className="flex items-center justify-between gap-2">
+        <span className="rounded-full bg-background/60 px-2 py-1 text-[10px] font-black uppercase leading-none">
+          {place}
+        </span>
+        <span className="text-[10px] font-extrabold uppercase opacity-80">{label}</span>
+      </div>
+      <p className="mt-3 break-words text-xl font-black tabular-nums tracking-tight sm:text-2xl">
+        {value}
+      </p>
     </div>
   );
 }
@@ -1159,7 +1282,9 @@ function StatusPill({ label, tone }: { label: string; tone: Tone }) {
           : "bg-muted text-muted-foreground ring-border";
 
   return (
-    <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-extrabold ring-1 ${className}`}>
+    <span
+      className={`inline-flex h-7 shrink-0 items-center rounded-full px-3 text-xs font-extrabold leading-none ring-1 ${className}`}
+    >
       {label}
     </span>
   );
@@ -1180,11 +1305,11 @@ function calcTimeLeft(target: Date): TimeLeft | null {
 
 function Metric({ icon: Icon, label, value }: { icon: IconType; label: string; value: string }) {
   return (
-    <div className="rounded-2xl bg-muted/60 p-4">
+    <div className="min-w-0 rounded-2xl bg-muted/60 p-4">
       <div className="grid size-9 place-items-center rounded-xl bg-brand/12 text-brand">
         <Icon className="size-5" />
       </div>
-      <p className="mt-2 text-xl font-extrabold">{value}</p>
+      <p className="mt-2 break-words text-lg font-extrabold sm:text-xl">{value}</p>
       <p className="text-[11px] text-muted-foreground">{label}</p>
     </div>
   );
@@ -1233,11 +1358,11 @@ function EnrollmentStatus({ status }: { status: string }) {
 }
 
 function enrollmentStatusHelp(status: string) {
-  const map: Record<string, string> = {
-    none: "Entre no bolão quando as inscrições estiverem abertas.",
+  const map: Record<string, string | null> = {
+    none: null,
     requested: "Solicitação enviada. Faça o pagamento para ativar sua inscrição.",
     payment_pending: "Pendente de pagamento. Use o botão abaixo para pagar a inscrição.",
-    active: "Você já participa do ranking oficial do bolão.",
+    active: null,
     removed:
       "Você não faz mais parte do bolão. O reembolso será tratado manualmente pelo administrador.",
     refund_pending:
@@ -1245,7 +1370,7 @@ function enrollmentStatusHelp(status: string) {
     rejected: "Sua solicitação não foi aprovada.",
     cancelled: "Sua inscrição foi cancelada.",
   };
-  return map[status] ?? "Status em análise.";
+  return map[status] ?? null;
 }
 
 function paymentStatusLabel(status: string) {
@@ -1359,7 +1484,7 @@ function getPoolPhase(summary: PoolSummary, poolEndsFallbackAt: string | null): 
       kind: "enrollment_open",
       title: "Inscrições encerram em",
       label: "Inscrições abertas",
-      description: "Entre no bolão, confirme a inscrição e acompanhe seu status aqui.",
+      description: "",
       target: closesAt,
       tone: "brand",
       ctaEnabled: summary.status !== "closed" && summary.status !== "archived",
@@ -1398,7 +1523,7 @@ function getPoolPhase(summary: PoolSummary, poolEndsFallbackAt: string | null): 
       kind: "enrollment_open",
       title: "Inscrições encerram em",
       label: "Inscrições abertas",
-      description: "Entre no bolão, confirme a inscrição e acompanhe seu status aqui.",
+      description: "",
       target: closesAt,
       tone: "brand",
       ctaEnabled: true,
