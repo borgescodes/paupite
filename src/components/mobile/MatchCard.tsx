@@ -225,47 +225,70 @@ function KnockoutPredictionFields({
 
   if (!tied) {
     return (
-      <div className="rounded-2xl bg-brand/8 p-3 text-xs text-muted-foreground">
-        <p className="font-bold text-foreground">Classificação automática</p>
-        <p className="mt-1">
-          {qualifiedTeamName} se classifica por {qualificationMethodLabel("regulation")}.
-        </p>
+      <div className="space-y-3 rounded-2xl bg-brand/8 p-3 text-xs text-muted-foreground">
+        <div>
+          <p className="font-bold text-foreground">Classificação automática</p>
+          <p className="mt-1">{qualifiedTeamName} se classifica pelo placar informado.</p>
+        </div>
+
+        <div className="space-y-2">
+          <p className="text-xs font-extrabold uppercase text-muted-foreground">Como venceu?</p>
+          <div className="grid grid-cols-2 gap-2">
+            {(["regulation", "extra_time"] as QualificationMethod[]).map((method) => (
+              <ChoiceButton
+                key={method}
+                active={value.qualificationMethod === method}
+                disabled={disabled}
+                onClick={() =>
+                  onChange?.({
+                    ...value,
+                    qualifiedTeamId: null,
+                    qualificationMethod: method,
+                  })
+                }
+              >
+                {qualificationMethodLabel(method)}
+              </ChoiceButton>
+            ))}
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="space-y-3 rounded-2xl bg-background/45 p-3">
-      <p className="text-xs font-extrabold uppercase text-muted-foreground">Quem se classifica?</p>
+      <div>
+        <p className="text-xs font-extrabold uppercase text-muted-foreground">Quem se classifica nos pênaltis?</p>
+        <p className="mt-1 text-xs text-muted-foreground">Placar empatado define método automaticamente.</p>
+      </div>
       <div className="grid grid-cols-2 gap-2">
         <ChoiceButton
           active={value.qualifiedTeamId === data.home.id}
           disabled={disabled}
-          onClick={() => onChange?.({ ...value, qualifiedTeamId: data.home.id })}
+          onClick={() =>
+            onChange?.({
+              ...value,
+              qualifiedTeamId: data.home.id,
+              qualificationMethod: "penalties",
+            })
+          }
         >
           {data.home.name ?? data.home.shortName}
         </ChoiceButton>
         <ChoiceButton
           active={value.qualifiedTeamId === data.away.id}
           disabled={disabled}
-          onClick={() => onChange?.({ ...value, qualifiedTeamId: data.away.id })}
+          onClick={() =>
+            onChange?.({
+              ...value,
+              qualifiedTeamId: data.away.id,
+              qualificationMethod: "penalties",
+            })
+          }
         >
           {data.away.name ?? data.away.shortName}
         </ChoiceButton>
-      </div>
-
-      <p className="text-xs font-extrabold uppercase text-muted-foreground">Como se classifica?</p>
-      <div className="grid grid-cols-2 gap-2">
-        {(["extra_time", "penalties"] as QualificationMethod[]).map((method) => (
-          <ChoiceButton
-            key={method}
-            active={value.qualificationMethod === method}
-            disabled={disabled}
-            onClick={() => onChange?.({ ...value, qualificationMethod: method })}
-          >
-            {qualificationMethodLabel(method)}
-          </ChoiceButton>
-        ))}
       </div>
     </div>
   );
@@ -294,6 +317,31 @@ function ChoiceButton({
       {children}
     </Button>
   );
+}
+
+function normalizeKnockoutDraft(value: PredictionValue, data: MatchCardData) {
+  if (!data.knockout) return value;
+
+  if (value.home === value.away) {
+    const validQualifiedTeamId = [data.home.id, data.away.id].includes(value.qualifiedTeamId)
+      ? value.qualifiedTeamId
+      : null;
+
+    return {
+      ...value,
+      qualifiedTeamId: validQualifiedTeamId,
+      qualificationMethod: validQualifiedTeamId ? ("penalties" as const) : null,
+    };
+  }
+
+  return {
+    ...value,
+    qualifiedTeamId: null,
+    qualificationMethod:
+      value.qualificationMethod === "regulation" || value.qualificationMethod === "extra_time"
+        ? value.qualificationMethod
+        : null,
+  };
 }
 
 function MatchCard({
@@ -369,14 +417,16 @@ function MatchCard({
               <div className={cn(!data.paupiteOpen && "opacity-60")}>
                 {data.knockout && (
                   <p className="mb-2 text-center text-xs font-bold text-muted-foreground">
-                    Placar no tempo regulamentar
+                    Placar final antes dos pênaltis
                   </p>
                 )}
                 <ScoreStepper
                   home={data.home}
                   away={data.away}
                   value={currentGuess}
-                  onChange={(next) => onGuessChange?.({ ...currentGuess, ...next })}
+                  onChange={(next) =>
+                    onGuessChange?.(normalizeKnockoutDraft({ ...currentGuess, ...next }, data))
+                  }
                   disabled={!data.paupiteOpen}
                 />
                 {data.knockout && (
