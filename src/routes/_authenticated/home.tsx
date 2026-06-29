@@ -256,9 +256,6 @@ function HomePage() {
           <div className="px-1">
             <p className="eyebrow text-brand">Copa do Mundo 2026</p>
             <h1 className="mt-1 text-2xl font-extrabold tracking-tight">Partidas e palpites</h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Escolha o placar antes do início de cada jogo.
-            </p>
           </div>
           {error && (
             <div className="glass-card flex items-start gap-2 rounded-2xl border-destructive/30 p-3 text-sm text-destructive">
