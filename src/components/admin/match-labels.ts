@@ -26,10 +26,10 @@ function stageLabelFallback(stage: string) {
   );
 }
 
-export function matchStatusLabel(status: string, future: boolean) {
+export function matchStatusLabel(status: string, future: boolean, temporalStatus = status) {
   if (status === "closed") return "Pontuação calculada";
-  if (status === "finished") return "Encerrado";
-  if (status === "live") return "Em andamento";
+  if (status === "finished" || temporalStatus === "finished") return "Encerrado";
+  if (status === "live" || temporalStatus === "live") return "Em andamento";
   if (future) return "Aberto para palpite";
   return "Agendado";
 }
