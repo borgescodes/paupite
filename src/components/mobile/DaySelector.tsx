@@ -14,10 +14,12 @@ function DaySelector({ days, selectedDate, onSelect, className }: DaySelectorPro
   const containerRef = React.useRef<HTMLDivElement>(null);
   const buttonRefs = React.useRef<Record<string, HTMLButtonElement | null>>({});
   const scrollTimerRef = React.useRef<ReturnType<typeof window.setTimeout> | null>(null);
+  const ignoreScrollSyncUntilRef = React.useRef(0);
   const selectedDateRef = React.useRef(selectedDate);
 
   React.useEffect(() => {
     selectedDateRef.current = selectedDate;
+    ignoreScrollSyncUntilRef.current = Date.now() + 450;
     buttonRefs.current[selectedDate]?.scrollIntoView({
       behavior: "smooth",
       inline: "center",
@@ -33,6 +35,8 @@ function DaySelector({ days, selectedDate, onSelect, className }: DaySelectorPro
   );
 
   const syncSelectedDateFromScroll = React.useCallback(() => {
+    if (Date.now() < ignoreScrollSyncUntilRef.current) return;
+
     const container = containerRef.current;
     if (!container) return;
 
@@ -79,7 +83,11 @@ function DaySelector({ days, selectedDate, onSelect, className }: DaySelectorPro
               buttonRefs.current[day.date] = node;
             }}
             type="button"
-            onClick={() => onSelect?.(day.date)}
+            onClick={() => {
+              selectedDateRef.current = day.date;
+              ignoreScrollSyncUntilRef.current = Date.now() + 450;
+              onSelect?.(day.date);
+            }}
             aria-current={isSelected ? "date" : undefined}
             className={cn(
               "tap-feedback flex min-w-[4.5rem] shrink-0 snap-center scroll-mx-3 flex-col items-center gap-0.5 rounded-2xl px-3 py-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/35",
