@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { BiCalculator, BiLockAlt, BiMinus, BiPlus, BiSave, BiTrophy } from "react-icons/bi";
 
-import { resultStatusOptions } from "../../../../../../Videos/ALM Sync Lite/paupite-main-admin-result-fix (1)/paupite-main/src/components/admin/match-labels.ts";
-import type { AdminMatch } from "../../../../../../Videos/ALM Sync Lite/paupite-main-admin-result-fix (1)/paupite-main/src/components/admin/match-types.ts";
+import { resultStatusOptions } from "@/components/admin/match-labels.ts";
+import type { AdminMatch } from "@/components/admin/match-types.ts";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -12,8 +12,8 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "../../../../../../Videos/ALM Sync Lite/paupite-main-admin-result-fix (1)/paupite-main/src/components/ui/alert-dialog.tsx";
-import { Button } from "../../../../../../Videos/ALM Sync Lite/paupite-main-admin-result-fix (1)/paupite-main/src/components/ui/button.tsx";
+} from "@/components/ui/alert-dialog.tsx";
+import { Button } from "@/components/ui/button.tsx";
 import {
   Drawer,
   DrawerClose,
@@ -22,15 +22,15 @@ import {
   DrawerFooter,
   DrawerHeader,
   DrawerTitle,
-} from "../../../../../../Videos/ALM Sync Lite/paupite-main-admin-result-fix (1)/paupite-main/src/components/ui/drawer.tsx";
-import { Input } from "../../../../../../Videos/ALM Sync Lite/paupite-main-admin-result-fix (1)/paupite-main/src/components/ui/input.tsx";
-import { Label } from "../../../../../../Videos/ALM Sync Lite/paupite-main-admin-result-fix (1)/paupite-main/src/components/ui/label.tsx";
+} from "@/components/ui/drawer.tsx";
+import { Input } from "@/components/ui/input.tsx";
+import { Label } from "@/components/ui/label.tsx";
 import {
   isKnockoutStage,
   qualificationMethodLabel,
   type QualificationMethod,
-} from "../../../../../../Videos/ALM Sync Lite/paupite-main-admin-result-fix (1)/paupite-main/src/lib/knockout.ts";
-import { deriveMatchTemporalStatus, isMatchFuture } from "../../../../../../Videos/ALM Sync Lite/paupite-main-admin-result-fix (1)/paupite-main/src/lib/match-status.ts";
+} from "@/lib/knockout.ts";
+import { deriveMatchTemporalStatus, isMatchFuture } from "@/lib/match-status.ts";
 
 export function AdminResultSheet({
   open,
