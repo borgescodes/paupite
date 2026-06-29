@@ -13,7 +13,7 @@ export interface DaySelectorProps {
 function DaySelector({ days, selectedDate, onSelect, className }: DaySelectorProps) {
   const containerRef = React.useRef<HTMLDivElement>(null);
   const buttonRefs = React.useRef<Record<string, HTMLButtonElement | null>>({});
-  const scrollTimerRef = React.useRef<ReturnType<typeof window.setTimeout> | null>(null);
+  const scrollTimerRef = React.useRef<number | null>(null);
   const ignoreScrollSyncUntilRef = React.useRef(0);
   const selectedDateRef = React.useRef(selectedDate);
 
