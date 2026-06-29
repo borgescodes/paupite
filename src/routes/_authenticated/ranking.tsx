@@ -101,6 +101,8 @@ const rankingQueryKey = (mode: RankingMode, userId: string | null | undefined) =
 const scoreRulesQueryKey = ["pool-scoring-rules"] as const;
 const publicProfileHistoryQueryKey = (userId: string | null | undefined) =>
   ["public-profile-history", userId] as const;
+const softTabTriggerClass =
+  "rounded-xl text-muted-foreground transition-all hover:bg-brand/10 hover:text-brand data-[state=active]:bg-brand/12 data-[state=active]:text-brand data-[state=active]:shadow-none data-[state=active]:ring-1 data-[state=active]:ring-brand/15";
 
 function RankingPage() {
   const { user } = useAuth();
@@ -145,9 +147,13 @@ function RankingPage() {
         <ScoreExplanationCard rules={scoreRulesQuery.data ?? null} mode={mode} />
 
         <Tabs value={mode} onValueChange={(value) => setMode(value as "free" | "pool")}>
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="free">Da Resenha</TabsTrigger>
-            <TabsTrigger value="pool">Do Bolão</TabsTrigger>
+          <TabsList className="grid h-auto w-full grid-cols-2 gap-1 rounded-2xl bg-muted/45 p-1 ring-1 ring-border/40">
+            <TabsTrigger value="free" className={softTabTriggerClass}>
+              Da Resenha
+            </TabsTrigger>
+            <TabsTrigger value="pool" className={softTabTriggerClass}>
+              Do Bolão
+            </TabsTrigger>
           </TabsList>
         </Tabs>
 
