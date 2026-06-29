@@ -116,7 +116,10 @@ export function deriveKnockoutPredictionFields(input: KnockoutPredictionInput) {
   if (input.homeScore > input.awayScore) {
     return {
       qualifiedTeamId: input.homeTeamId ?? null,
-      qualificationMethod: "regulation" as const,
+      qualificationMethod:
+        input.qualificationMethod === "regulation" || input.qualificationMethod === "extra_time"
+          ? input.qualificationMethod
+          : null,
       locked: true,
     };
   }
@@ -124,14 +127,17 @@ export function deriveKnockoutPredictionFields(input: KnockoutPredictionInput) {
   if (input.awayScore > input.homeScore) {
     return {
       qualifiedTeamId: input.awayTeamId ?? null,
-      qualificationMethod: "regulation" as const,
+      qualificationMethod:
+        input.qualificationMethod === "regulation" || input.qualificationMethod === "extra_time"
+          ? input.qualificationMethod
+          : null,
       locked: true,
     };
   }
 
   return {
     qualifiedTeamId: input.qualifiedTeamId ?? null,
-    qualificationMethod: input.qualificationMethod ?? null,
+    qualificationMethod: input.qualifiedTeamId ? ("penalties" as const) : null,
     locked: false,
   };
 }
@@ -153,10 +159,13 @@ export function validateKnockoutPrediction(input: KnockoutPredictionInput) {
 
   if (input.homeScore !== input.awayScore) {
     if (input.qualifiedTeamId && input.qualifiedTeamId !== derived.qualifiedTeamId) {
-      return "O classificado precisa seguir o placar regulamentar.";
+      return "O classificado precisa seguir o placar informado.";
     }
-    if (input.qualificationMethod && input.qualificationMethod !== "regulation") {
-      return "Vitória no tempo regulamentar não pode ser por prorrogação ou pênaltis.";
+    if (!input.qualificationMethod) {
+      return "Escolha se a vitória foi no tempo regulamentar ou na prorrogação.";
+    }
+    if (!(["regulation", "extra_time"] as QualificationMethod[]).includes(input.qualificationMethod)) {
+      return "Vitória com placar diferente não pode ser por pênaltis.";
     }
     return null;
   }
@@ -165,9 +174,8 @@ export function validateKnockoutPrediction(input: KnockoutPredictionInput) {
   if (![input.homeTeamId, input.awayTeamId].includes(input.qualifiedTeamId)) {
     return "Escolha um classificado válido.";
   }
-  if (!input.qualificationMethod) return "Escolha como o time se classifica.";
-  if (input.qualificationMethod === "regulation") {
-    return "Empate no tempo regulamentar exige prorrogação ou pênaltis.";
+  if (input.qualificationMethod && input.qualificationMethod !== "penalties") {
+    return "Placar empatado exige definição por pênaltis.";
   }
 
   return null;

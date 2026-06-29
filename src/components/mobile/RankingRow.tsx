@@ -1,4 +1,4 @@
-import { Eye, ListChecks, Minus, Target, TrendingDown, TrendingUp, Trophy } from "lucide-react";
+import { Eye, ListChecks, Target, Trophy } from "lucide-react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -141,37 +141,21 @@ export function RankingRow({
 }
 
 export function RankingMovementBadge({ movement }: { movement?: RankingMovement }) {
-  if (movement === undefined) return null;
-
-  if (movement === 0) {
-    return (
-      <span
-        className="inline-flex items-center gap-0.5 rounded-full border border-border bg-muted/35 px-1.5 py-0.5 text-[10px] font-black text-muted-foreground"
-        aria-label="Posição mantida"
-      >
-        <Minus className="size-3" aria-hidden="true" />
-      </span>
-    );
-  }
+  if (movement === undefined || movement === 0) return null;
 
   const up = movement > 0;
   const value = Math.abs(movement);
 
   return (
     <span
-      className={cn(
-        "inline-flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-[10px] font-black tabular-nums",
-        up
-          ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-600"
-          : "border-red-500/25 bg-red-500/10 text-red-600",
-      )}
+      className="inline-flex items-center gap-0.5 text-[10px] font-black tabular-nums"
       aria-label={up ? `Subiu ${value} posições` : `Desceu ${value} posições`}
     >
-      {up ? (
-        <TrendingUp className="size-3" aria-hidden="true" />
-      ) : (
-        <TrendingDown className="size-3" aria-hidden="true" />
-      )}
+      <i
+        className={up ? "bxf bx-caret-up" : "bxf bx-caret-down"}
+        style={{ color: up ? "green" : "red" }}
+        aria-hidden="true"
+      />
       {value}
     </span>
   );
