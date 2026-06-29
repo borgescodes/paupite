@@ -1,4 +1,4 @@
-import { Eye, TrendingDown, TrendingUp } from "lucide-react";
+import { Eye, ListChecks, Minus, Target, TrendingDown, TrendingUp, Trophy } from "lucide-react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -90,10 +90,31 @@ export function RankingRow({
               </span>
             )}
           </div>
-          <p className="mt-0.5 truncate text-[11px] font-bold text-muted-foreground">
-            {row.bets_count ?? 0} palpites · {row.exact_scores_count ?? 0} exatos ·{" "}
-            {row.knockout_qualified_count ?? 0} classif.
-          </p>
+          <div className="mt-0.5 flex min-w-0 items-center gap-1.5 overflow-hidden whitespace-nowrap text-[11px] font-bold text-muted-foreground">
+            <span
+              className="inline-flex shrink-0 items-center gap-0.5"
+              aria-label={`${row.bets_count ?? 0} palpites`}
+            >
+              <ListChecks className="size-3" aria-hidden="true" />
+              {row.bets_count ?? 0}
+            </span>
+            <span aria-hidden="true">·</span>
+            <span
+              className="inline-flex shrink-0 items-center gap-0.5"
+              aria-label={`${row.exact_scores_count ?? 0} exatos`}
+            >
+              <Target className="size-3" aria-hidden="true" />
+              {row.exact_scores_count ?? 0}
+            </span>
+            <span aria-hidden="true">·</span>
+            <span
+              className="inline-flex shrink-0 items-center gap-0.5"
+              aria-label={`${row.knockout_qualified_count ?? 0} classificados`}
+            >
+              <Trophy className="size-3" aria-hidden="true" />
+              {row.knockout_qualified_count ?? 0}
+            </span>
+          </div>
         </div>
       </button>
 
@@ -120,7 +141,18 @@ export function RankingRow({
 }
 
 export function RankingMovementBadge({ movement }: { movement?: RankingMovement }) {
-  if (!movement) return null;
+  if (movement === undefined) return null;
+
+  if (movement === 0) {
+    return (
+      <span
+        className="inline-flex items-center gap-0.5 rounded-full border border-border bg-muted/35 px-1.5 py-0.5 text-[10px] font-black text-muted-foreground"
+        aria-label="Posição mantida"
+      >
+        <Minus className="size-3" aria-hidden="true" />
+      </span>
+    );
+  }
 
   const up = movement > 0;
   const value = Math.abs(movement);
@@ -135,8 +167,11 @@ export function RankingMovementBadge({ movement }: { movement?: RankingMovement 
       )}
       aria-label={up ? `Subiu ${value} posições` : `Desceu ${value} posições`}
     >
-      {up ? <TrendingUp className="size-3" /> : <TrendingDown className="size-3" />}
-      {up ? "+" : "-"}
+      {up ? (
+        <TrendingUp className="size-3" aria-hidden="true" />
+      ) : (
+        <TrendingDown className="size-3" aria-hidden="true" />
+      )}
       {value}
     </span>
   );

@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   BiBarChartAlt2,
   BiBullseye,
@@ -96,9 +96,15 @@ type PublicProfileRpcClient = {
   ) => Promise<{ data: PublicClosedBetHistoryRow[] | null; error: { message: string } | null }>;
 };
 
+type RankingPositionSnapshotRow = {
+  user_id: string | null;
+  movement: number | null;
+};
+
 const rankingQueryKey = (mode: RankingMode, userId: string | null | undefined) =>
   ["ranking", mode, userId] as const;
 const scoreRulesQueryKey = ["pool-scoring-rules"] as const;
+const rankingMovementsQueryKey = (mode: RankingMode) => ["ranking-movements", mode] as const;
 const publicProfileHistoryQueryKey = (userId: string | null | undefined) =>
   ["public-profile-history", userId] as const;
 const softTabTriggerClass =
@@ -118,6 +124,10 @@ function RankingPage() {
     queryKey: scoreRulesQueryKey,
     queryFn: fetchScoreRules,
   });
+  const rankingMovementsQuery = useQuery({
+    queryKey: rankingMovementsQueryKey(mode),
+    queryFn: () => fetchRankingMovements(mode),
+  });
 
   const rows = rankingQuery.data?.rows ?? [];
   const enrollmentStatus = rankingQuery.data?.enrollmentStatus ?? null;
@@ -126,7 +136,7 @@ function RankingPage() {
 
   const podium = rows.slice(0, 3);
   const remaining = rows.slice(3);
-  const rankingMovements = useRankingMovements(mode, rows);
+  const rankingMovements = rankingMovementsQuery.data ?? {};
   const participates = isActiveEnrollment(enrollmentStatus);
   const openOwnProfile = () => void navigate({ to: "/profile" });
 
@@ -139,9 +149,6 @@ function RankingPage() {
           </div>
           <p className="eyebrow mt-3 text-brand">Classificação</p>
           <h1 className="mt-1 text-3xl font-extrabold tracking-tight">Ranking</h1>
-          <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">
-            A Resenha reúne todos os palpites. O Bolão considera apenas inscrições confirmadas.
-          </p>
         </header>
 
         <ScoreExplanationCard rules={scoreRulesQuery.data ?? null} mode={mode} />
@@ -157,9 +164,6 @@ function RankingPage() {
           </TabsList>
         </Tabs>
 
-        <p className="text-center text-[11px] font-bold text-muted-foreground">
-          Setas mostram variação desde sua última visualização neste aparelho.
-        </p>
 
         {mode === "pool" && !participates && !loading && (
           <Card className="glass-card border-brand/25">
@@ -254,44 +258,22 @@ function RankingPage() {
   );
 }
 
-function useRankingMovements(mode: RankingMode, rows: RankingEntry[]) {
-  const [movements, setMovements] = useState<Record<string, RankingMovement>>({});
+async function fetchRankingMovements(mode: RankingMode): Promise<Record<string, RankingMovement>> {
+  const { data, error } = await supabase
+    .from("ranking_position_snapshots")
+    .select("user_id,movement")
+    .eq("mode", mode);
 
-  useEffect(() => {
-    if (!rows.length || typeof window === "undefined") {
-      setMovements({});
-      return;
-    }
+  if (error) return {};
 
-    const storageKey = `paupite-ranking-positions:${mode}`;
-    let previous: Record<string, number> = {};
-
-    try {
-      previous = JSON.parse(window.localStorage.getItem(storageKey) ?? "{}") as Record<
-        string,
-        number
-      >;
-    } catch {
-      previous = {};
-    }
-
-    const nextMovements: Record<string, RankingMovement> = {};
-    const current: Record<string, number> = {};
-
-    for (const row of rows) {
-      if (!row.user_id || !row.rank_position) continue;
-      current[row.user_id] = row.rank_position;
-      const previousPosition = previous[row.user_id];
-      if (previousPosition && previousPosition !== row.rank_position) {
-        nextMovements[row.user_id] = previousPosition - row.rank_position;
-      }
-    }
-
-    setMovements(nextMovements);
-    window.localStorage.setItem(storageKey, JSON.stringify(current));
-  }, [mode, rows]);
-
-  return movements;
+  return ((data ?? []) as RankingPositionSnapshotRow[]).reduce<Record<string, RankingMovement>>(
+    (acc, item) => {
+      if (!item.user_id || item.movement === null) return acc;
+      acc[item.user_id] = item.movement;
+      return acc;
+    },
+    {},
+  );
 }
 
 async function fetchRanking(mode: RankingMode, userId: string | null): Promise<RankingData> {

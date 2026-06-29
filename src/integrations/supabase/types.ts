@@ -853,6 +853,41 @@ export type Database = {
           },
         ]
       }
+      ranking_position_snapshots: {
+        Row: {
+          current_rank_position: number
+          mode: string
+          movement: number
+          previous_rank_position: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          current_rank_position: number
+          mode: string
+          movement?: number
+          previous_rank_position: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          current_rank_position?: number
+          mode?: string
+          movement?: number
+          previous_rank_position?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ranking_position_snapshots_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       teams: {
         Row: {
           country_code: string | null

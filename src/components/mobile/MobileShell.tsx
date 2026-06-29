@@ -1,5 +1,5 @@
 import { useNavigate } from "@tanstack/react-router";
-import { BiFootball, BiGroup, BiShieldQuarter, BiUserCircle } from "react-icons/bi";
+import { BiFootball, BiGroup, BiTrophy, BiUserCircle } from "react-icons/bi";
 
 import { AppHeader } from "@/components/mobile/AppHeader";
 import { TabBar } from "@/components/mobile/TabBar";
@@ -24,17 +24,15 @@ export function MobileShell({
   const tabs = [
     { key: "partidas", label: "Partidas", icon: BiFootball },
     { key: "bolao", label: "Bolão", icon: BiGroup },
+    { key: "ranking", label: "Ranking", icon: BiTrophy },
     { key: "perfil", label: "Perfil", icon: BiUserCircle },
-    ...(["admin", "superadmin"].includes(profile?.role ?? "")
-      ? [{ key: "admin", label: "Admin", icon: BiShieldQuarter }]
-      : []),
   ];
 
   function select(key: string) {
     if (key === "partidas") navigate({ to: "/home" });
     if (key === "bolao") navigate({ to: "/pool" });
+    if (key === "ranking") navigate({ to: "/ranking" });
     if (key === "perfil") navigate({ to: "/profile" });
-    if (key === "admin") navigate({ to: "/admin" });
   }
 
   return (
@@ -45,7 +43,6 @@ export function MobileShell({
         avatarUrl={profile?.avatar_url}
         theme={theme}
         onProfileClick={() => navigate({ to: "/profile" })}
-        onRankingShortcutClick={() => navigate({ to: "/ranking" })}
         onToggleTheme={toggleTheme}
       />
       {children}

@@ -1,5 +1,5 @@
 import * as React from "react";
-import { BiSolidMoon, BiSolidSun, BiSolidTrophy } from "react-icons/bi";
+import { BiSolidMoon, BiSolidSun } from "react-icons/bi";
 
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -13,7 +13,6 @@ export interface AppHeaderProps {
   avatarUrl?: string | null;
   theme: ThemeMode;
   onProfileClick?: () => void;
-  onRankingShortcutClick?: () => void;
   onToggleTheme?: () => void;
   className?: string;
 }
@@ -33,7 +32,6 @@ function AppHeader({
   avatarUrl,
   theme,
   onProfileClick,
-  onRankingShortcutClick,
   onToggleTheme,
   className,
 }: AppHeaderProps) {
@@ -66,14 +64,6 @@ function AppHeader({
         </button>
 
         <div className="flex shrink-0 items-center gap-1.5">
-          <button
-            type="button"
-            onClick={onRankingShortcutClick}
-            aria-label="Ver ranking"
-            className="tap-feedback grid size-10 place-items-center rounded-2xl bg-warning/15 text-warning transition-colors hover:bg-warning/25 focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <BiSolidTrophy className="size-5" />
-          </button>
           <NotificationBell userId={userId} />
           <button
             type="button"
