@@ -503,6 +503,51 @@ export type Database = {
           },
         ]
       }
+      points_reset_backup: {
+        Row: {
+          backup: Json
+          created_at: string
+          id: string
+          reason: string
+        }
+        Insert: {
+          backup: Json
+          created_at?: string
+          id?: string
+          reason: string
+        }
+        Update: {
+          backup?: Json
+          created_at?: string
+          id?: string
+          reason?: string
+        }
+        Relationships: []
+      }
+      pool_delete_backup: {
+        Row: {
+          backup: Json
+          created_at: string
+          id: string
+          pool_id: string
+          pool_slug: string
+        }
+        Insert: {
+          backup: Json
+          created_at?: string
+          id?: string
+          pool_id: string
+          pool_slug: string
+        }
+        Update: {
+          backup?: Json
+          created_at?: string
+          id?: string
+          pool_id?: string
+          pool_slug?: string
+        }
+        Relationships: []
+      }
       pool_scoring_rules: {
         Row: {
           base_points: Json
@@ -745,6 +790,41 @@ export type Database = {
         }
         Relationships: []
       }
+      ranking_position_snapshots: {
+        Row: {
+          current_rank_position: number
+          mode: string
+          movement: number
+          previous_rank_position: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          current_rank_position: number
+          mode: string
+          movement?: number
+          previous_rank_position: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          current_rank_position?: number
+          mode?: string
+          movement?: number
+          previous_rank_position?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ranking_position_snapshots_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       score_rules: {
         Row: {
           created_at: string
@@ -846,41 +926,6 @@ export type Database = {
           },
           {
             foreignKeyName: "special_predictions_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      ranking_position_snapshots: {
-        Row: {
-          current_rank_position: number
-          mode: string
-          movement: number
-          previous_rank_position: number
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          current_rank_position: number
-          mode: string
-          movement?: number
-          previous_rank_position: number
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          current_rank_position?: number
-          mode?: string
-          movement?: number
-          previous_rank_position?: number
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "ranking_position_snapshots_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -1011,6 +1056,10 @@ export type Database = {
         Args: { _match_id: string }
         Returns: number
       }
+      admin_refresh_ranking_position_snapshots: {
+        Args: never
+        Returns: undefined
+      }
       admin_set_match_status: {
         Args: { _match_id: string; _new_status: string }
         Returns: number
@@ -1032,6 +1081,22 @@ export type Database = {
           _home_bet: number
         }
         Returns: number
+      }
+      get_public_profile_closed_bets: {
+        Args: { _user_id: string }
+        Returns: {
+          away: string
+          away_country_code: string
+          final_away: number
+          final_home: number
+          guess_away: number
+          guess_home: number
+          home: string
+          home_country_code: string
+          kickoff_at: string
+          match_id: string
+          points: number
+        }[]
       }
     }
     Enums: {
