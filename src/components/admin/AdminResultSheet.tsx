@@ -21,6 +21,7 @@ import {
   qualificationMethodLabel,
   type QualificationMethod,
 } from "@/lib/knockout";
+import { deriveMatchTemporalStatus, isMatchFuture } from "@/lib/match-status";
 
 export function AdminResultSheet({
   open,
@@ -53,12 +54,14 @@ export function AdminResultSheet({
     if (!match || !open) return;
     setHomeScore(match.regulation_home_score ?? match.home_score);
     setAwayScore(match.regulation_away_score ?? match.away_score);
-    setStatus(match.status === "live" ? "live" : "finished");
+    setStatus(
+      deriveMatchTemporalStatus(match.status, match.kickoff_at) === "live" ? "live" : "finished",
+    );
     setQualifiedTeamId(match.qualified_team_id);
     setQualificationMethod(match.qualification_method);
   }, [match, open]);
 
-  const future = match ? new Date(match.kickoff_at) > new Date() : true;
+  const future = match ? isMatchFuture(match.kickoff_at) : true;
   const knockout = isKnockoutStage(match?.stage);
   const tied = homeScore === awayScore;
   const derived = deriveKnockoutPredictionFields({

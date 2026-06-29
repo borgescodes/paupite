@@ -7,6 +7,7 @@ import { StatusBadge } from "@/components/mobile/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { parseBracketSource } from "@/lib/knockout";
+import { deriveMatchTemporalStatus, isMatchFuture } from "@/lib/match-status";
 
 export function AdminMatchCard({
   match,
@@ -17,7 +18,8 @@ export function AdminMatchCard({
   onEdit: () => void;
   onResult: () => void;
 }) {
-  const future = new Date(match.kickoff_at) > new Date();
+  const future = isMatchFuture(match.kickoff_at);
+  const temporalStatus = deriveMatchTemporalStatus(match.status, match.kickoff_at);
   const canSetResult = !future && match.status !== "closed";
   const home =
     match.home_team?.name ?? parseBracketSource(match.bracket_source_home)?.label ?? "A definir";
@@ -28,9 +30,9 @@ export function AdminMatchCard({
     <Card className="glass-card interactive-card overflow-hidden">
       <div
         className={
-          match.status === "closed"
+          temporalStatus === "finished"
             ? "h-1 bg-success"
-            : match.status === "live"
+            : temporalStatus === "live"
               ? "h-1 bg-live"
               : "h-1 bg-brand"
         }
@@ -49,17 +51,17 @@ export function AdminMatchCard({
           </div>
           <StatusBadge
             variant={
-              match.status === "closed"
+              temporalStatus === "finished"
                 ? "success"
-                : match.status === "live"
+                : temporalStatus === "live"
                   ? "live"
                   : future
                     ? "brand"
                     : "warning"
             }
-            pulse={match.status === "live"}
+            pulse={temporalStatus === "live"}
           >
-            {matchStatusLabel(match.status, future)}
+            {matchStatusLabel(match.status, future, temporalStatus)}
           </StatusBadge>
         </div>
 
@@ -70,7 +72,7 @@ export function AdminMatchCard({
             countryCode={match.home_team?.country_code}
           />
           <div className="text-center">
-            {match.status === "scheduled" ? (
+            {temporalStatus === "scheduled" ? (
               <span className="text-sm font-extrabold text-muted-foreground">VS</span>
             ) : (
               <span className="text-2xl font-extrabold tabular-nums">
@@ -105,7 +107,7 @@ export function AdminMatchCard({
           >
             {future ? (
               <BiSolidLock className="size-4" />
-            ) : match.status === "scheduled" ? (
+            ) : temporalStatus === "live" ? (
               <BiPlayCircle className="size-5" />
             ) : (
               <BiTrophy className="size-5" />

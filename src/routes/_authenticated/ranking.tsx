@@ -69,6 +69,7 @@ type PoolScoringRules = {
 
 type PublicClosedBetHistoryItem = {
   matchId: string;
+  status: "live" | "finished";
   home: string;
   away: string;
   finalHome: number;
@@ -80,6 +81,7 @@ type PublicClosedBetHistoryItem = {
 
 type PublicClosedBetHistoryRow = {
   match_id: string;
+  status: "live" | "finished" | null;
   home: string | null;
   away: string | null;
   final_home: number | null;
@@ -163,7 +165,6 @@ function RankingPage() {
             </TabsTrigger>
           </TabsList>
         </Tabs>
-
 
         {mode === "pool" && !participates && !loading && (
           <Card className="glass-card border-brand/25">
@@ -314,6 +315,7 @@ async function fetchPublicClosedBetHistory(userId: string): Promise<PublicClosed
 
   return ((data ?? []) as PublicClosedBetHistoryRow[]).map((item) => ({
     matchId: item.match_id,
+    status: item.status ?? "finished",
     home: item.home || "Casa",
     away: item.away || "Fora",
     finalHome: item.final_home ?? 0,
@@ -492,7 +494,7 @@ function PublicProfileDrawer({
           </section>
 
           <section className="mt-4 space-y-2">
-            <p className="font-extrabold">Histórico encerrado</p>
+            <p className="font-extrabold">Histórico de palpites</p>
             {historyQuery.isLoading && <Skeleton className="h-24 rounded-2xl" />}
             {!historyQuery.isLoading && history.length === 0 && (
               <p className="rounded-2xl border border-dashed border-border p-4 text-sm text-muted-foreground">
@@ -508,12 +510,17 @@ function PublicProfileDrawer({
                   <p className="min-w-0 truncate font-extrabold">
                     {item.home} x {item.away}
                   </p>
-                  <span className="shrink-0 rounded-full bg-brand/10 px-2 py-1 text-xs font-bold text-brand">
-                    {item.points} pts
+                  <span
+                    className={cn(
+                      "shrink-0 rounded-full px-2 py-1 text-xs font-bold",
+                      item.status === "live" ? "bg-live/10 text-live" : "bg-brand/10 text-brand",
+                    )}
+                  >
+                    {item.status === "live" ? "Em andamento" : `${item.points} pts`}
                   </span>
                 </div>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Resultado{" "}
+                  {item.status === "live" ? "Placar atual" : "Resultado"}{" "}
                   <strong className="text-foreground">
                     {item.finalHome} - {item.finalAway}
                   </strong>{" "}

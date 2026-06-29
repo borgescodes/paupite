@@ -20,6 +20,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
 import { callEdgeFunction } from "@/lib/edge";
 import type { QualificationMethod } from "@/lib/knockout";
+import { deriveMatchTemporalStatus } from "@/lib/match-status";
 
 export function MatchesAdmin() {
   const [teams, setTeams] = useState<AdminTeam[]>([]);
@@ -77,17 +78,15 @@ export function MatchesAdmin() {
   const filteredMatches = useMemo(() => {
     const query = search.trim().toLocaleLowerCase("pt-BR");
     return matches.filter((match) => {
-      const kickoff = new Date(match.kickoff_at);
+      const temporalStatus = deriveMatchTemporalStatus(match.status, match.kickoff_at);
       const operationalStatus =
         match.status === "closed"
           ? "closed"
-          : match.status === "live"
+          : temporalStatus === "live"
             ? "live"
-            : match.status === "finished"
+            : temporalStatus === "finished"
               ? "finished"
-              : kickoff > new Date()
-                ? "future"
-                : "pending";
+              : "future";
       const names =
         `${match.home_team?.name ?? ""} ${match.away_team?.name ?? ""}`.toLocaleLowerCase("pt-BR");
       return (
@@ -234,7 +233,6 @@ export function MatchesAdmin() {
             <option value="future">Aberto para palpite</option>
             <option value="live">Em andamento</option>
             <option value="finished">Encerrado</option>
-            <option value="pending">Agendado</option>
             <option value="closed">Pontuação calculada</option>
           </NativeSelect>
           <NativeSelect id="filter-stage" value={stage} onChange={setStage}>

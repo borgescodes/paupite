@@ -25,6 +25,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/hooks/use-auth";
 import { useThemeMode, type AccentTheme } from "@/hooks/use-theme";
 import { supabase } from "@/integrations/supabase/client";
+import { deriveMatchTemporalStatus } from "@/lib/match-status";
 import type { RankingEntry } from "@/lib/ranking";
 
 type Stats = Pick<
@@ -55,6 +56,7 @@ type ClosedBetHistoryItem = {
   kickoffAt: string;
   home: string;
   away: string;
+  status: "live" | "finished";
   finalHome: number;
   finalAway: number;
   guessHome: number;
@@ -72,6 +74,7 @@ type BetHistoryRow = {
 type MatchHistoryRow = {
   id: string;
   kickoff_at: string;
+  status: string;
   home_score: number;
   away_score: number;
   home_team?: { short_name: string | null; name: string | null } | null;
@@ -301,7 +304,7 @@ async function fetchProfileStats(userId: string): Promise<ProfileStatsData> {
       .select(
         "id,kickoff_at,status,home_score,away_score,home_team:teams!matches_home_team_id_fkey(short_name,name),away_team:teams!matches_away_team_id_fkey(short_name,name)",
       )
-      .in("status", ["finished", "closed"])
+      .lte("kickoff_at", new Date().toISOString())
       .order("kickoff_at", { ascending: false }),
   ]);
 
@@ -334,9 +337,12 @@ function buildClosedBetHistory(
     .map((match) => {
       const bet = betByMatch.get(match.id);
       if (!bet) return null;
+      const status = deriveMatchTemporalStatus(match.status, match.kickoff_at);
+      if (status === "scheduled") return null;
       return {
         matchId: match.id,
         kickoffAt: match.kickoff_at,
+        status,
         home: match.home_team?.short_name || match.home_team?.name || "Casa",
         away: match.away_team?.short_name || match.away_team?.name || "Fora",
         finalHome: match.home_score ?? 0,
@@ -427,7 +433,7 @@ function HistoryCard({ history, stats }: { history: ClosedBetHistoryItem[]; stat
           <BiListUl className="size-4" />
           Histórico
         </p>
-        <CardTitle className="text-lg">Palpites encerrados</CardTitle>
+        <CardTitle className="text-lg">Histórico de palpites</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid grid-cols-2 gap-2 text-sm">
@@ -448,13 +454,19 @@ function HistoryCard({ history, stats }: { history: ClosedBetHistoryItem[]; stat
                   <p className="min-w-0 truncate font-extrabold">
                     {item.home} x {item.away}
                   </p>
-                  <span className="shrink-0 rounded-full bg-brand/10 px-2 py-1 text-xs font-bold text-brand">
-                    {item.points} pts
+                  <span
+                    className={
+                      item.status === "live"
+                        ? "shrink-0 rounded-full bg-live/10 px-2 py-1 text-xs font-bold text-live"
+                        : "shrink-0 rounded-full bg-brand/10 px-2 py-1 text-xs font-bold text-brand"
+                    }
+                  >
+                    {item.status === "live" ? "Em andamento" : `${item.points} pts`}
                   </span>
                 </div>
                 <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
                   <span>
-                    Resultado:{" "}
+                    {item.status === "live" ? "Placar atual:" : "Resultado:"}{" "}
                     <strong className="text-foreground">
                       {item.finalHome} - {item.finalAway}
                     </strong>
@@ -471,7 +483,7 @@ function HistoryCard({ history, stats }: { history: ClosedBetHistoryItem[]; stat
           </div>
         ) : (
           <p className="rounded-2xl border border-dashed border-border p-4 text-center text-sm text-muted-foreground">
-            Nenhum palpite encerrado ainda.
+            Nenhum palpite visível ainda.
           </p>
         )}
       </CardContent>

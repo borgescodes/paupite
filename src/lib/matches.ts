@@ -18,6 +18,7 @@ import {
   type KnockoutScoringRules,
   type QualificationMethod,
 } from "@/lib/knockout";
+import { deriveMatchTemporalStatus } from "@/lib/match-status";
 
 export interface BetTrend {
   match_id: string;
@@ -110,7 +111,7 @@ export function toMatchCard(
 ): MatchCardData {
   const kickoff = new Date(match.kickoff_at);
   const locked = kickoff.getTime() <= Date.now();
-  const status = normalizeStatus(match.status);
+  const status = deriveMatchTemporalStatus(match.status, kickoff);
   const knockout = isKnockoutStage(match.stage);
   const score = {
     home: match.regulation_home_score ?? match.home_score,
@@ -182,12 +183,6 @@ export function toMatchCard(
     },
     megaBrain: trendsToForecast(trend),
   };
-}
-
-function normalizeStatus(status: string): MatchCardData["status"] {
-  if (status === "live") return "live";
-  if (status === "finished" || status === "closed") return "finished";
-  return "scheduled";
 }
 
 function toTeam(team: MatchTeamRow | null, sourceLabel?: string | null) {
