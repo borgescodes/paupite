@@ -112,6 +112,18 @@ function FinalScoreRow({ data, score }: { data: MatchCardData; score: ScoreValue
   );
 }
 
+function KnockoutOfficialDecision({ data }: { data: MatchCardData }) {
+  if (!data.knockout?.qualifiedTeamId || !data.knockout.qualificationMethod) return null;
+
+  return (
+    <div className="mx-auto flex w-fit items-center gap-1.5 rounded-full bg-success/10 px-3 py-1.5 text-xs font-extrabold text-success">
+      <span>{teamLabelById(data, data.knockout.qualifiedTeamId)}</span>
+      <span className="text-success/60">·</span>
+      <span>{shortQualificationMethodLabel(data.knockout.qualificationMethod)}</span>
+    </div>
+  );
+}
+
 function MegaBrainBlock({
   forecast,
   home,
@@ -259,8 +271,12 @@ function KnockoutPredictionFields({
   return (
     <div className="space-y-3 rounded-2xl bg-background/45 p-3">
       <div>
-        <p className="text-xs font-extrabold uppercase text-muted-foreground">Quem se classifica nos pênaltis?</p>
-        <p className="mt-1 text-xs text-muted-foreground">Placar empatado define método automaticamente.</p>
+        <p className="text-xs font-extrabold uppercase text-muted-foreground">
+          Quem se classifica nos pênaltis?
+        </p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Placar empatado define método automaticamente.
+        </p>
       </div>
       <div className="grid grid-cols-2 gap-2">
         <ChoiceButton
@@ -502,6 +518,7 @@ function MatchCard({
           <div className="space-y-3">
             <p className="eyebrow text-center text-muted-foreground">Resultado oficial</p>
             <FinalScoreRow data={data} score={data.finalScore} />
+            <KnockoutOfficialDecision data={data} />
             {data.guess.value ? (
               <div className="rounded-2xl bg-muted/70 px-3 py-2.5 text-center text-xs text-muted-foreground">
                 Seu palpite: <ScoreText score={data.guess.value} />
@@ -533,6 +550,15 @@ function MatchCard({
       </CardContent>
     </Card>
   );
+}
+
+function shortQualificationMethodLabel(method: QualificationMethod) {
+  const labels: Record<QualificationMethod, string> = {
+    regulation: "Regulamentar",
+    extra_time: "Prorrogação",
+    penalties: "Pênaltis",
+  };
+  return labels[method];
 }
 
 function teamLabelById(data: MatchCardData, teamId: string) {

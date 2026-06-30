@@ -793,6 +793,51 @@ export type Database = {
         }
         Relationships: []
       }
+      ranking_position_movement_events: {
+        Row: {
+          created_at: string
+          current_rank_position: number
+          match_id: string
+          mode: string
+          movement: number
+          previous_rank_position: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          current_rank_position: number
+          match_id: string
+          mode: string
+          movement?: number
+          previous_rank_position: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          current_rank_position?: number
+          match_id?: string
+          mode?: string
+          movement?: number
+          previous_rank_position?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ranking_position_movement_events_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: false
+            referencedRelation: "matches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ranking_position_movement_events_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ranking_position_snapshots: {
         Row: {
           current_rank_position: number
@@ -1001,6 +1046,60 @@ export type Database = {
           title: string | null
         }
         Relationships: []
+      }
+      ranking_latest_movement_events: {
+        Row: {
+          created_at: string | null
+          current_rank_position: number | null
+          match_id: string | null
+          mode: string | null
+          movement: number | null
+          previous_rank_position: number | null
+          user_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ranking_position_movement_events_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: false
+            referencedRelation: "matches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ranking_position_movement_events_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ranking_current_movement_events: {
+        Row: {
+          created_at: string | null
+          current_rank_position: number | null
+          match_id: string | null
+          mode: string | null
+          movement: number | null
+          previous_rank_position: number | null
+          user_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ranking_position_movement_events_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: false
+            referencedRelation: "matches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ranking_position_movement_events_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       ranking: {
         Row: {

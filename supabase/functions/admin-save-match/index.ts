@@ -84,7 +84,7 @@ Deno.serve(async (req) => {
         throw new HttpError(403, "Somente o superadmin altera partida fechada.");
       }
       const kickoff = body.kickoff_at ? new Date(body.kickoff_at) : new Date(current.kickoff_at);
-      const patch = {
+      const patch: Record<string, unknown> = {
         competition_id: body.competition_id ?? current.competition_id,
         home_team_id: body.home_team_id ?? current.home_team_id,
         away_team_id: body.away_team_id ?? current.away_team_id,
@@ -98,6 +98,20 @@ Deno.serve(async (req) => {
       if (patch.home_team_id && patch.away_team_id && patch.home_team_id === patch.away_team_id) {
         throw new HttpError(400, "Uma seleção não pode enfrentar ela mesma.");
       }
+
+      if (current.status === "live" && kickoff.getTime() > Date.now()) {
+        Object.assign(patch, {
+          status: "scheduled",
+          home_score: 0,
+          away_score: 0,
+          regulation_home_score: null,
+          regulation_away_score: null,
+          qualified_team_id: null,
+          qualification_method: null,
+          manual_override: false,
+        });
+      }
+
       const { error } = await admin.from("matches").update(patch).eq("id", body.match_id);
       if (error) throw new HttpError(400, error.message);
       await writeAudit(
@@ -153,6 +167,22 @@ Deno.serve(async (req) => {
     if (current.status !== "finished") {
       throw new HttpError(400, "Salve o resultado como encerrado antes de fechar a partida.");
     }
+
+    const closeQualification = isKnockoutStage(current.stage)
+      ? validateClosedKnockoutResult(current)
+      : { qualified_team_id: null, qualification_method: null };
+
+    if (isKnockoutStage(current.stage)) {
+      const { error: qualificationError } = await admin
+        .from("matches")
+        .update({
+          qualified_team_id: closeQualification.qualified_team_id,
+          qualification_method: closeQualification.qualification_method,
+        })
+        .eq("id", body.match_id);
+      if (qualificationError) throw new HttpError(400, qualificationError.message);
+    }
+
     const { data: updated, error: rpcError } = await admin.rpc("admin_recalculate_match_points", {
       _match_id: body.match_id,
     });
@@ -226,11 +256,19 @@ function validateKnockoutResult(
     throw new HttpError(400, "Defina as duas seleções antes de lançar o resultado do mata-mata.");
   }
 
-  if (homeScore > awayScore) {
-    return { qualified_team_id: current.home_team_id, qualification_method: "regulation" };
-  }
-  if (awayScore > homeScore) {
-    return { qualified_team_id: current.away_team_id, qualification_method: "regulation" };
+  if (homeScore !== awayScore) {
+    const winnerId = homeScore > awayScore ? current.home_team_id : current.away_team_id;
+    if (body.qualified_team_id && body.qualified_team_id !== winnerId) {
+      throw new HttpError(400, "Classificado não confere com o placar informado.");
+    }
+    if (body.qualification_method === "penalties") {
+      throw new HttpError(400, "Vitória com placar diferente não pode ser por pênaltis.");
+    }
+    return {
+      qualified_team_id: winnerId,
+      qualification_method:
+        body.qualification_method === "extra_time" ? "extra_time" : "regulation",
+    };
   }
 
   if (![current.home_team_id, current.away_team_id].includes(body.qualified_team_id ?? "")) {
@@ -243,5 +281,57 @@ function validateKnockoutResult(
   return {
     qualified_team_id: body.qualified_team_id,
     qualification_method: body.qualification_method,
+  };
+}
+
+function validateClosedKnockoutResult(current: {
+  home_team_id?: string | null;
+  away_team_id?: string | null;
+  home_score?: number | null;
+  away_score?: number | null;
+  regulation_home_score?: number | null;
+  regulation_away_score?: number | null;
+  qualified_team_id?: string | null;
+  qualification_method?: "regulation" | "extra_time" | "penalties" | null;
+}) {
+  if (!current.home_team_id || !current.away_team_id) {
+    throw new HttpError(400, "Defina as duas seleções antes de fechar o mata-mata.");
+  }
+
+  const homeScore = current.regulation_home_score ?? current.home_score;
+  const awayScore = current.regulation_away_score ?? current.away_score;
+
+  if (!Number.isInteger(homeScore) || !Number.isInteger(awayScore)) {
+    throw new HttpError(400, "Placar inválido para fechamento do mata-mata.");
+  }
+
+  if (homeScore !== awayScore) {
+    const winnerId = homeScore! > awayScore! ? current.home_team_id : current.away_team_id;
+    if (current.qualified_team_id && current.qualified_team_id !== winnerId) {
+      throw new HttpError(400, "Classificado salvo não confere com o placar do mata-mata.");
+    }
+    if (current.qualification_method === "penalties") {
+      throw new HttpError(400, "Vitória com placar diferente não pode ser por pênaltis.");
+    }
+    return {
+      qualified_team_id: winnerId,
+      qualification_method:
+        current.qualification_method === "extra_time" ? "extra_time" : "regulation",
+    };
+  }
+
+  if (![current.home_team_id, current.away_team_id].includes(current.qualified_team_id ?? "")) {
+    throw new HttpError(400, "Informe o classificado antes de fechar o mata-mata empatado.");
+  }
+  if (!["extra_time", "penalties"].includes(current.qualification_method ?? "")) {
+    throw new HttpError(
+      400,
+      "Empate no mata-mata exige prorrogação ou pênaltis antes do fechamento.",
+    );
+  }
+
+  return {
+    qualified_team_id: current.qualified_team_id,
+    qualification_method: current.qualification_method,
   };
 }

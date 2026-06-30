@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ReactNode } from "react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   BiBarChartAlt2,
   BiBullseye,
@@ -98,7 +98,7 @@ type PublicProfileRpcClient = {
   ) => Promise<{ data: PublicClosedBetHistoryRow[] | null; error: { message: string } | null }>;
 };
 
-type RankingPositionSnapshotRow = {
+type RankingCurrentMovementRow = {
   user_id: string | null;
   movement: number | null;
 };
@@ -106,21 +106,24 @@ type RankingPositionSnapshotRow = {
 const rankingQueryKey = (mode: RankingMode, userId: string | null | undefined) =>
   ["ranking", mode, userId] as const;
 const scoreRulesQueryKey = ["pool-scoring-rules"] as const;
-const rankingMovementsQueryKey = (mode: RankingMode) => ["ranking-movements", mode] as const;
+const rankingMovementsQueryKey = (mode: RankingMode) => ["ranking-current-movements", mode] as const;
 const publicProfileHistoryQueryKey = (userId: string | null | undefined) =>
   ["public-profile-history", userId] as const;
+const rankingRefreshIntervalMs = 10_000;
 const softTabTriggerClass =
   "rounded-xl text-muted-foreground transition-all hover:bg-brand/10 hover:text-brand data-[state=active]:bg-brand/12 data-[state=active]:text-brand data-[state=active]:shadow-none data-[state=active]:ring-1 data-[state=active]:ring-brand/15";
 
 function RankingPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [mode, setMode] = useState<RankingMode>("free");
   const [selectedPlayer, setSelectedPlayer] = useState<RankingEntry | null>(null);
 
   const rankingQuery = useQuery({
     queryKey: rankingQueryKey(mode, user?.id),
     queryFn: () => fetchRanking(mode, user?.id ?? null),
+    refetchInterval: rankingRefreshIntervalMs,
   });
   const scoreRulesQuery = useQuery({
     queryKey: scoreRulesQueryKey,
@@ -129,7 +132,43 @@ function RankingPage() {
   const rankingMovementsQuery = useQuery({
     queryKey: rankingMovementsQueryKey(mode),
     queryFn: () => fetchRankingMovements(mode),
+    refetchInterval: rankingRefreshIntervalMs,
   });
+
+  useEffect(() => {
+    const channel = supabase
+      .channel(`ranking-current-movement-events-${mode}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "ranking_position_movement_events",
+          filter: `mode=eq.${mode}`,
+        },
+        () => {
+          void queryClient.invalidateQueries({ queryKey: rankingQueryKey(mode, user?.id) });
+          void queryClient.invalidateQueries({ queryKey: rankingMovementsQueryKey(mode) });
+        },
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "matches",
+        },
+        () => {
+          void queryClient.invalidateQueries({ queryKey: rankingQueryKey(mode, user?.id) });
+          void queryClient.invalidateQueries({ queryKey: rankingMovementsQueryKey(mode) });
+        },
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [mode, queryClient, user?.id]);
 
   const rows = rankingQuery.data?.rows ?? [];
   const enrollmentStatus = rankingQuery.data?.enrollmentStatus ?? null;
@@ -261,13 +300,13 @@ function RankingPage() {
 
 async function fetchRankingMovements(mode: RankingMode): Promise<Record<string, RankingMovement>> {
   const { data, error } = await supabase
-    .from("ranking_position_snapshots")
+    .from("ranking_current_movement_events")
     .select("user_id,movement")
     .eq("mode", mode);
 
   if (error) return {};
 
-  return ((data ?? []) as RankingPositionSnapshotRow[]).reduce<Record<string, RankingMovement>>(
+  return ((data ?? []) as RankingCurrentMovementRow[]).reduce<Record<string, RankingMovement>>(
     (acc, item) => {
       if (!item.user_id || item.movement === null) return acc;
       acc[item.user_id] = item.movement;

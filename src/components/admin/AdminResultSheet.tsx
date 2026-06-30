@@ -85,6 +85,8 @@ export function AdminResultSheet({
       : awayScore > homeScore
         ? match?.away_team_id
         : null;
+  const winnerQualificationMethodValid =
+    qualificationMethod === "regulation" || qualificationMethod === "extra_time";
   const tiedQualificationMethodValid =
     qualificationMethod === "extra_time" || qualificationMethod === "penalties";
   const officialQualifiedTeamId = knockout
@@ -101,7 +103,9 @@ export function AdminResultSheet({
         ? tiedQualificationMethodValid
           ? qualificationMethod
           : null
-        : ("regulation" as QualificationMethod)
+        : winnerQualificationMethodValid
+          ? qualificationMethod
+          : ("regulation" as QualificationMethod)
     : undefined;
   const qualifiedTeamName =
     officialQualifiedTeamId === match?.home_team_id
@@ -111,10 +115,13 @@ export function AdminResultSheet({
         : "A definir";
   const knockoutTeamsDefined = Boolean(match?.home_team_id && match?.away_team_id);
   const requiresKnockoutDecision = knockout && !liveResult && tied;
+  const winnerKnockoutComplete = !knockout || liveResult || tied || winnerQualificationMethodValid;
   const tiedKnockoutComplete = Boolean(
     !requiresKnockoutDecision || (qualifiedTeamId && tiedQualificationMethodValid),
   );
-  const canSaveResult = !busy && (!knockout || (knockoutTeamsDefined && tiedKnockoutComplete));
+  const canSaveResult =
+    !busy &&
+    (!knockout || (knockoutTeamsDefined && winnerKnockoutComplete && tiedKnockoutComplete));
   const canCloseCurrentMatch = match?.status === "finished" && status === "finished";
 
   return (
@@ -172,9 +179,25 @@ export function AdminResultSheet({
                   Classificação oficial
                 </p>
                 {!tied ? (
-                  <p className="text-sm text-muted-foreground">
-                    {qualifiedTeamName} se classifica por {qualificationMethodLabel("regulation")}.
-                  </p>
+                  <div className="space-y-3">
+                    <p className="text-sm text-muted-foreground">
+                      {qualifiedTeamName} se classifica pelo placar informado.
+                    </p>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="winner-qualification-method">Como venceu?</Label>
+                      <select
+                        id="winner-qualification-method"
+                        className="h-11 w-full rounded-xl border border-input bg-background/65 px-3 text-sm font-bold"
+                        value={winnerQualificationMethodValid ? qualificationMethod : "regulation"}
+                        onChange={(event) =>
+                          setQualificationMethod(event.target.value as QualificationMethod)
+                        }
+                      >
+                        <option value="regulation">{qualificationMethodLabel("regulation")}</option>
+                        <option value="extra_time">{qualificationMethodLabel("extra_time")}</option>
+                      </select>
+                    </div>
+                  </div>
                 ) : (
                   <>
                     <div className="space-y-1.5">

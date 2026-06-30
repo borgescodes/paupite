@@ -140,6 +140,38 @@ export function RankingRow({
   );
 }
 
+function RankingMovementIcon({ movement }: { movement: number }) {
+  if (movement > 0) {
+    return (
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="18"
+        height="18"
+        fill="#10B981"
+        viewBox="0 0 24 24"
+        aria-hidden="true"
+        className="shrink-0"
+      >
+        <path d="M6.65 16h10.69c.64 0 .99-.76.56-1.24l-5.35-6.11a.753.753 0 0 0-1.13 0l-5.35 6.11c-.42.48-.08 1.24.56 1.24Z" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="18"
+      height="18"
+      fill="#EF4444"
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      className="shrink-0"
+    >
+      <path d="M17.35 8H6.65c-.64 0-.99.76-.56 1.24l5.35 6.11c.3.34.83.34 1.13 0l5.35-6.11C18.34 8.76 18 8 17.36 8Z" />
+    </svg>
+  );
+}
+
 export function RankingMovementBadge({ movement }: { movement?: RankingMovement }) {
   if (movement === undefined || movement === 0) return null;
 
@@ -148,15 +180,11 @@ export function RankingMovementBadge({ movement }: { movement?: RankingMovement 
 
   return (
     <span
-      className="inline-flex items-center gap-0.5 text-[10px] font-black tabular-nums"
+      className="inline-flex items-center gap-0.5 text-[10px] font-black leading-none tabular-nums"
       aria-label={up ? `Subiu ${value} posições` : `Desceu ${value} posições`}
     >
-      <i
-        className={up ? "bxf bx-caret-up" : "bxf bx-caret-down"}
-        style={{ color: up ? "green" : "red" }}
-        aria-hidden="true"
-      />
-      {value}
+      <RankingMovementIcon movement={movement} />
+      <span className={up ? "text-emerald-500" : "text-red-500"}>{value}</span>
     </span>
   );
 }
