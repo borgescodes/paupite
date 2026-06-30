@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { BiBell, BiBarChartAlt2, BiSend } from "react-icons/bi";
+import { BiBell, BiBarChartAlt2, BiSend, BiTrash } from "react-icons/bi";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
