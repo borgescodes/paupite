@@ -459,10 +459,10 @@ function ScoreExplanationCard({
               <div className="rounded-2xl bg-brand/10 p-3">
                 <p className="font-bold text-foreground">Exemplo prático</p>
                 <p className="mt-1">
-                  Jogo fake: Time A 0 x 1 Time B. Palpite 0 x 1, Time B classificado no tempo: 3
-                  placar + 1 saldo + 2 classificado + 1 método + 1 combo ={" "}
-                  <strong className="text-foreground">{exactExample} pts</strong> na Fase de 32.
-                  Depois aplica multiplicador da fase e do time, se houver.
+                  Jogo exemplo: Time A 0 x 1 Time B. Palpite 0 x 1, Time B classificado no tempo
+                  regulamentar: 3 placar + 1 resultado no tempo + 1 saldo + 2 classificado + 1
+                  método + 1 combo = <strong className="text-foreground">{exactExample} pts</strong>{" "}
+                  na Fase de 16-Avos. Depois aplica multiplicador da fase e do time, se houver.
                 </p>
               </div>
               <div className="grid grid-cols-2 gap-2">
