@@ -480,3 +480,39 @@ interface RecipientRow {
   name: string;
   read_at: string | null;
 }
+
+// ---------------------------------------------------------------------------
+// Soft delete de campanha (somente superadmin — validado em authenticate/requireRole)
+// ---------------------------------------------------------------------------
+async function deleteCampaign(admin: SupabaseClient, campaignId: string) {
+  const { data: campaign, error: findError } = await admin
+    .from("notification_campaigns")
+    .select("id,deleted_at")
+    .eq("id", campaignId)
+    .maybeSingle();
+  if (findError) throw new HttpError(500, findError.message);
+  if (!campaign) throw new HttpError(404, "Campanha não encontrada.");
+
+  const now = new Date().toISOString();
+
+  if (!campaign.deleted_at) {
+    const { error: updateCampaignError } = await admin
+      .from("notification_campaigns")
+      .update({ deleted_at: now })
+      .eq("id", campaignId);
+    if (updateCampaignError) throw new HttpError(500, updateCampaignError.message);
+  }
+
+  const { error: updateNotifsError, count } = await admin
+    .from("notifications")
+    .update({ deleted_at: now }, { count: "exact" })
+    .eq("campaign_id", campaignId)
+    .is("deleted_at", null);
+  if (updateNotifsError) throw new HttpError(500, updateNotifsError.message);
+
+  return json({
+    ok: true,
+    campaign_id: campaignId,
+    notifications_hidden: count ?? 0,
+  });
+}
