@@ -25,6 +25,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/hooks/use-auth";
 import { useThemeMode, type AccentTheme } from "@/hooks/use-theme";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  formatBetHistoryScoreLine,
+  isRankingHistoryEligible,
+  rankingHistoryCutoffUtcIso,
+} from "@/lib/bet-history-format";
 import { deriveMatchTemporalStatus } from "@/lib/match-status";
 import type { RankingEntry } from "@/lib/ranking";
 
@@ -62,6 +67,8 @@ type ClosedBetHistoryItem = {
   guessHome: number;
   guessAway: number;
   points: number;
+  resultLine: string;
+  predictionLine: string;
 };
 
 type BetHistoryRow = {
@@ -69,6 +76,8 @@ type BetHistoryRow = {
   home_score: number;
   away_score: number;
   points: number;
+  predicted_qualification_method: string | null;
+  predicted_qualified_team?: { short_name: string | null; name: string | null } | null;
 };
 
 type MatchHistoryRow = {
@@ -77,8 +86,10 @@ type MatchHistoryRow = {
   status: string;
   home_score: number;
   away_score: number;
+  qualification_method: string | null;
   home_team?: { short_name: string | null; name: string | null } | null;
   away_team?: { short_name: string | null; name: string | null } | null;
+  qualified_team?: { short_name: string | null; name: string | null } | null;
 };
 
 const profileStatsQueryKey = (userId: string | null | undefined) =>
@@ -298,12 +309,18 @@ async function fetchProfileStats(userId: string): Promise<ProfileStatsData> {
   const [freeResult, poolResult, betsResult, matchesResult] = await Promise.all([
     supabase.from("ranking_free").select("*").eq("user_id", userId).maybeSingle(),
     supabase.from("ranking_pool").select("*").eq("user_id", userId).maybeSingle(),
-    supabase.from("bets").select("match_id,home_score,away_score,points").eq("user_id", userId),
+    supabase
+      .from("bets")
+      .select(
+        "match_id,home_score,away_score,points,predicted_qualification_method,predicted_qualified_team:teams!bets_predicted_qualified_team_id_fkey(short_name,name)",
+      )
+      .eq("user_id", userId),
     supabase
       .from("matches")
       .select(
-        "id,kickoff_at,status,home_score,away_score,home_team:teams!matches_home_team_id_fkey(short_name,name),away_team:teams!matches_away_team_id_fkey(short_name,name)",
+        "id,kickoff_at,status,home_score,away_score,qualification_method,home_team:teams!matches_home_team_id_fkey(short_name,name),away_team:teams!matches_away_team_id_fkey(short_name,name),qualified_team:teams!matches_qualified_team_id_fkey(short_name,name)",
       )
+      .gte("kickoff_at", rankingHistoryCutoffUtcIso)
       .lte("kickoff_at", new Date().toISOString())
       .order("kickoff_at", { ascending: false }),
   ]);
@@ -338,18 +355,47 @@ function buildClosedBetHistory(
       const bet = betByMatch.get(match.id);
       if (!bet) return null;
       const status = deriveMatchTemporalStatus(match.status, match.kickoff_at);
-      if (status === "scheduled") return null;
+      if (status === "scheduled" || !isRankingHistoryEligible(match.kickoff_at)) return null;
+
+      const home = match.home_team?.short_name || match.home_team?.name || "Casa";
+      const away = match.away_team?.short_name || match.away_team?.name || "Fora";
+      const finalHome = match.home_score ?? 0;
+      const finalAway = match.away_score ?? 0;
+      const guessHome = bet.home_score ?? 0;
+      const guessAway = bet.away_score ?? 0;
+      const qualifiedTeam = match.qualified_team?.short_name || match.qualified_team?.name || null;
+      const predictedQualifiedTeam =
+        bet.predicted_qualified_team?.short_name || bet.predicted_qualified_team?.name || null;
+
       return {
         matchId: match.id,
         kickoffAt: match.kickoff_at,
         status,
-        home: match.home_team?.short_name || match.home_team?.name || "Casa",
-        away: match.away_team?.short_name || match.away_team?.name || "Fora",
-        finalHome: match.home_score ?? 0,
-        finalAway: match.away_score ?? 0,
-        guessHome: bet.home_score ?? 0,
-        guessAway: bet.away_score ?? 0,
+        home,
+        away,
+        finalHome,
+        finalAway,
+        guessHome,
+        guessAway,
         points: bet.points ?? 0,
+        resultLine: formatBetHistoryScoreLine({
+          home,
+          away,
+          homeScore: finalHome,
+          awayScore: finalAway,
+          method: match.qualification_method,
+          qualifiedTeam,
+          variant: "result",
+        }),
+        predictionLine: formatBetHistoryScoreLine({
+          home,
+          away,
+          homeScore: guessHome,
+          awayScore: guessAway,
+          method: bet.predicted_qualification_method,
+          qualifiedTeam: predictedQualifiedTeam,
+          variant: "prediction",
+        }),
       };
     })
     .filter((item): item is ClosedBetHistoryItem => Boolean(item))
@@ -464,19 +510,15 @@ function HistoryCard({ history, stats }: { history: ClosedBetHistoryItem[]; stat
                     {item.status === "live" ? "Em andamento" : `${item.points} pts`}
                   </span>
                 </div>
-                <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                  <span>
-                    {item.status === "live" ? "Placar atual:" : "Resultado:"}{" "}
-                    <strong className="text-foreground">
-                      {item.finalHome} - {item.finalAway}
-                    </strong>
-                  </span>
-                  <span>
-                    Seu palpite:{" "}
-                    <strong className="text-foreground">
-                      {item.guessHome} - {item.guessAway}
-                    </strong>
-                  </span>
+                <div className="mt-2 space-y-1 rounded-xl bg-muted/45 px-3 py-2 text-xs leading-relaxed">
+                  <p className="text-muted-foreground">
+                    Resultado:{" "}
+                    <strong className="font-extrabold text-foreground">{item.resultLine}</strong>
+                  </p>
+                  <p className="text-muted-foreground">
+                    Palpite:{" "}
+                    <strong className="font-extrabold text-foreground">{item.predictionLine}</strong>
+                  </p>
                 </div>
               </div>
             ))}

@@ -1249,6 +1249,10 @@ export type Database = {
           kickoff_at: string
           match_id: string
           points: number
+          predicted_qualification_method: string | null
+          predicted_qualified_team: string | null
+          qualification_method: string | null
+          qualified_team: string | null
           status: string
         }[]
       }

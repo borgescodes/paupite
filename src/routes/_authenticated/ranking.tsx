@@ -35,6 +35,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  formatBetHistoryScoreLine,
+  isRankingHistoryEligible,
+} from "@/lib/bet-history-format";
 import { cn } from "@/lib/utils";
 import {
   isActiveEnrollment,
@@ -70,6 +74,7 @@ type PoolScoringRules = {
 type PublicClosedBetHistoryItem = {
   matchId: string;
   status: "live" | "finished";
+  kickoffAt: string | null;
   home: string;
   away: string;
   finalHome: number;
@@ -77,6 +82,8 @@ type PublicClosedBetHistoryItem = {
   guessHome: number;
   guessAway: number;
   points: number;
+  resultLine: string;
+  predictionLine: string;
 };
 
 type PublicClosedBetHistoryRow = {
@@ -89,6 +96,11 @@ type PublicClosedBetHistoryRow = {
   guess_home: number | null;
   guess_away: number | null;
   points: number | null;
+  kickoff_at: string | null;
+  qualification_method: string | null;
+  qualified_team: string | null;
+  predicted_qualification_method: string | null;
+  predicted_qualified_team: string | null;
 };
 
 type PublicProfileRpcClient = {
@@ -352,17 +364,47 @@ async function fetchPublicClosedBetHistory(userId: string): Promise<PublicClosed
 
   if (error) throw new Error(error.message);
 
-  return ((data ?? []) as PublicClosedBetHistoryRow[]).map((item) => ({
-    matchId: item.match_id,
-    status: item.status ?? "finished",
-    home: item.home || "Casa",
-    away: item.away || "Fora",
-    finalHome: item.final_home ?? 0,
-    finalAway: item.final_away ?? 0,
-    guessHome: item.guess_home ?? 0,
-    guessAway: item.guess_away ?? 0,
-    points: item.points ?? 0,
-  }));
+  return ((data ?? []) as PublicClosedBetHistoryRow[])
+    .filter((item) => isRankingHistoryEligible(item.kickoff_at))
+    .map((item) => {
+      const home = item.home || "Casa";
+      const away = item.away || "Fora";
+      const finalHome = item.final_home ?? 0;
+      const finalAway = item.final_away ?? 0;
+      const guessHome = item.guess_home ?? 0;
+      const guessAway = item.guess_away ?? 0;
+
+      return {
+        matchId: item.match_id,
+        status: item.status ?? "finished",
+        kickoffAt: item.kickoff_at,
+        home,
+        away,
+        finalHome,
+        finalAway,
+        guessHome,
+        guessAway,
+        points: item.points ?? 0,
+        resultLine: formatBetHistoryScoreLine({
+          home,
+          away,
+          homeScore: finalHome,
+          awayScore: finalAway,
+          method: item.qualification_method,
+          qualifiedTeam: item.qualified_team,
+          variant: "result",
+        }),
+        predictionLine: formatBetHistoryScoreLine({
+          home,
+          away,
+          homeScore: guessHome,
+          awayScore: guessAway,
+          method: item.predicted_qualification_method,
+          qualifiedTeam: item.predicted_qualified_team,
+          variant: "prediction",
+        }),
+      };
+    });
 }
 
 function ScoreExplanationCard({
@@ -558,16 +600,16 @@ function PublicProfileDrawer({
                     {item.status === "live" ? "Em andamento" : `${item.points} pts`}
                   </span>
                 </div>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {item.status === "live" ? "Placar atual" : "Resultado"}{" "}
-                  <strong className="text-foreground">
-                    {item.finalHome} - {item.finalAway}
-                  </strong>{" "}
-                  · Palpite{" "}
-                  <strong className="text-foreground">
-                    {item.guessHome} - {item.guessAway}
-                  </strong>
-                </p>
+                <div className="mt-2 space-y-1 rounded-xl bg-muted/45 px-3 py-2 text-xs leading-relaxed">
+                  <p className="text-muted-foreground">
+                    Resultado:{" "}
+                    <strong className="font-extrabold text-foreground">{item.resultLine}</strong>
+                  </p>
+                  <p className="text-muted-foreground">
+                    Palpite:{" "}
+                    <strong className="font-extrabold text-foreground">{item.predictionLine}</strong>
+                  </p>
+                </div>
               </div>
             ))}
           </section>
