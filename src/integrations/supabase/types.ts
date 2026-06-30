@@ -67,6 +67,7 @@ export type Database = {
           regulation_away_score: number | null
           regulation_home_score: number | null
           special_points_breakdown: Json
+          submitted_at: string
           updated_at: string
           user_id: string
         }
@@ -84,6 +85,7 @@ export type Database = {
           regulation_away_score?: number | null
           regulation_home_score?: number | null
           special_points_breakdown?: Json
+          submitted_at?: string
           updated_at?: string
           user_id: string
         }
@@ -101,6 +103,7 @@ export type Database = {
           regulation_away_score?: number | null
           regulation_home_score?: number | null
           special_points_breakdown?: Json
+          submitted_at?: string
           updated_at?: string
           user_id?: string
         }
@@ -1195,6 +1198,7 @@ export type Database = {
           kickoff_at: string
           match_id: string
           points: number
+          status: string
         }[]
       }
     }
