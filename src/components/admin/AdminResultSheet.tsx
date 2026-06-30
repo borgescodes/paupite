@@ -47,6 +47,8 @@ export function AdminResultSheet({
   onSave: (value: {
     home_score: number;
     away_score: number;
+    regulation_home_score?: number | null;
+    regulation_away_score?: number | null;
     status: string;
     qualified_team_id?: string | null;
     qualification_method?: QualificationMethod | null;
@@ -55,6 +57,8 @@ export function AdminResultSheet({
 }) {
   const [homeScore, setHomeScore] = useState(0);
   const [awayScore, setAwayScore] = useState(0);
+  const [regulationHomeScore, setRegulationHomeScore] = useState(0);
+  const [regulationAwayScore, setRegulationAwayScore] = useState(0);
   const [status, setStatus] = useState("finished");
   const [qualifiedTeamId, setQualifiedTeamId] = useState<string | null>(null);
   const [qualificationMethod, setQualificationMethod] = useState<QualificationMethod | null>(null);
@@ -62,8 +66,10 @@ export function AdminResultSheet({
 
   useEffect(() => {
     if (!match || !open) return;
-    setHomeScore(match.regulation_home_score ?? match.home_score);
-    setAwayScore(match.regulation_away_score ?? match.away_score);
+    setHomeScore(match.home_score);
+    setAwayScore(match.away_score);
+    setRegulationHomeScore(match.regulation_home_score ?? match.home_score);
+    setRegulationAwayScore(match.regulation_away_score ?? match.away_score);
     setStatus(
       deriveMatchTemporalStatus(match.status, match.kickoff_at) === "live" ? "live" : "finished",
     );
@@ -107,6 +113,16 @@ export function AdminResultSheet({
           ? qualificationMethod
           : ("regulation" as QualificationMethod)
     : undefined;
+  const usesSeparateRegulationScore = Boolean(
+    knockout &&
+    !liveResult &&
+    (officialQualificationMethod === "extra_time" || officialQualificationMethod === "penalties"),
+  );
+  const regulationScoreValid =
+    !usesSeparateRegulationScore ||
+    (Number.isInteger(regulationHomeScore) &&
+      Number.isInteger(regulationAwayScore) &&
+      regulationHomeScore === regulationAwayScore);
   const qualifiedTeamName =
     officialQualifiedTeamId === match?.home_team_id
       ? (match?.home_team?.name ?? "Seleção A")
@@ -115,13 +131,22 @@ export function AdminResultSheet({
         : "A definir";
   const knockoutTeamsDefined = Boolean(match?.home_team_id && match?.away_team_id);
   const requiresKnockoutDecision = knockout && !liveResult && tied;
-  const winnerKnockoutComplete = !knockout || liveResult || tied || winnerQualificationMethodValid;
+  const winnerKnockoutComplete =
+    !knockout ||
+    liveResult ||
+    tied ||
+    winnerQualificationMethodValid ||
+    qualificationMethod === null;
   const tiedKnockoutComplete = Boolean(
     !requiresKnockoutDecision || (qualifiedTeamId && tiedQualificationMethodValid),
   );
   const canSaveResult =
     !busy &&
-    (!knockout || (knockoutTeamsDefined && winnerKnockoutComplete && tiedKnockoutComplete));
+    (!knockout ||
+      (knockoutTeamsDefined &&
+        winnerKnockoutComplete &&
+        tiedKnockoutComplete &&
+        regulationScoreValid));
   const canCloseCurrentMatch = match?.status === "finished" && status === "finished";
 
   return (
@@ -153,20 +178,23 @@ export function AdminResultSheet({
                   : "Resultado encerrado pode liberar fechamento e atualizar confrontos futuros."}
               </div>
             )}
-            <div className="grid grid-cols-[1fr_auto_1fr] items-end gap-3">
-              <ScoreField
-                id="home-score"
-                label={match?.home_team?.short_name || match?.home_team?.name || "Seleção A"}
-                value={homeScore}
-                onChange={setHomeScore}
-              />
-              <span className="pb-3 text-xl font-extrabold">×</span>
-              <ScoreField
-                id="away-score"
-                label={match?.away_team?.short_name || match?.away_team?.name || "Seleção B"}
-                value={awayScore}
-                onChange={setAwayScore}
-              />
+            <div className="space-y-2">
+              <p className="text-xs font-extrabold uppercase text-muted-foreground">Placar final</p>
+              <div className="grid grid-cols-[1fr_auto_1fr] items-end gap-3">
+                <ScoreField
+                  id="home-score"
+                  label={match?.home_team?.short_name || match?.home_team?.name || "Seleção A"}
+                  value={homeScore}
+                  onChange={setHomeScore}
+                />
+                <span className="pb-3 text-xl font-extrabold">×</span>
+                <ScoreField
+                  id="away-score"
+                  label={match?.away_team?.short_name || match?.away_team?.name || "Seleção B"}
+                  value={awayScore}
+                  onChange={setAwayScore}
+                />
+              </div>
             </div>
             {knockout && !knockoutTeamsDefined && (
               <p className="rounded-2xl bg-muted p-3 text-sm text-muted-foreground">
@@ -238,6 +266,38 @@ export function AdminResultSheet({
                 )}
               </div>
             )}
+            {usesSeparateRegulationScore && (
+              <div className="space-y-3 rounded-2xl border border-warning/25 bg-warning/8 p-3">
+                <div>
+                  <p className="text-xs font-extrabold uppercase text-muted-foreground">
+                    Placar no tempo regulamentar
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Use o placar aos 90 minutos. Placar final continua sendo o placar acima.
+                  </p>
+                </div>
+                <div className="grid grid-cols-[1fr_auto_1fr] items-end gap-3">
+                  <ScoreField
+                    id="regulation-home-score"
+                    label={match?.home_team?.short_name || match?.home_team?.name || "Seleção A"}
+                    value={regulationHomeScore}
+                    onChange={setRegulationHomeScore}
+                  />
+                  <span className="pb-3 text-xl font-extrabold">×</span>
+                  <ScoreField
+                    id="regulation-away-score"
+                    label={match?.away_team?.short_name || match?.away_team?.name || "Seleção B"}
+                    value={regulationAwayScore}
+                    onChange={setRegulationAwayScore}
+                  />
+                </div>
+                {!regulationScoreValid && (
+                  <p className="rounded-xl bg-destructive/10 p-2 text-xs font-bold text-destructive">
+                    Prorrogação ou pênaltis exigem empate no tempo regulamentar.
+                  </p>
+                )}
+              </div>
+            )}
             <div className="space-y-1.5">
               <Label htmlFor="result-status">Situação da partida</Label>
               <select
@@ -265,6 +325,18 @@ export function AdminResultSheet({
                 onSave({
                   home_score: homeScore,
                   away_score: awayScore,
+                  regulation_home_score:
+                    knockout && !liveResult
+                      ? usesSeparateRegulationScore
+                        ? regulationHomeScore
+                        : homeScore
+                      : null,
+                  regulation_away_score:
+                    knockout && !liveResult
+                      ? usesSeparateRegulationScore
+                        ? regulationAwayScore
+                        : awayScore
+                      : null,
                   status,
                   qualified_team_id: officialQualifiedTeamId,
                   qualification_method: officialQualificationMethod,

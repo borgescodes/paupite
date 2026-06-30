@@ -147,6 +147,8 @@ export function MatchesAdmin() {
   async function saveResult(value: {
     home_score: number;
     away_score: number;
+    regulation_home_score?: number | null;
+    regulation_away_score?: number | null;
     status: string;
     qualified_team_id?: string | null;
     qualification_method?: QualificationMethod | null;

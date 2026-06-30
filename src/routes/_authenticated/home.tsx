@@ -80,8 +80,8 @@ function HomePage() {
       for (const bet of Object.values(homeQuery.data.bets)) {
         if (!next[bet.match_id]) {
           next[bet.match_id] = {
-            home: bet.regulation_home_score ?? bet.home_score,
-            away: bet.regulation_away_score ?? bet.away_score,
+            home: bet.home_score,
+            away: bet.away_score,
             qualifiedTeamId: bet.predicted_qualified_team_id ?? null,
             qualificationMethod: bet.predicted_qualification_method ?? null,
           };
@@ -211,8 +211,8 @@ function HomePage() {
         match_id: matchId,
         home_score: value.home,
         away_score: value.away,
-        regulation_home_score: knockout ? value.home : null,
-        regulation_away_score: knockout ? value.away : null,
+        regulation_home_score: null,
+        regulation_away_score: null,
         predicted_qualified_team_id: knockout ? predictedQualifiedTeamId : null,
         predicted_qualification_method: knockout ? predictedQualificationMethod : null,
       },
@@ -234,8 +234,8 @@ function HomePage() {
                 match_id: matchId,
                 home_score: value.home,
                 away_score: value.away,
-                regulation_home_score: knockout ? value.home : null,
-                regulation_away_score: knockout ? value.away : null,
+                regulation_home_score: null,
+                regulation_away_score: null,
                 predicted_qualified_team_id: knockout ? predictedQualifiedTeamId : null,
                 predicted_qualification_method: knockout ? predictedQualificationMethod : null,
                 points: current.bets[matchId]?.points ?? 0,

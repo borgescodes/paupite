@@ -164,7 +164,9 @@ export function validateKnockoutPrediction(input: KnockoutPredictionInput) {
     if (!input.qualificationMethod) {
       return "Escolha se a vitória foi no tempo regulamentar ou na prorrogação.";
     }
-    if (!(["regulation", "extra_time"] as QualificationMethod[]).includes(input.qualificationMethod)) {
+    if (
+      !(["regulation", "extra_time"] as QualificationMethod[]).includes(input.qualificationMethod)
+    ) {
       return "Vitória com placar diferente não pode ser por pênaltis.";
     }
     return null;
@@ -187,8 +189,15 @@ export function calculateKnockoutPoints(input: KnockoutPointInput) {
   const stageWeights = { ...defaultKnockoutStageWeights, ...input.rules?.stage_weights };
   const teamMultipliers = input.rules?.team_multipliers ?? {};
 
-  const actualOutcome = outcome(input.officialHomeScore, input.officialAwayScore);
-  const predictedOutcome = outcome(input.homeScore, input.awayScore);
+  const actualOutcome =
+    input.officialQualificationMethod === "extra_time" ||
+    input.officialQualificationMethod === "penalties"
+      ? "draw"
+      : outcome(input.officialHomeScore, input.officialAwayScore);
+  const predictedOutcome =
+    input.qualificationMethod === "extra_time" || input.qualificationMethod === "penalties"
+      ? "draw"
+      : outcome(input.homeScore, input.awayScore);
   const exactScore =
     input.homeScore === input.officialHomeScore && input.awayScore === input.officialAwayScore;
   const regulationResult = actualOutcome === predictedOutcome;
@@ -201,11 +210,11 @@ export function calculateKnockoutPoints(input: KnockoutPointInput) {
     qualifiedTeam &&
     Boolean(input.officialQualificationMethod) &&
     input.qualificationMethod === input.officialQualificationMethod;
-  const perfectCombo = exactScore && qualifiedTeam && qualificationMethod;
+  const perfectCombo = exactScore && regulationResult && qualifiedTeam && qualificationMethod;
 
   let basePoints = 0;
   if (exactScore) basePoints += baseRules.exact_score;
-  else if (regulationResult) basePoints += baseRules.regulation_result;
+  if (regulationResult) basePoints += baseRules.regulation_result;
   if (goalDifference) basePoints += baseRules.goal_difference;
   if (qualifiedTeam) basePoints += baseRules.qualified_team;
   if (qualificationMethod) basePoints += baseRules.qualification_method;
