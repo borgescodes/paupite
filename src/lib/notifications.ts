@@ -95,6 +95,13 @@ export function getCampaignReport(campaignId: string) {
   });
 }
 
+export function deleteNotificationCampaign(campaignId: string) {
+  return callEdgeFunction<{ ok: boolean; campaign_id: string; notifications_hidden: number }>(
+    "admin-notifications",
+    { action: "delete_campaign", campaignId },
+  );
+}
+
 const TARGET_LABELS: Record<string, string> = {
   specific: "Usuários específicos",
   resenha: "Resenha (fora do bolão)",
