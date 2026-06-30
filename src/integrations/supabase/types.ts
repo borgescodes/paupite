@@ -399,6 +399,7 @@ export type Database = {
           action_url: string | null
           created_at: string
           created_by: string | null
+          deleted_at: string | null
           id: string
           internal_route: string | null
           message: string
@@ -412,6 +413,7 @@ export type Database = {
           action_url?: string | null
           created_at?: string
           created_by?: string | null
+          deleted_at?: string | null
           id?: string
           internal_route?: string | null
           message: string
@@ -425,6 +427,7 @@ export type Database = {
           action_url?: string | null
           created_at?: string
           created_by?: string | null
+          deleted_at?: string | null
           id?: string
           internal_route?: string | null
           message?: string
@@ -448,6 +451,7 @@ export type Database = {
           campaign_id: string | null
           created_at: string
           data: Json
+          deleted_at: string | null
           id: string
           message: string
           read_at: string | null
@@ -459,6 +463,7 @@ export type Database = {
           campaign_id?: string | null
           created_at?: string
           data?: Json
+          deleted_at?: string | null
           id?: string
           message: string
           read_at?: string | null
@@ -470,6 +475,7 @@ export type Database = {
           campaign_id?: string | null
           created_at?: string
           data?: Json
+          deleted_at?: string | null
           id?: string
           message?: string
           read_at?: string | null
@@ -1107,6 +1113,52 @@ export type Database = {
         }
         Relationships: []
       }
+      ranking: {
+        Row: {
+          avatar_url: string | null
+          bets_count: number | null
+          display_name: string | null
+          exact_scores_count: number | null
+          knockout_combo_count: number | null
+          knockout_qualified_count: number | null
+          nickname: string | null
+          outcome_hits_count: number | null
+          rank_position: number | null
+          special_points: number | null
+          total_points: number | null
+          user_id: string | null
+        }
+        Relationships: []
+      }
+      ranking_current_movement_events: {
+        Row: {
+          created_at: string | null
+          current_rank_position: number | null
+          match_id: string | null
+          mode: string | null
+          movement: number | null
+          previous_rank_position: number | null
+          user_id: string | null
+        }
+        Relationships: []
+      }
+      ranking_free: {
+        Row: {
+          avatar_url: string | null
+          bets_count: number | null
+          display_name: string | null
+          exact_scores_count: number | null
+          knockout_combo_count: number | null
+          knockout_qualified_count: number | null
+          nickname: string | null
+          outcome_hits_count: number | null
+          rank_position: number | null
+          special_points: number | null
+          total_points: number | null
+          user_id: string | null
+        }
+        Relationships: []
+      }
       ranking_latest_movement_events: {
         Row: {
           created_at: string | null
@@ -1133,67 +1185,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      ranking_current_movement_events: {
-        Row: {
-          created_at: string | null
-          current_rank_position: number | null
-          match_id: string | null
-          mode: string | null
-          movement: number | null
-          previous_rank_position: number | null
-          user_id: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "ranking_position_movement_events_match_id_fkey"
-            columns: ["match_id"]
-            isOneToOne: false
-            referencedRelation: "matches"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "ranking_position_movement_events_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      ranking: {
-        Row: {
-          avatar_url: string | null
-          bets_count: number | null
-          display_name: string | null
-          exact_scores_count: number | null
-          knockout_combo_count: number | null
-          knockout_qualified_count: number | null
-          nickname: string | null
-          outcome_hits_count: number | null
-          rank_position: number | null
-          special_points: number | null
-          total_points: number | null
-          user_id: string | null
-        }
-        Relationships: []
-      }
-      ranking_free: {
-        Row: {
-          avatar_url: string | null
-          bets_count: number | null
-          display_name: string | null
-          exact_scores_count: number | null
-          knockout_combo_count: number | null
-          knockout_qualified_count: number | null
-          nickname: string | null
-          outcome_hits_count: number | null
-          rank_position: number | null
-          special_points: number | null
-          total_points: number | null
-          user_id: string | null
-        }
-        Relationships: []
       }
       ranking_pool: {
         Row: {
@@ -1258,6 +1249,10 @@ export type Database = {
           kickoff_at: string
           match_id: string
           points: number
+          predicted_qualification_method: string | null
+          predicted_qualified_team: string | null
+          qualification_method: string | null
+          qualified_team: string | null
           status: string
         }[]
       }
