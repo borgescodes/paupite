@@ -6,32 +6,24 @@ import { useNotifications } from "@/hooks/use-notifications";
 
 export function NotificationBell({ userId }: { userId?: string | null }) {
   const [open, setOpen] = useState(false);
-  const [markingId, setMarkingId] = useState<string | null>(null);
   const {
     notifications,
     unreadCount,
     isLoading,
     error,
-    markAsRead,
     markAllAsRead,
     clearAllNotifications,
-    isMarkingAllAsRead,
     isClearingAllNotifications,
   } = useNotifications(userId);
 
   if (!userId) return null;
 
-  async function handleMarkAsRead(notificationId: string) {
-    setMarkingId(notificationId);
-    try {
-      await markAsRead(notificationId);
-    } finally {
-      setMarkingId(null);
+  // Abrir a central marca todas as pendentes como visualizadas automaticamente.
+  function handleOpenChange(next: boolean) {
+    setOpen(next);
+    if (next && unreadCount > 0) {
+      void markAllAsRead();
     }
-  }
-
-  async function handleMarkAllAsRead() {
-    await markAllAsRead();
   }
 
   async function handleClearAllNotifications() {
@@ -44,7 +36,7 @@ export function NotificationBell({ userId }: { userId?: string | null }) {
     <>
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={() => handleOpenChange(true)}
         aria-label={
           unreadCount > 0 ? `Abrir notificações, ${unreadCount} não lidas` : "Abrir notificações"
         }
@@ -60,16 +52,11 @@ export function NotificationBell({ userId }: { userId?: string | null }) {
 
       <NotificationCenter
         open={open}
-        onOpenChange={setOpen}
+        onOpenChange={handleOpenChange}
         notifications={notifications}
-        unreadCount={unreadCount}
         isLoading={isLoading}
         error={error}
-        markingId={markingId}
-        isMarkingAllAsRead={isMarkingAllAsRead}
         isClearingAllNotifications={isClearingAllNotifications}
-        onMarkAsRead={(notificationId) => void handleMarkAsRead(notificationId)}
-        onMarkAllAsRead={() => void handleMarkAllAsRead()}
         onClearAllNotifications={() => void handleClearAllNotifications()}
       />
     </>
