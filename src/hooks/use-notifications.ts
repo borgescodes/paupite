@@ -86,12 +86,15 @@ export function useNotifications(userId: string | null | undefined) {
   const notificationsQuery = useQuery({
     queryKey: notificationListQueryKey(userId),
     enabled,
+    refetchOnWindowFocus: true,
+    refetchInterval: enabled ? 30_000 : false,
     queryFn: async () => {
       const ownerId = requireUserId(userId);
       const { data, error } = await supabase
         .from("notifications")
         .select("id,user_id,type,title,message,data,read_at,created_at")
         .eq("user_id", ownerId)
+        .is("deleted_at", null)
         .order("created_at", { ascending: false })
         .limit(50);
 
@@ -103,12 +106,15 @@ export function useNotifications(userId: string | null | undefined) {
   const unreadQuery = useQuery({
     queryKey: notificationUnreadQueryKey(userId),
     enabled,
+    refetchOnWindowFocus: true,
+    refetchInterval: enabled ? 30_000 : false,
     queryFn: async () => {
       const ownerId = requireUserId(userId);
       const { count, error } = await supabase
         .from("notifications")
         .select("id", { count: "exact", head: true })
         .eq("user_id", ownerId)
+        .is("deleted_at", null)
         .is("read_at", null);
 
       if (error) throw new Error(error.message);
@@ -192,5 +198,8 @@ export function useNotifications(userId: string | null | undefined) {
     isMarkingAsRead: markAsReadMutation.isPending,
     isMarkingAllAsRead: markAllAsReadMutation.isPending,
     isClearingAllNotifications: clearAllNotificationsMutation.isPending,
+    refetch: () => {
+      void queryClient.invalidateQueries({ queryKey: notificationsQueryKey(userId) });
+    },
   };
 }

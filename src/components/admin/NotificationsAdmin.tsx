@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { BiBell, BiBarChartAlt2, BiSend } from "react-icons/bi";
+import { BiBell, BiBarChartAlt2, BiSend, BiTrash } from "react-icons/bi";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,7 @@ import {
   sendMatchReminder,
   sendSpecialsReminder,
   targetModeLabel,
+  deleteNotificationCampaign,
   type CampaignReport,
   type CampaignSummary,
   type NotificationTargetMode,
@@ -101,6 +102,15 @@ export function NotificationsAdmin() {
   useEffect(() => {
     void loadPickers();
     void loadCampaigns();
+    const interval = setInterval(() => {
+      void loadCampaigns();
+    }, 20_000);
+    const onFocus = () => void loadCampaigns();
+    window.addEventListener("focus", onFocus);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("focus", onFocus);
+    };
   }, [loadPickers, loadCampaigns]);
 
   function toggleUser(id: string) {
@@ -314,17 +324,26 @@ export function NotificationsAdmin() {
           )}
 
           {!loadingCampaigns &&
-            campaigns.map((campaign) => <CampaignRow key={campaign.id} campaign={campaign} />)}
+            campaigns.map((campaign) => (
+              <CampaignRow key={campaign.id} campaign={campaign} onDeleted={loadCampaigns} />
+            ))}
         </CardContent>
       </Card>
     </div>
   );
 }
 
-function CampaignRow({ campaign }: { campaign: CampaignSummary }) {
+function CampaignRow({
+  campaign,
+  onDeleted,
+}: {
+  campaign: CampaignSummary;
+  onDeleted: () => void | Promise<void>;
+}) {
   const [open, setOpen] = useState(false);
   const [report, setReport] = useState<CampaignReport | null>(null);
   const [loading, setLoading] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   async function toggle() {
     const next = !open;
@@ -341,29 +360,65 @@ function CampaignRow({ campaign }: { campaign: CampaignSummary }) {
     }
   }
 
+  async function handleDelete(event: React.MouseEvent) {
+    event.stopPropagation();
+    if (deleting) return;
+    const ok = window.confirm("Apagar esta campanha? Ela sumirá da caixa dos usuários.");
+    if (!ok) return;
+    setDeleting(true);
+    try {
+      await deleteNotificationCampaign(campaign.id);
+      toast.success("Campanha apagada.");
+      await onDeleted();
+    } catch (caught) {
+      toast.error(caught instanceof Error ? caught.message : "Falha ao apagar campanha.");
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   return (
     <div className="rounded-2xl border border-border/70 bg-background/60 p-3">
-      <button
-        type="button"
-        onClick={() => void toggle()}
-        className="flex w-full flex-col gap-2 text-left"
-      >
-        <div className="flex items-center justify-between gap-2">
-          <span className="text-sm font-bold">{campaign.title}</span>
-          <span className="shrink-0 text-xs text-muted-foreground">
-            {formatDateTime(campaign.created_at)}
-          </span>
-        </div>
-        <p className="line-clamp-2 text-xs text-muted-foreground">{campaign.message}</p>
-        <div className="flex flex-wrap gap-1.5 text-[11px] font-bold">
-          <Pill className="bg-muted text-muted-foreground">
-            {targetModeLabel(campaign.target_mode)}
-          </Pill>
-          <Pill className="bg-brand/12 text-brand">Enviadas {campaign.total_sent}</Pill>
-          <Pill className="bg-success/15 text-success">Visualizadas {campaign.total_viewed}</Pill>
-          <Pill className="bg-amber-500/15 text-amber-600">Pendentes {campaign.total_pending}</Pill>
-        </div>
-      </button>
+      <div className="flex items-start gap-2">
+        <button
+          type="button"
+          onClick={() => void toggle()}
+          className="flex min-w-0 flex-1 flex-col gap-2 text-left"
+        >
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-sm font-bold">{campaign.title}</span>
+            <span className="shrink-0 text-xs text-muted-foreground">
+              {formatDateTime(campaign.created_at)}
+            </span>
+          </div>
+          <p className="line-clamp-2 text-xs text-muted-foreground">{campaign.message}</p>
+          <div className="flex flex-wrap gap-1.5 text-[11px] font-bold">
+            <Pill className="bg-muted text-muted-foreground">
+              {targetModeLabel(campaign.target_mode)}
+            </Pill>
+            <Pill className="bg-brand/12 text-brand">Enviadas {campaign.total_sent}</Pill>
+            <Pill className="bg-success/15 text-success">
+              Visualizadas {campaign.total_viewed}
+            </Pill>
+            <Pill className="bg-amber-500/15 text-amber-600">
+              Pendentes {campaign.total_pending}
+            </Pill>
+          </div>
+        </button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          aria-label="Apagar campanha"
+          disabled={deleting}
+          onClick={(event) => void handleDelete(event)}
+          className="size-8 shrink-0 text-muted-foreground hover:text-destructive"
+        >
+          <BiTrash className="size-4" />
+        </Button>
+      </div>
+
+
 
       {open && (
         <div className="mt-3 border-t border-border/60 pt-3">

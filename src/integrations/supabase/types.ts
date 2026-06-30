@@ -399,6 +399,7 @@ export type Database = {
           action_url: string | null
           created_at: string
           created_by: string | null
+          deleted_at: string | null
           id: string
           internal_route: string | null
           message: string
@@ -412,6 +413,7 @@ export type Database = {
           action_url?: string | null
           created_at?: string
           created_by?: string | null
+          deleted_at?: string | null
           id?: string
           internal_route?: string | null
           message: string
@@ -425,6 +427,7 @@ export type Database = {
           action_url?: string | null
           created_at?: string
           created_by?: string | null
+          deleted_at?: string | null
           id?: string
           internal_route?: string | null
           message?: string
@@ -448,6 +451,7 @@ export type Database = {
           campaign_id: string | null
           created_at: string
           data: Json
+          deleted_at: string | null
           id: string
           message: string
           read_at: string | null
@@ -459,6 +463,7 @@ export type Database = {
           campaign_id?: string | null
           created_at?: string
           data?: Json
+          deleted_at?: string | null
           id?: string
           message: string
           read_at?: string | null
@@ -470,6 +475,7 @@ export type Database = {
           campaign_id?: string | null
           created_at?: string
           data?: Json
+          deleted_at?: string | null
           id?: string
           message?: string
           read_at?: string | null

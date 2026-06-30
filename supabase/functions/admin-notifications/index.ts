@@ -48,6 +48,13 @@ Deno.serve(async (req) => {
       if (!id) throw new HttpError(400, "Informe a campanha.");
       return await campaignReport(admin, id);
     }
+    if (action === "delete_campaign") {
+      const id = String(body.campaignId ?? body.campaign_id ?? "");
+      if (!id || !/^[0-9a-f-]{36}$/i.test(id)) {
+        throw new HttpError(400, "campaignId inválido.");
+      }
+      return await deleteCampaign(admin, id);
+    }
     if (action === "send") return await handleSend(admin, profile.id, body as SendPayload);
 
     throw new HttpError(400, "Ação inválida.");
@@ -386,6 +393,7 @@ async function listCampaigns(admin: SupabaseClient) {
   const { data: campaigns, error } = await admin
     .from("notification_campaigns")
     .select("id,type,title,message,target_mode,action_url,internal_route,total_sent,created_at")
+    .is("deleted_at", null)
     .order("created_at", { ascending: false })
     .limit(50);
   if (error) throw new HttpError(500, error.message);
@@ -397,6 +405,7 @@ async function listCampaigns(admin: SupabaseClient) {
     const { data: notifs, error: notifsError } = await admin
       .from("notifications")
       .select("campaign_id,read_at")
+      .is("deleted_at", null)
       .in("campaign_id", ids);
     if (notifsError) throw new HttpError(500, notifsError.message);
     for (const n of notifs ?? []) {
@@ -470,4 +479,40 @@ interface RecipientRow {
   user_id: string;
   name: string;
   read_at: string | null;
+}
+
+// ---------------------------------------------------------------------------
+// Soft delete de campanha (somente superadmin — validado em authenticate/requireRole)
+// ---------------------------------------------------------------------------
+async function deleteCampaign(admin: SupabaseClient, campaignId: string) {
+  const { data: campaign, error: findError } = await admin
+    .from("notification_campaigns")
+    .select("id,deleted_at")
+    .eq("id", campaignId)
+    .maybeSingle();
+  if (findError) throw new HttpError(500, findError.message);
+  if (!campaign) throw new HttpError(404, "Campanha não encontrada.");
+
+  const now = new Date().toISOString();
+
+  if (!campaign.deleted_at) {
+    const { error: updateCampaignError } = await admin
+      .from("notification_campaigns")
+      .update({ deleted_at: now })
+      .eq("id", campaignId);
+    if (updateCampaignError) throw new HttpError(500, updateCampaignError.message);
+  }
+
+  const { error: updateNotifsError, count } = await admin
+    .from("notifications")
+    .update({ deleted_at: now }, { count: "exact" })
+    .eq("campaign_id", campaignId)
+    .is("deleted_at", null);
+  if (updateNotifsError) throw new HttpError(500, updateNotifsError.message);
+
+  return json({
+    ok: true,
+    campaign_id: campaignId,
+    notifications_hidden: count ?? 0,
+  });
 }
