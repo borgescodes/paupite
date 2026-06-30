@@ -48,6 +48,13 @@ Deno.serve(async (req) => {
       if (!id) throw new HttpError(400, "Informe a campanha.");
       return await campaignReport(admin, id);
     }
+    if (action === "delete_campaign") {
+      const id = String(body.campaignId ?? body.campaign_id ?? "");
+      if (!id || !/^[0-9a-f-]{36}$/i.test(id)) {
+        throw new HttpError(400, "campaignId inválido.");
+      }
+      return await deleteCampaign(admin, id);
+    }
     if (action === "send") return await handleSend(admin, profile.id, body as SendPayload);
 
     throw new HttpError(400, "Ação inválida.");
