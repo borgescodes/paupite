@@ -405,6 +405,7 @@ async function listCampaigns(admin: SupabaseClient) {
     const { data: notifs, error: notifsError } = await admin
       .from("notifications")
       .select("campaign_id,read_at")
+      .is("deleted_at", null)
       .in("campaign_id", ids);
     if (notifsError) throw new HttpError(500, notifsError.message);
     for (const n of notifs ?? []) {
