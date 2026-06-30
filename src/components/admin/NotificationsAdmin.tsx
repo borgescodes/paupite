@@ -324,7 +324,9 @@ export function NotificationsAdmin() {
           )}
 
           {!loadingCampaigns &&
-            campaigns.map((campaign) => <CampaignRow key={campaign.id} campaign={campaign} />)}
+            campaigns.map((campaign) => (
+              <CampaignRow key={campaign.id} campaign={campaign} onDeleted={loadCampaigns} />
+            ))}
         </CardContent>
       </Card>
     </div>
