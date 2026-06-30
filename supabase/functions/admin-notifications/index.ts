@@ -393,6 +393,7 @@ async function listCampaigns(admin: SupabaseClient) {
   const { data: campaigns, error } = await admin
     .from("notification_campaigns")
     .select("id,type,title,message,target_mode,action_url,internal_route,total_sent,created_at")
+    .is("deleted_at", null)
     .order("created_at", { ascending: false })
     .limit(50);
   if (error) throw new HttpError(500, error.message);
