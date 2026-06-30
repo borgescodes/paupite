@@ -114,8 +114,8 @@ export function toMatchCard(
   const status = deriveMatchTemporalStatus(match.status, kickoff);
   const knockout = isKnockoutStage(match.stage);
   const score = {
-    home: match.regulation_home_score ?? match.home_score,
-    away: match.regulation_away_score ?? match.away_score,
+    home: match.home_score,
+    away: match.away_score,
   };
   const homeSource = parseBracketSource(match.bracket_source_home);
   const awaySource = parseBracketSource(match.bracket_source_away);
@@ -139,8 +139,8 @@ export function toMatchCard(
     defaultKnockoutBasePoints.perfect_combo;
   const savedValue = savedBet
     ? {
-        home: savedBet.regulation_home_score ?? savedBet.home_score,
-        away: savedBet.regulation_away_score ?? savedBet.away_score,
+        home: savedBet.home_score,
+        away: savedBet.away_score,
         qualifiedTeamId: savedBet.predicted_qualified_team_id ?? null,
         qualificationMethod: savedBet.predicted_qualification_method ?? null,
       }

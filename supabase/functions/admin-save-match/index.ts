@@ -6,7 +6,7 @@ import {
   json,
   requireRole,
   writeAudit,
-} from "../../../../../../Videos/ALM Sync Lite/paupite-main-admin-result-fix (1)/paupite-main/supabase/functions/_shared/paupite.ts";
+} from "../_shared/paupite.ts";
 
 type MatchAction = "create" | "update" | "result" | "close";
 
@@ -25,6 +25,8 @@ interface MatchPayload {
   status?: "scheduled" | "live" | "finished";
   home_score?: number;
   away_score?: number;
+  regulation_home_score?: number | null;
+  regulation_away_score?: number | null;
   qualified_team_id?: string | null;
   qualification_method?: "regulation" | "extra_time" | "penalties" | null;
 }
@@ -140,13 +142,17 @@ Deno.serve(async (req) => {
           : knockout
             ? validateKnockoutResult(current, homeScore, awayScore, body)
             : { qualified_team_id: null, qualification_method: null };
+      const regulationScore =
+        knockout && status === "finished"
+          ? validateRegulationScore(homeScore, awayScore, qualification.qualification_method, body)
+          : { regulation_home_score: null, regulation_away_score: null };
       const { error } = await admin
         .from("matches")
         .update({
           home_score: homeScore,
           away_score: awayScore,
-          regulation_home_score: knockout && status === "finished" ? homeScore : null,
-          regulation_away_score: knockout && status === "finished" ? awayScore : null,
+          regulation_home_score: regulationScore.regulation_home_score,
+          regulation_away_score: regulationScore.regulation_away_score,
           qualified_team_id: qualification.qualified_team_id,
           qualification_method: qualification.qualification_method,
           status,
@@ -157,6 +163,8 @@ Deno.serve(async (req) => {
       await writeAudit(admin, profile.id, "match.result_updated", "match", body.match_id, {
         home_score: homeScore,
         away_score: awayScore,
+        regulation_home_score: regulationScore.regulation_home_score,
+        regulation_away_score: regulationScore.regulation_away_score,
         qualified_team_id: qualification.qualified_team_id,
         qualification_method: qualification.qualification_method,
         status,
@@ -172,26 +180,24 @@ Deno.serve(async (req) => {
       ? validateClosedKnockoutResult(current)
       : { qualified_team_id: null, qualification_method: null };
 
+    const closePatch: Record<string, unknown> = { status: "closed" };
     if (isKnockoutStage(current.stage)) {
-      const { error: qualificationError } = await admin
-        .from("matches")
-        .update({
-          qualified_team_id: closeQualification.qualified_team_id,
-          qualification_method: closeQualification.qualification_method,
-        })
-        .eq("id", body.match_id);
-      if (qualificationError) throw new HttpError(400, qualificationError.message);
+      Object.assign(closePatch, {
+        qualified_team_id: closeQualification.qualified_team_id,
+        qualification_method: closeQualification.qualification_method,
+      });
     }
+
+    const { error: closeError } = await admin
+      .from("matches")
+      .update(closePatch)
+      .eq("id", body.match_id);
+    if (closeError) throw new HttpError(400, closeError.message);
 
     const { data: updated, error: rpcError } = await admin.rpc("admin_recalculate_match_points", {
       _match_id: body.match_id,
     });
     if (rpcError) throw new HttpError(400, rpcError.message);
-    const { error: closeError } = await admin
-      .from("matches")
-      .update({ status: "closed" })
-      .eq("id", body.match_id);
-    if (closeError) throw new HttpError(400, closeError.message);
     await writeAudit(admin, profile.id, "match.closed_and_scored", "match", body.match_id, {
       bets_updated: updated,
     });
@@ -211,6 +217,65 @@ function score(value: number | undefined) {
     throw new HttpError(400, "Placar inválido.");
   }
   return value!;
+}
+
+function optionalScore(value: number | null | undefined) {
+  if (value === null || value === undefined) return null;
+  return score(value);
+}
+
+function validateRegulationScore(
+  finalHomeScore: number,
+  finalAwayScore: number,
+  qualificationMethod: MatchPayload["qualification_method"],
+  body: MatchPayload,
+) {
+  if (qualificationMethod === "extra_time" || qualificationMethod === "penalties") {
+    const regulationHomeScore = optionalScore(body.regulation_home_score);
+    const regulationAwayScore = optionalScore(body.regulation_away_score);
+
+    if (regulationHomeScore === null || regulationAwayScore === null) {
+      throw new HttpError(400, "Informe o placar do tempo regulamentar.");
+    }
+
+    if (regulationHomeScore !== regulationAwayScore) {
+      throw new HttpError(400, "Prorrogação ou pênaltis exigem empate no tempo regulamentar.");
+    }
+
+    return {
+      regulation_home_score: regulationHomeScore,
+      regulation_away_score: regulationAwayScore,
+    };
+  }
+
+  return {
+    regulation_home_score: finalHomeScore,
+    regulation_away_score: finalAwayScore,
+  };
+}
+
+function validateStoredRegulationScore(current: {
+  regulation_home_score?: number | null;
+  regulation_away_score?: number | null;
+  qualification_method?: "regulation" | "extra_time" | "penalties" | null;
+}) {
+  if (
+    current.qualification_method !== "extra_time" &&
+    current.qualification_method !== "penalties"
+  ) {
+    return;
+  }
+
+  if (
+    !Number.isInteger(current.regulation_home_score) ||
+    !Number.isInteger(current.regulation_away_score)
+  ) {
+    throw new HttpError(400, "Informe o placar do tempo regulamentar antes de fechar.");
+  }
+
+  if (current.regulation_home_score !== current.regulation_away_score) {
+    throw new HttpError(400, "Prorrogação ou pênaltis exigem empate no tempo regulamentar.");
+  }
 }
 
 function validateOperational(body: MatchPayload, create: boolean) {
@@ -298,12 +363,14 @@ function validateClosedKnockoutResult(current: {
     throw new HttpError(400, "Defina as duas seleções antes de fechar o mata-mata.");
   }
 
-  const homeScore = current.regulation_home_score ?? current.home_score;
-  const awayScore = current.regulation_away_score ?? current.away_score;
+  const homeScore = current.home_score;
+  const awayScore = current.away_score;
 
   if (!Number.isInteger(homeScore) || !Number.isInteger(awayScore)) {
-    throw new HttpError(400, "Placar inválido para fechamento do mata-mata.");
+    throw new HttpError(400, "Placar final inválido para fechamento do mata-mata.");
   }
+
+  validateStoredRegulationScore(current);
 
   if (homeScore !== awayScore) {
     const winnerId = homeScore! > awayScore! ? current.home_team_id : current.away_team_id;
