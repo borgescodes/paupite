@@ -393,8 +393,59 @@ export type Database = {
           },
         ]
       }
+      notification_campaigns: {
+        Row: {
+          action_label: string | null
+          action_url: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          internal_route: string | null
+          message: string
+          target_mode: string
+          title: string
+          total_sent: number
+          type: string
+        }
+        Insert: {
+          action_label?: string | null
+          action_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          internal_route?: string | null
+          message: string
+          target_mode: string
+          title: string
+          total_sent?: number
+          type: string
+        }
+        Update: {
+          action_label?: string | null
+          action_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          internal_route?: string | null
+          message?: string
+          target_mode?: string
+          title?: string
+          total_sent?: number
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_campaigns_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
+          campaign_id: string | null
           created_at: string
           data: Json
           id: string
@@ -405,6 +456,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          campaign_id?: string | null
           created_at?: string
           data?: Json
           id?: string
@@ -415,6 +467,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          campaign_id?: string | null
           created_at?: string
           data?: Json
           id?: string
@@ -425,6 +478,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "notifications_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "notification_campaigns"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "notifications_user_id_fkey"
             columns: ["user_id"]

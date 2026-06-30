@@ -162,6 +162,12 @@ type PoolPhase = {
 };
 
 export const Route = createFileRoute("/_authenticated/pool")({
+  validateSearch: (search: Record<string, unknown>): { tab?: "status" | "prizes" | "specials" } => {
+    const tab = search.tab;
+    return {
+      tab: tab === "specials" || tab === "prizes" || tab === "status" ? tab : undefined,
+    };
+  },
   component: PoolPage,
 });
 
@@ -173,6 +179,11 @@ const softTabTriggerClass =
 
 function PoolPage() {
   const { user, profile } = useAuth();
+  const { tab } = Route.useSearch();
+  const [activeTab, setActiveTab] = useState<string>(tab ?? "status");
+  useEffect(() => {
+    if (tab) setActiveTab(tab);
+  }, [tab]);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [termsDialogOpen, setTermsDialogOpen] = useState(false);
   const [prizePixKey, setPrizePixKey] = useState("");
@@ -386,7 +397,7 @@ function PoolPage() {
 
         {summary && phase && (
           <>
-            <Tabs defaultValue="status" className="space-y-3">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-3">
               <TabsList className="grid h-auto w-full grid-cols-3 gap-1 rounded-2xl bg-muted/45 p-1 ring-1 ring-border/40">
                 <TabsTrigger value="status" className={softTabTriggerClass}>
                   Status

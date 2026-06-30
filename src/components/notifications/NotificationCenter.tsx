@@ -1,4 +1,5 @@
-import { Check, CheckCheck, Circle, Loader2, Trash2 } from "lucide-react";
+import { ExternalLink, Flag as FlagIcon, Loader2, Trash2 } from "lucide-react";
+import { useNavigate } from "@tanstack/react-router";
 
 import { Flag } from "@/components/mobile/Flag";
 import { Button } from "@/components/ui/button";
@@ -18,14 +19,9 @@ interface NotificationCenterProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   notifications: Notification[];
-  unreadCount: number;
   isLoading: boolean;
   error: Error | null;
-  markingId: string | null;
-  isMarkingAllAsRead: boolean;
   isClearingAllNotifications: boolean;
-  onMarkAsRead: (notificationId: string) => void;
-  onMarkAllAsRead: () => void;
   onClearAllNotifications: () => void;
 }
 
@@ -33,18 +29,12 @@ export function NotificationCenter({
   open,
   onOpenChange,
   notifications,
-  unreadCount,
   isLoading,
   error,
-  markingId,
-  isMarkingAllAsRead,
   isClearingAllNotifications,
-  onMarkAsRead,
-  onMarkAllAsRead,
   onClearAllNotifications,
 }: NotificationCenterProps) {
   const hasNotifications = notifications.length > 0;
-  const actionBusy = isMarkingAllAsRead || isClearingAllNotifications;
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
@@ -54,9 +44,7 @@ export function NotificationCenter({
             <div className="min-w-0">
               <DrawerTitle>Notificações</DrawerTitle>
               <DrawerDescription>
-                {unreadCount > 0
-                  ? `${unreadCount} ${unreadCount === 1 ? "não lida" : "não lidas"}`
-                  : "Tudo em dia"}
+                {hasNotifications ? "Notificações recentes" : "Tudo em dia"}
               </DrawerDescription>
             </div>
             <div className="flex shrink-0 items-center gap-1">
@@ -64,21 +52,7 @@ export function NotificationCenter({
                 type="button"
                 variant="ghost"
                 size="sm"
-                disabled={unreadCount === 0 || actionBusy}
-                onClick={onMarkAllAsRead}
-              >
-                {isMarkingAllAsRead ? (
-                  <Loader2 className="size-4 animate-spin" />
-                ) : (
-                  <CheckCheck className="size-4" />
-                )}
-                Lidas
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                disabled={!hasNotifications || actionBusy}
+                disabled={!hasNotifications || isClearingAllNotifications}
                 onClick={onClearAllNotifications}
               >
                 {isClearingAllNotifications ? (
@@ -113,9 +87,7 @@ export function NotificationCenter({
                 <NotificationItem
                   key={notification.id}
                   notification={notification}
-                  marking={markingId === notification.id}
-                  disabled={actionBusy}
-                  onMarkAsRead={onMarkAsRead}
+                  onNavigate={() => onOpenChange(false)}
                 />
               ))}
             </div>
@@ -126,18 +98,39 @@ export function NotificationCenter({
   );
 }
 
+function readActionData(notification: Notification) {
+  const data = notification.data;
+  if (!data || typeof data !== "object" || Array.isArray(data)) {
+    return {
+      actionUrl: null as string | null,
+      internalRoute: null as string | null,
+      actionLabel: null as string | null,
+    };
+  }
+  const record = data as Record<string, unknown>;
+  const actionUrl = typeof record.action_url === "string" ? record.action_url : null;
+  const internalRoute = typeof record.internal_route === "string" ? record.internal_route : null;
+  const actionLabel = typeof record.action_label === "string" ? record.action_label : null;
+  return { actionUrl, internalRoute, actionLabel };
+}
+
 function NotificationItem({
   notification,
-  marking,
-  disabled,
-  onMarkAsRead,
+  onNavigate,
 }: {
   notification: Notification;
-  marking: boolean;
-  disabled: boolean;
-  onMarkAsRead: (notificationId: string) => void;
+  onNavigate: () => void;
 }) {
+  const navigate = useNavigate();
   const unread = !notification.read_at;
+  const { actionUrl, internalRoute, actionLabel } = readActionData(notification);
+
+  function handleInternal() {
+    if (!internalRoute) return;
+    onNavigate();
+    // rota interna, mesma aba, sem abrir nova janela.
+    void navigate({ to: internalRoute });
+  }
 
   return (
     <article
@@ -146,56 +139,42 @@ function NotificationItem({
         unread ? "border-brand/25 bg-brand/8" : "border-border/70 bg-muted/35",
       )}
     >
-      <div className="flex items-start gap-3">
-        <span
-          className={cn(
-            "mt-1 grid size-7 shrink-0 place-items-center rounded-full",
-            unread ? "bg-brand/15 text-brand" : "bg-muted text-muted-foreground",
-          )}
-          aria-hidden="true"
-        >
-          <Circle className={cn("size-3", unread && "fill-current")} />
-        </span>
+      <div className="min-w-0 flex-1">
+        <h3 className="text-sm font-extrabold leading-snug">{notification.title}</h3>
+        <p className="mt-1 text-sm leading-snug text-muted-foreground">{notification.message}</p>
 
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <h3 className="text-sm font-extrabold leading-snug">{notification.title}</h3>
-            <span
-              className={cn(
-                "rounded-full px-2 py-0.5 text-[10px] font-bold uppercase",
-                unread ? "bg-brand/12 text-brand" : "bg-muted text-muted-foreground",
-              )}
-            >
-              {unread ? "Não lida" : "Lida"}
-            </span>
-          </div>
-          <p className="mt-1 text-sm leading-snug text-muted-foreground">{notification.message}</p>
-          {notification.type === "bet_scored" && notification.matchPreview && (
-            <MatchMiniPreview notification={notification} />
-          )}
-          <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-            <time className="text-xs text-muted-foreground" dateTime={notification.created_at}>
-              {formatNotificationDate(notification.created_at)}
-            </time>
-            {unread && (
+        {notification.matchPreview && <MatchMiniPreview notification={notification} />}
+
+        {(actionUrl || internalRoute) && (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {actionUrl && (
+              <Button asChild type="button" size="sm" variant="outline" className="h-8 rounded-xl">
+                <a href={actionUrl} target="_blank" rel="noopener noreferrer">
+                  <ExternalLink className="size-4" />
+                  Acessar link
+                </a>
+              </Button>
+            )}
+            {internalRoute && (
               <Button
                 type="button"
-                variant="ghost"
                 size="sm"
-                className="h-8"
-                disabled={disabled || marking}
-                onClick={() => onMarkAsRead(notification.id)}
+                className="h-8 rounded-xl bg-brand text-brand-foreground hover:bg-brand/90"
+                onClick={handleInternal}
               >
-                {marking ? (
-                  <Loader2 className="size-4 animate-spin" />
-                ) : (
-                  <Check className="size-4" />
-                )}
-                Marcar como lida
+                <FlagIcon className="size-4" />
+                {actionLabel || "Abrir"}
               </Button>
             )}
           </div>
-        </div>
+        )}
+
+        <time
+          className="mt-3 block text-xs text-muted-foreground"
+          dateTime={notification.created_at}
+        >
+          {formatNotificationDate(notification.created_at)}
+        </time>
       </div>
     </article>
   );

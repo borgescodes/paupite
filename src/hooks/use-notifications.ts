@@ -31,7 +31,7 @@ function requireUserId(userId: string | null | undefined) {
 }
 
 function notificationMatchId(notification: Tables<"notifications">) {
-  if (notification.type !== "bet_scored") return null;
+  if (notification.type !== "bet_scored" && notification.type !== "bet_reminder") return null;
   const data = notification.data;
   if (!data || typeof data !== "object" || Array.isArray(data)) return null;
   const matchId = data.match_id;

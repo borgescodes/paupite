@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
+import { cn } from "@/lib/utils";
 import {
   deriveKnockoutPredictionFields,
   isKnockoutStage,
@@ -28,6 +29,9 @@ import {
 } from "@/lib/matches";
 
 export const Route = createFileRoute("/_authenticated/home")({
+  validateSearch: (search: Record<string, unknown>): { matchId?: string } => ({
+    matchId: typeof search.matchId === "string" ? search.matchId : undefined,
+  }),
   component: HomePage,
 });
 
@@ -47,12 +51,14 @@ const homeMatchesQueryKey = (userId: string | null | undefined) =>
 function HomePage() {
   const { user, loading: authLoading } = useAuth();
   const queryClient = useQueryClient();
+  const { matchId: focusMatchId } = Route.useSearch();
   const [drafts, setDrafts] = useState<Record<string, PredictionValue>>({});
   const [selectedDate, setSelectedDate] = useState("");
   const [localError, setLocalError] = useState<string | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [savedId, setSavedId] = useState<string | null>(null);
   const [editingIds, setEditingIds] = useState<Record<string, boolean>>({});
+  const [highlightId, setHighlightId] = useState<string | null>(null);
 
   const homeQuery = useQuery({
     queryKey: homeMatchesQueryKey(user?.id),
@@ -123,6 +129,24 @@ function HomePage() {
         ),
     [bets, drafts, matches, scoringRules, selectedDate, trends],
   );
+
+  // Deep link: /home?matchId=... seleciona o dia do jogo e destaca o card.
+  useEffect(() => {
+    if (!focusMatchId || matches.length === 0) return;
+    const target = matches.find((match) => match.id === focusMatchId);
+    if (!target) return;
+    setSelectedDate(matchDateKey(target.kickoff_at));
+    setHighlightId(focusMatchId);
+  }, [focusMatchId, matches]);
+
+  useEffect(() => {
+    if (!highlightId) return;
+    const el = document.getElementById(`match-card-${highlightId}`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    const timer = setTimeout(() => setHighlightId(null), 2600);
+    return () => clearTimeout(timer);
+  }, [highlightId, selectedDate, visibleMatches]);
 
   async function saveBet(matchId: string) {
     if (!user?.id) return;
@@ -295,16 +319,27 @@ function HomePage() {
           )}
 
           {visibleMatches.map((match) => (
-            <MatchCard
+            <div
               key={match.id}
-              data={match}
-              editing={editingIds[match.id] ?? !match.guess.saved}
-              saving={savingId === match.id}
-              saveMessage={savedId === match.id ? "Palpite salvo." : null}
-              onGuessChange={(value) => setDrafts((current) => ({ ...current, [match.id]: value }))}
-              onEditGuess={() => setEditingIds((current) => ({ ...current, [match.id]: true }))}
-              onSubmitGuess={() => void saveBet(match.id)}
-            />
+              id={`match-card-${match.id}`}
+              className={cn(
+                "scroll-mt-24 rounded-3xl transition-all",
+                highlightId === match.id &&
+                  "ring-2 ring-brand ring-offset-2 ring-offset-background",
+              )}
+            >
+              <MatchCard
+                data={match}
+                editing={editingIds[match.id] ?? !match.guess.saved}
+                saving={savingId === match.id}
+                saveMessage={savedId === match.id ? "Palpite salvo." : null}
+                onGuessChange={(value) =>
+                  setDrafts((current) => ({ ...current, [match.id]: value }))
+                }
+                onEditGuess={() => setEditingIds((current) => ({ ...current, [match.id]: true }))}
+                onSubmitGuess={() => void saveBet(match.id)}
+              />
+            </div>
           ))}
         </main>
       </div>
