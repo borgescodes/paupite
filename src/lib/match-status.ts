@@ -5,10 +5,14 @@ export function deriveMatchTemporalStatus(
   kickoffAt: string | Date,
 ): MatchTemporalStatus {
   if (status === "finished" || status === "closed" || status === "scored") return "finished";
-  if (status === "live") return "live";
 
   const kickoffTime = new Date(kickoffAt).getTime();
-  if (Number.isFinite(kickoffTime) && kickoffTime <= Date.now()) return "live";
+  if (Number.isFinite(kickoffTime)) {
+    if (kickoffTime > Date.now()) return "scheduled";
+    if (status === "live" || kickoffTime <= Date.now()) return "live";
+  }
+
+  if (status === "live") return "live";
 
   return "scheduled";
 }

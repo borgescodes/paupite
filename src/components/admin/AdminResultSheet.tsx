@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { BiCalculator, BiLockAlt, BiMinus, BiPlus, BiSave, BiTrophy } from "react-icons/bi";
 
-import { resultStatusOptions } from "../../../../../../Videos/ALM Sync Lite/paupite-main-admin-result-fix (1)/paupite-main/src/components/admin/match-labels.ts";
-import type { AdminMatch } from "../../../../../../Videos/ALM Sync Lite/paupite-main-admin-result-fix (1)/paupite-main/src/components/admin/match-types.ts";
+import { resultStatusOptions } from "@/components/admin/match-labels.ts";
+import type { AdminMatch } from "@/components/admin/match-types.ts";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -12,8 +12,8 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "../../../../../../Videos/ALM Sync Lite/paupite-main-admin-result-fix (1)/paupite-main/src/components/ui/alert-dialog.tsx";
-import { Button } from "../../../../../../Videos/ALM Sync Lite/paupite-main-admin-result-fix (1)/paupite-main/src/components/ui/button.tsx";
+} from "@/components/ui/alert-dialog.tsx";
+import { Button } from "@/components/ui/button.tsx";
 import {
   Drawer,
   DrawerClose,
@@ -22,15 +22,15 @@ import {
   DrawerFooter,
   DrawerHeader,
   DrawerTitle,
-} from "../../../../../../Videos/ALM Sync Lite/paupite-main-admin-result-fix (1)/paupite-main/src/components/ui/drawer.tsx";
-import { Input } from "../../../../../../Videos/ALM Sync Lite/paupite-main-admin-result-fix (1)/paupite-main/src/components/ui/input.tsx";
-import { Label } from "../../../../../../Videos/ALM Sync Lite/paupite-main-admin-result-fix (1)/paupite-main/src/components/ui/label.tsx";
+} from "@/components/ui/drawer.tsx";
+import { Input } from "@/components/ui/input.tsx";
+import { Label } from "@/components/ui/label.tsx";
 import {
   isKnockoutStage,
   qualificationMethodLabel,
   type QualificationMethod,
-} from "../../../../../../Videos/ALM Sync Lite/paupite-main-admin-result-fix (1)/paupite-main/src/lib/knockout.ts";
-import { deriveMatchTemporalStatus, isMatchFuture } from "../../../../../../Videos/ALM Sync Lite/paupite-main-admin-result-fix (1)/paupite-main/src/lib/match-status.ts";
+} from "@/lib/knockout.ts";
+import { deriveMatchTemporalStatus, isMatchFuture } from "@/lib/match-status.ts";
 
 export function AdminResultSheet({
   open,
@@ -85,6 +85,8 @@ export function AdminResultSheet({
       : awayScore > homeScore
         ? match?.away_team_id
         : null;
+  const winnerQualificationMethodValid =
+    qualificationMethod === "regulation" || qualificationMethod === "extra_time";
   const tiedQualificationMethodValid =
     qualificationMethod === "extra_time" || qualificationMethod === "penalties";
   const officialQualifiedTeamId = knockout
@@ -101,7 +103,9 @@ export function AdminResultSheet({
         ? tiedQualificationMethodValid
           ? qualificationMethod
           : null
-        : ("regulation" as QualificationMethod)
+        : winnerQualificationMethodValid
+          ? qualificationMethod
+          : ("regulation" as QualificationMethod)
     : undefined;
   const qualifiedTeamName =
     officialQualifiedTeamId === match?.home_team_id
@@ -111,10 +115,13 @@ export function AdminResultSheet({
         : "A definir";
   const knockoutTeamsDefined = Boolean(match?.home_team_id && match?.away_team_id);
   const requiresKnockoutDecision = knockout && !liveResult && tied;
+  const winnerKnockoutComplete = !knockout || liveResult || tied || winnerQualificationMethodValid;
   const tiedKnockoutComplete = Boolean(
     !requiresKnockoutDecision || (qualifiedTeamId && tiedQualificationMethodValid),
   );
-  const canSaveResult = !busy && (!knockout || (knockoutTeamsDefined && tiedKnockoutComplete));
+  const canSaveResult =
+    !busy &&
+    (!knockout || (knockoutTeamsDefined && winnerKnockoutComplete && tiedKnockoutComplete));
   const canCloseCurrentMatch = match?.status === "finished" && status === "finished";
 
   return (
@@ -172,9 +179,25 @@ export function AdminResultSheet({
                   Classificação oficial
                 </p>
                 {!tied ? (
-                  <p className="text-sm text-muted-foreground">
-                    {qualifiedTeamName} se classifica por {qualificationMethodLabel("regulation")}.
-                  </p>
+                  <div className="space-y-3">
+                    <p className="text-sm text-muted-foreground">
+                      {qualifiedTeamName} se classifica pelo placar informado.
+                    </p>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="winner-qualification-method">Como venceu?</Label>
+                      <select
+                        id="winner-qualification-method"
+                        className="h-11 w-full rounded-xl border border-input bg-background/65 px-3 text-sm font-bold"
+                        value={winnerQualificationMethodValid ? qualificationMethod : "regulation"}
+                        onChange={(event) =>
+                          setQualificationMethod(event.target.value as QualificationMethod)
+                        }
+                      >
+                        <option value="regulation">{qualificationMethodLabel("regulation")}</option>
+                        <option value="extra_time">{qualificationMethodLabel("extra_time")}</option>
+                      </select>
+                    </div>
+                  </div>
                 ) : (
                   <>
                     <div className="space-y-1.5">
