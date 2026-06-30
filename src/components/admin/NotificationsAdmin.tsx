@@ -19,6 +19,7 @@ import {
   sendMatchReminder,
   sendSpecialsReminder,
   targetModeLabel,
+  deleteNotificationCampaign,
   type CampaignReport,
   type CampaignSummary,
   type NotificationTargetMode,
