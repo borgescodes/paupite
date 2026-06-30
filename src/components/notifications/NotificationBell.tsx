@@ -14,6 +14,7 @@ export function NotificationBell({ userId }: { userId?: string | null }) {
     markAllAsRead,
     clearAllNotifications,
     isClearingAllNotifications,
+    refetch,
   } = useNotifications(userId);
 
   if (!userId) return null;
@@ -21,8 +22,9 @@ export function NotificationBell({ userId }: { userId?: string | null }) {
   // Abrir a central marca todas as pendentes como visualizadas automaticamente.
   function handleOpenChange(next: boolean) {
     setOpen(next);
-    if (next && unreadCount > 0) {
-      void markAllAsRead();
+    if (next) {
+      refetch();
+      if (unreadCount > 0) void markAllAsRead();
     }
   }
 
