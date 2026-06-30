@@ -102,6 +102,15 @@ export function NotificationsAdmin() {
   useEffect(() => {
     void loadPickers();
     void loadCampaigns();
+    const interval = setInterval(() => {
+      void loadCampaigns();
+    }, 20_000);
+    const onFocus = () => void loadCampaigns();
+    window.addEventListener("focus", onFocus);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("focus", onFocus);
+    };
   }, [loadPickers, loadCampaigns]);
 
   function toggleUser(id: string) {
