@@ -198,5 +198,8 @@ export function useNotifications(userId: string | null | undefined) {
     isMarkingAsRead: markAsReadMutation.isPending,
     isMarkingAllAsRead: markAllAsReadMutation.isPending,
     isClearingAllNotifications: clearAllNotificationsMutation.isPending,
+    refetch: () => {
+      void queryClient.invalidateQueries({ queryKey: notificationsQueryKey(userId) });
+    },
   };
 }
