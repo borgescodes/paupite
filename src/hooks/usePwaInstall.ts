@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 type InstallOutcome = "accepted" | "dismissed" | "installed" | "unavailable";
+type PwaInstallPlatform = "android" | "ios" | "desktop";
 
 type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>;
@@ -25,14 +26,21 @@ function isIosDevice() {
   return /iphone|ipad|ipod/.test(userAgent) || (platform === "macintel" && maxTouchPoints > 1);
 }
 
+function isAndroidDevice() {
+  if (typeof window === "undefined") return false;
+  return /android/.test(window.navigator.userAgent.toLowerCase());
+}
+
 export function usePwaInstall() {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isInstalled, setIsInstalled] = useState(false);
   const [isIos, setIsIos] = useState(false);
+  const [isAndroid, setIsAndroid] = useState(false);
 
   useEffect(() => {
     setIsInstalled(isStandaloneDisplay());
     setIsIos(isIosDevice());
+    setIsAndroid(isAndroidDevice());
 
     const displayMode = window.matchMedia("(display-mode: standalone)");
     const handleDisplayModeChange = () => setIsInstalled(isStandaloneDisplay());
@@ -66,17 +74,24 @@ export function usePwaInstall() {
     if (!deferredPrompt) return "unavailable";
 
     const promptEvent = deferredPrompt;
-    setDeferredPrompt(null);
     await promptEvent.prompt();
     const choice = await promptEvent.userChoice.catch(() => null);
-    if (choice?.outcome === "accepted") setIsInstalled(isStandaloneDisplay());
+    setDeferredPrompt(null);
+    if (choice?.outcome === "accepted") {
+      setIsInstalled(true);
+      return "accepted";
+    }
     return choice?.outcome ?? "unavailable";
   }, [deferredPrompt, isInstalled]);
 
+  const platform: PwaInstallPlatform = isIos ? "ios" : isAndroid ? "android" : "desktop";
+
   return {
     canInstall,
+    isAndroid,
     isIos,
     isInstalled,
     install,
+    platform,
   };
 }

@@ -7,11 +7,13 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import {
   Sheet,
   SheetContent,
@@ -66,7 +68,8 @@ function AppHeader({
 }: AppHeaderProps) {
   const [menuOpen, setMenuOpen] = React.useState(false);
   const [installHelpOpen, setInstallHelpOpen] = React.useState(false);
-  const { canInstall, install, isInstalled, isIos } = usePwaInstall();
+  const { canInstall, install, isInstalled, platform } = usePwaInstall();
+  const installGuide = getInstallGuide(platform);
   const showInstallItem = !isInstalled;
 
   function handleNavigate(key: string) {
@@ -76,13 +79,15 @@ function AppHeader({
 
   async function handleInstallClick() {
     setMenuOpen(false);
-    if (isIos && !canInstall) {
-      setInstallHelpOpen(true);
-      return;
-    }
+    if (!canInstall) return setInstallHelpOpen(true);
 
     const outcome = await install();
     if (outcome === "unavailable") setInstallHelpOpen(true);
+  }
+
+  async function handleInstallRetry() {
+    const outcome = await install();
+    if (outcome === "accepted" || outcome === "installed") setInstallHelpOpen(false);
   }
 
   return (
@@ -192,19 +197,89 @@ function AppHeader({
         </div>
       </div>
       <Dialog open={installHelpOpen} onOpenChange={setInstallHelpOpen}>
-        <DialogContent className="w-[calc(100vw-2rem)] rounded-3xl">
+        <DialogContent className="w-[calc(100vw-2rem)] max-w-sm rounded-3xl p-5">
           <DialogHeader>
-            <DialogTitle>Instalar APP</DialogTitle>
-            <DialogDescription>
-              {isIos
-                ? "No Safari, toque em Compartilhar e escolha Adicionar a Tela de Inicio."
-                : "No Chrome ou Edge, use a opcao Instalar APP do navegador quando estiver disponivel."}
-            </DialogDescription>
+            <DialogTitle>{installGuide.title}</DialogTitle>
+            <DialogDescription>{installGuide.description}</DialogDescription>
           </DialogHeader>
+          <ol className="space-y-3 text-sm text-foreground">
+            {installGuide.steps.map((step, index) => (
+              <li key={step} className="flex gap-3">
+                <span className="grid size-7 shrink-0 place-items-center rounded-full bg-brand text-xs font-extrabold text-brand-foreground">
+                  {index + 1}
+                </span>
+                <span className="pt-1 leading-relaxed">{step}</span>
+              </li>
+            ))}
+          </ol>
+          {installGuide.note && (
+            <p className="rounded-2xl bg-accent px-3 py-2 text-sm leading-relaxed text-accent-foreground">
+              {installGuide.note}
+            </p>
+          )}
+          <div className="flex flex-col gap-2 pt-1">
+            {canInstall && (
+              <Button
+                type="button"
+                className="h-11 rounded-2xl"
+                onClick={() => void handleInstallRetry()}
+              >
+                Tentar novamente
+              </Button>
+            )}
+            <DialogClose asChild>
+              <Button type="button" variant="outline" className="h-11 rounded-2xl">
+                Entendi
+              </Button>
+            </DialogClose>
+          </div>
         </DialogContent>
       </Dialog>
     </header>
   );
+}
+
+function getInstallGuide(platform: "android" | "ios" | "desktop") {
+  if (platform === "ios") {
+    return {
+      title: "Instalar Pau Pite no iPhone",
+      description: "No iPhone, a instalacao e feita pelo Safari.",
+      steps: [
+        "Abra este site no Safari.",
+        "Toque no botao Compartilhar.",
+        'Role a lista e toque em "Adicionar a Tela de Inicio".',
+        'Toque em "Adicionar".',
+        "Abra o Pau Pite pelo icone criado na tela inicial.",
+      ],
+      note: "Se voce estiver usando Chrome no iPhone, abra primeiro pelo Safari.",
+    };
+  }
+
+  if (platform === "android") {
+    return {
+      title: "Instalar Pau Pite",
+      description:
+        "Seu navegador ainda nao liberou a instalacao automatica. Voce pode instalar manualmente:",
+      steps: [
+        "Toque no menu do navegador no canto superior direito.",
+        'Escolha "Adicionar a tela inicial" ou "Instalar app".',
+        "Confirme a instalacao.",
+        "Depois, abra o Pau Pite pelo icone criado na tela inicial.",
+      ],
+      note: null,
+    };
+  }
+
+  return {
+    title: "Instalar Pau Pite",
+    description: "Quando o prompt automatico nao aparece, use a instalacao manual do navegador.",
+    steps: [
+      "Procure o icone de instalacao na barra de endereco.",
+      'Ou abra o menu do navegador e escolha "Instalar Pau Pite".',
+      "Confirme a instalacao quando o navegador solicitar.",
+    ],
+    note: null,
+  };
 }
 
 export { AppHeader };

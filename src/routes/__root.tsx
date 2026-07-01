@@ -15,6 +15,29 @@ import { useThemeMode } from "@/hooks/use-theme";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 
+const DEFAULT_THEME_COLOR = "#2563eb";
+const themeColors = {
+  light: {
+    blue: "#2563eb",
+    pink: "#db2777",
+    purple: "#7c3aed",
+    green: "#16a34a",
+    red: "#dc2626",
+    brazil: "#2563eb",
+  },
+  dark: {
+    blue: "#38bdf8",
+    pink: "#f472b6",
+    purple: "#a78bfa",
+    green: "#4ade80",
+    red: "#f87171",
+    brazil: "#60a5fa",
+  },
+} as const;
+
+type ThemeColorMode = keyof typeof themeColors;
+type ThemeColorAccent = keyof (typeof themeColors)["light"];
+
 function NotFoundComponent() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
@@ -80,7 +103,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { name: "theme-color", content: "#009b3a" },
+      { name: "theme-color", content: DEFAULT_THEME_COLOR },
       { name: "mobile-web-app-capable", content: "yes" },
       { name: "apple-mobile-web-app-capable", content: "yes" },
       { name: "apple-mobile-web-app-status-bar-style", content: "default" },
@@ -190,6 +213,31 @@ function RootShell({ children }: { children: ReactNode }) {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   useThemeMode();
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const updateThemeColor = () => {
+      const root = document.documentElement;
+      const mode: ThemeColorMode = root.classList.contains("dark") ? "dark" : "light";
+      const accent = root.dataset.accent as ThemeColorAccent | undefined;
+      const color =
+        accent && accent in themeColors[mode] ? themeColors[mode][accent] : DEFAULT_THEME_COLOR;
+      document
+        .querySelector<HTMLMetaElement>('meta[name="theme-color"]')
+        ?.setAttribute("content", color);
+    };
+    const updateAfterThemeChange = () => window.setTimeout(updateThemeColor, 0);
+
+    updateThemeColor();
+    window.addEventListener("paupite:theme-changed", updateAfterThemeChange);
+    window.addEventListener("paupite:accent-changed", updateAfterThemeChange);
+
+    return () => {
+      window.removeEventListener("paupite:theme-changed", updateAfterThemeChange);
+      window.removeEventListener("paupite:accent-changed", updateAfterThemeChange);
+    };
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined" || !("serviceWorker" in navigator) || !import.meta.env.PROD) {
