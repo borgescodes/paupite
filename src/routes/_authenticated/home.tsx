@@ -19,6 +19,7 @@ import {
   validateKnockoutPrediction,
   type KnockoutScoringRules,
 } from "@/lib/knockout";
+import { isMatchOpenForPrediction } from "@/lib/match-status";
 import {
   buildMatchDays,
   matchDateKey,
@@ -151,7 +152,7 @@ function HomePage() {
   async function saveBet(matchId: string) {
     if (!user?.id) return;
     const match = matches.find((item) => item.id === matchId);
-    if (!match || new Date(match.kickoff_at) <= new Date() || match.status !== "scheduled") {
+    if (!match || !isMatchOpenForPrediction(match.status, match.kickoff_at)) {
       setLocalError("O prazo para este palpite já terminou.");
       return;
     }

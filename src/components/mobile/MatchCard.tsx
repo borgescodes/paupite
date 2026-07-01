@@ -54,8 +54,18 @@ function MatchContextRow({ data }: { data: MatchCardData }) {
         </StatusBadge>
       )}
       {data.status === "finished" && (
+        <StatusBadge variant="warning" className="shrink-0">
+          Aguardando pontuação
+        </StatusBadge>
+      )}
+      {data.status === "scored" && (
+        <StatusBadge variant="success" className="shrink-0">
+          Pontuada
+        </StatusBadge>
+      )}
+      {data.status === "canceled" && (
         <StatusBadge variant="neutral" className="shrink-0">
-          Encerrada
+          Cancelada
         </StatusBadge>
       )}
     </div>
@@ -380,13 +390,16 @@ function MatchCard({
       className={cn(
         "glass-card interactive-card overflow-hidden rounded-3xl border-border/80 shadow-xl shadow-foreground/5",
         data.status === "live" && "border-live/35",
+        data.status === "canceled" && "opacity-85",
         hasTeamMultiplier &&
           "border-warning/55 bg-gradient-to-br from-warning/10 via-surface to-brand/8 shadow-warning/15 ring-1 ring-warning/20",
         className,
       )}
     >
       {data.status === "live" && <div className="h-1 bg-live" />}
-      {data.status === "finished" && <div className="h-1 bg-success" />}
+      {(data.status === "finished" || data.status === "scored") && (
+        <div className="h-1 bg-success" />
+      )}
       <CardContent className="space-y-3.5 p-4 sm:p-5">
         <MatchContextRow data={data} />
 
@@ -514,7 +527,14 @@ function MatchCard({
           </div>
         )}
 
-        {data.status === "finished" && data.finalScore && (
+        {data.status === "canceled" && (
+          <div className="space-y-2">
+            <TeamsRow data={data} />
+            <LockedBar label="Partida cancelada" />
+          </div>
+        )}
+
+        {(data.status === "finished" || data.status === "scored") && data.finalScore && (
           <div className="space-y-3">
             <p className="eyebrow text-center text-muted-foreground">Resultado oficial</p>
             <FinalScoreRow data={data} score={data.finalScore} />
@@ -529,9 +549,10 @@ function MatchCard({
                     {qualificationMethodLabel(data.guess.value.qualificationMethod)}
                   </span>
                 )}
-                {typeof data.guess.points === "number" && (
+                {data.status === "scored" && typeof data.guess.points === "number" && (
                   <span> · Pontos: {data.guess.points}</span>
                 )}
+                {data.status === "finished" && <span> · Aguardando pontuação</span>}
               </div>
             ) : (
               <div className="rounded-2xl bg-muted/70 px-3 py-2.5 text-center text-xs font-bold text-muted-foreground">
