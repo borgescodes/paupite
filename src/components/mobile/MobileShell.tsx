@@ -1,8 +1,7 @@
 import { useNavigate } from "@tanstack/react-router";
-import { BiFootball, BiGroup, BiTrophy, BiUserCircle } from "react-icons/bi";
+import { BiFootball, BiGroup, BiShieldQuarter, BiTrophy, BiUserCircle } from "react-icons/bi";
 
 import { AppHeader } from "@/components/mobile/AppHeader";
-import { TabBar } from "@/components/mobile/TabBar";
 import { useAuth } from "@/hooks/use-auth";
 import { useThemeMode } from "@/hooks/use-theme";
 import { cn } from "@/lib/utils";
@@ -21,11 +20,13 @@ export function MobileShell({
   const { theme, toggleTheme } = useThemeMode(profile?.id);
 
   const userName = profile?.nickname || profile?.display_name || profile?.email || "Jogador";
-  const tabs = [
+  const isOperator = profile?.role === "admin" || profile?.role === "superadmin";
+  const navigationItems = [
     { key: "partidas", label: "Partidas", icon: BiFootball },
     { key: "bolao", label: "Bolão", icon: BiGroup },
     { key: "ranking", label: "Ranking", icon: BiTrophy },
     { key: "perfil", label: "Perfil", icon: BiUserCircle },
+    ...(isOperator ? [{ key: "admin", label: "Administração", icon: BiShieldQuarter }] : []),
   ];
 
   function select(key: string) {
@@ -33,10 +34,11 @@ export function MobileShell({
     if (key === "bolao") navigate({ to: "/pool" });
     if (key === "ranking") navigate({ to: "/ranking" });
     if (key === "perfil") navigate({ to: "/profile" });
+    if (key === "admin") navigate({ to: "/admin" });
   }
 
   return (
-    <div className={cn("app-backdrop min-h-screen pb-24", className)}>
+    <div className={cn("app-backdrop min-h-screen", className)}>
       <AppHeader
         userId={profile?.id}
         userName={userName}
@@ -44,9 +46,11 @@ export function MobileShell({
         theme={theme}
         onProfileClick={() => navigate({ to: "/profile" })}
         onToggleTheme={toggleTheme}
+        navigationItems={navigationItems}
+        activeNavigationKey={active}
+        onNavigate={select}
       />
       {children}
-      <TabBar items={tabs} activeKey={active} onSelect={select} />
     </div>
   );
 }
