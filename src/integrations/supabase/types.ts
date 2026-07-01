@@ -500,6 +500,48 @@ export type Database = {
           },
         ]
       }
+      notifications_cleanup_backup_20260630: {
+        Row: {
+          backup_created_at: string | null
+          campaign_id: string | null
+          created_at: string | null
+          data: Json | null
+          deleted_at: string | null
+          id: string | null
+          message: string | null
+          read_at: string | null
+          title: string | null
+          type: string | null
+          user_id: string | null
+        }
+        Insert: {
+          backup_created_at?: string | null
+          campaign_id?: string | null
+          created_at?: string | null
+          data?: Json | null
+          deleted_at?: string | null
+          id?: string | null
+          message?: string | null
+          read_at?: string | null
+          title?: string | null
+          type?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          backup_created_at?: string | null
+          campaign_id?: string | null
+          created_at?: string | null
+          data?: Json | null
+          deleted_at?: string | null
+          id?: string | null
+          message?: string | null
+          read_at?: string | null
+          title?: string | null
+          type?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       payments: {
         Row: {
           amount_cents: number
@@ -1249,10 +1291,10 @@ export type Database = {
           kickoff_at: string
           match_id: string
           points: number
-          predicted_qualification_method: string | null
-          predicted_qualified_team: string | null
-          qualification_method: string | null
-          qualified_team: string | null
+          predicted_qualification_method: string
+          predicted_qualified_team: string
+          qualification_method: string
+          qualified_team: string
           status: string
         }[]
       }
