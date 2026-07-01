@@ -1,10 +1,17 @@
 import * as React from "react";
-import { BiSolidMoon, BiSolidSun } from "react-icons/bi";
+import { BiDownload, BiSolidMoon, BiSolidSun } from "react-icons/bi";
 import type { IconType } from "react-icons";
 
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Sheet,
   SheetContent,
@@ -13,6 +20,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import { usePwaInstall } from "@/hooks/usePwaInstall";
 
 export type ThemeMode = "light" | "dark";
 
@@ -57,10 +65,24 @@ function AppHeader({
   className,
 }: AppHeaderProps) {
   const [menuOpen, setMenuOpen] = React.useState(false);
+  const [installHelpOpen, setInstallHelpOpen] = React.useState(false);
+  const { canInstall, install, isInstalled, isIos } = usePwaInstall();
+  const showInstallItem = !isInstalled;
 
   function handleNavigate(key: string) {
     setMenuOpen(false);
     onNavigate?.(key);
+  }
+
+  async function handleInstallClick() {
+    setMenuOpen(false);
+    if (isIos && !canInstall) {
+      setInstallHelpOpen(true);
+      return;
+    }
+
+    const outcome = await install();
+    if (outcome === "unavailable") setInstallHelpOpen(true);
   }
 
   return (
@@ -153,11 +175,34 @@ function AppHeader({
                     </button>
                   );
                 })}
+
+                {showInstallItem && (
+                  <button
+                    type="button"
+                    onClick={() => void handleInstallClick()}
+                    className="tap-feedback flex min-h-12 items-center gap-3 rounded-2xl px-3 text-left text-sm font-extrabold text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <BiDownload className="size-5 shrink-0" aria-hidden="true" />
+                    <span>Instalar APP</span>
+                  </button>
+                )}
               </nav>
             </SheetContent>
           </Sheet>
         </div>
       </div>
+      <Dialog open={installHelpOpen} onOpenChange={setInstallHelpOpen}>
+        <DialogContent className="w-[calc(100vw-2rem)] rounded-3xl">
+          <DialogHeader>
+            <DialogTitle>Instalar APP</DialogTitle>
+            <DialogDescription>
+              {isIos
+                ? "No Safari, toque em Compartilhar e escolha Adicionar a Tela de Inicio."
+                : "No Chrome ou Edge, use a opcao Instalar APP do navegador quando estiver disponivel."}
+            </DialogDescription>
+          </DialogHeader>
+        </DialogContent>
+      </Dialog>
     </header>
   );
 }
