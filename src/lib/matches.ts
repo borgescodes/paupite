@@ -1,6 +1,3 @@
-import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
-
 import type {
   DayOption,
   MatchCardData,
@@ -19,6 +16,19 @@ import {
   type QualificationMethod,
 } from "@/lib/knockout";
 import { derivePlayerMatchStatus, isMatchOpenForPrediction } from "@/lib/match-status";
+
+const APP_TIME_ZONE = "America/Sao_Paulo";
+const dateKeyFormatter = new Intl.DateTimeFormat("en-CA", {
+  timeZone: APP_TIME_ZONE,
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+const dayLabelFormatter = new Intl.DateTimeFormat("pt-BR", {
+  timeZone: APP_TIME_ZONE,
+  day: "2-digit",
+  month: "short",
+});
 
 export interface BetTrend {
   match_id: string;
@@ -79,15 +89,22 @@ export function buildMatchDays(matches: MatchRow[]): DayOption[] {
     const kickoff = new Date(match.kickoff_at);
     unique.set(date, {
       date,
-      label: format(kickoff, "dd MMM", { locale: ptBR }).replace(".", "").toUpperCase(),
+      label: formatMatchDayLabel(kickoff),
       phaseLabel: formatStage(match.stage),
     });
   }
   return [...unique.values()].sort((left, right) => left.date.localeCompare(right.date));
 }
 
-export function matchDateKey(kickoffAt: string) {
-  return format(new Date(kickoffAt), "yyyy-MM-dd");
+export function matchDateKey(kickoffAt: string | Date) {
+  return dateKeyFormatter.format(new Date(kickoffAt));
+}
+
+function formatMatchDayLabel(kickoffAt: string | Date) {
+  const parts = dayLabelFormatter.formatToParts(new Date(kickoffAt));
+  const day = parts.find((part) => part.type === "day")?.value ?? "";
+  const month = parts.find((part) => part.type === "month")?.value.replace(".", "") ?? "";
+  return `${day} ${month}`.trim().toUpperCase();
 }
 
 const MIN_BETS_FOR_MEGABRAIN = 1;

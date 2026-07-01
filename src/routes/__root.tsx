@@ -80,6 +80,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
+      { name: "theme-color", content: "#009b3a" },
+      { name: "mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-status-bar-style", content: "default" },
+      { name: "apple-mobile-web-app-title", content: "Pau Pite" },
       { title: "PauPite | byBorgez" },
       {
         name: "description",
@@ -123,6 +128,21 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       },
     ],
     links: [
+      {
+        rel: "manifest",
+        href: "/manifest.webmanifest",
+      },
+      {
+        rel: "icon",
+        type: "image/png",
+        sizes: "192x192",
+        href: "/icons/icon-192.png",
+      },
+      {
+        rel: "apple-touch-icon",
+        sizes: "180x180",
+        href: "/icons/apple-touch-icon.png",
+      },
       {
         rel: "preconnect",
         href: "https://fonts.googleapis.com",
@@ -170,6 +190,24 @@ function RootShell({ children }: { children: ReactNode }) {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   useThemeMode();
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !("serviceWorker" in navigator) || !import.meta.env.PROD) {
+      return;
+    }
+
+    const registerServiceWorker = () => {
+      void navigator.serviceWorker.register("/sw.js").catch(() => undefined);
+    };
+
+    if (document.readyState === "complete") {
+      registerServiceWorker();
+      return;
+    }
+
+    window.addEventListener("load", registerServiceWorker, { once: true });
+    return () => window.removeEventListener("load", registerServiceWorker);
+  }, []);
 
   return (
     <QueryClientProvider client={queryClient}>

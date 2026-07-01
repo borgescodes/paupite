@@ -116,7 +116,7 @@ function HomePage() {
 
   useEffect(() => {
     if (!days.length || days.some((day) => day.date === selectedDate)) return;
-    const today = matchDateKey(new Date().toISOString());
+    const today = matchDateKey(new Date());
     const nextDate = days.find((day) => day.date >= today)?.date ?? days.at(-1)?.date ?? "";
     setSelectedDate(nextDate);
   }, [days, selectedDate]);
