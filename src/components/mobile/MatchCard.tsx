@@ -1,5 +1,11 @@
 import * as React from "react";
-import { BiCheckCircle, BiSolidBrain, BiSolidLock, BiSolidTimeFive } from "react-icons/bi";
+import {
+  BiCheckCircle,
+  BiEditAlt,
+  BiSolidBrain,
+  BiSolidLock,
+  BiSolidTimeFive,
+} from "react-icons/bi";
 
 import { cn } from "@/lib/utils";
 import { getTeamLogoUrl } from "@/lib/team-logos";
@@ -69,6 +75,17 @@ function MatchContextRow({ data }: { data: MatchCardData }) {
         </StatusBadge>
       )}
     </div>
+  );
+}
+
+function MatchStatusHint({ data, hasSavedGuess }: { data: MatchCardData; hasSavedGuess: boolean }) {
+  const hint = predictionStatusHint(data, hasSavedGuess);
+  if (!hint) return null;
+
+  return (
+    <p className="rounded-2xl bg-muted/45 px-3 py-2 text-center text-xs font-semibold leading-relaxed text-muted-foreground">
+      {hint}
+    </p>
   );
 }
 
@@ -192,6 +209,44 @@ function LockedBar({ label }: { label: string }) {
   );
 }
 
+function GuessSummary({
+  data,
+  tone = "neutral",
+}: {
+  data: MatchCardData;
+  tone?: "success" | "neutral";
+}) {
+  if (!data.guess.value) return null;
+
+  return (
+    <div
+      className={cn(
+        "rounded-2xl px-3 py-2.5 text-xs leading-relaxed",
+        tone === "success"
+          ? "bg-success/10 text-muted-foreground"
+          : "bg-muted/70 text-muted-foreground",
+      )}
+    >
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <StatusBadge variant={tone === "success" ? "success" : "neutral"}>
+          <BiCheckCircle className="size-3" />
+          Palpite enviado
+        </StatusBadge>
+        <span>
+          <ScoreText score={data.guess.value} />
+          {data.knockout && data.guess.value.qualifiedTeamId && (
+            <span>
+              {" "}
+              - {teamLabelById(data, data.guess.value.qualifiedTeamId)} -{" "}
+              {qualificationMethodLabel(data.guess.value.qualificationMethod)}
+            </span>
+          )}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 function ScoreText({ score }: { score: ScoreValue }) {
   return (
     <strong className="text-foreground">
@@ -249,8 +304,11 @@ function KnockoutPredictionFields({
     return (
       <div className="space-y-3 rounded-2xl bg-brand/8 p-3 text-xs text-muted-foreground">
         <div>
-          <p className="font-bold text-foreground">Classificação automática</p>
-          <p className="mt-1">{qualifiedTeamName} se classifica pelo placar informado.</p>
+          <p className="font-bold text-foreground">Classificado definido pelo placar</p>
+          <p className="mt-1">
+            {qualifiedTeamName} se classifica. Falta apenas escolher se a vitória veio no tempo
+            normal ou na prorrogação.
+          </p>
         </div>
 
         <div className="space-y-2">
@@ -285,7 +343,7 @@ function KnockoutPredictionFields({
           Quem se classifica nos pênaltis?
         </p>
         <p className="mt-1 text-xs text-muted-foreground">
-          Placar empatado define método automaticamente.
+          Como o placar ficou empatado, escolha quem avança nos pênaltis.
         </p>
       </div>
       <div className="grid grid-cols-2 gap-2">
@@ -384,6 +442,7 @@ function MatchCard({
   const showEditor = data.paupiteOpen && (!hasSavedGuess || editing);
   const currentGuess = data.guess.value ?? { home: 0, away: 0 };
   const hasTeamMultiplier = Boolean(data.knockout && data.knockout.teamMultiplier > 1);
+  const lockedLabel = predictionLockedLabel(data, hasSavedGuess);
 
   return (
     <Card
@@ -424,7 +483,7 @@ function MatchCard({
               </div>
             )}
             {(!showEditor || !data.paupiteOpen) && <TeamsRow data={data} />}
-            {hasSavedGuess && data.guess.value && (
+            {hasSavedGuess && !showEditor && data.guess.value && (
               <div className="flex items-center justify-between gap-2 rounded-2xl bg-success/10 px-3 py-2 text-xs">
                 <StatusBadge variant="success">
                   <BiCheckCircle className="size-3" />
@@ -442,6 +501,7 @@ function MatchCard({
                 </span>
               </div>
             )}
+            <MatchStatusHint data={data} hasSavedGuess={hasSavedGuess} />
             {showEditor && (
               <div className={cn(!data.paupiteOpen && "opacity-60")}>
                 {data.knockout && (
@@ -479,12 +539,13 @@ function MatchCard({
                   className="h-11 w-full rounded-2xl bg-brand text-brand-foreground hover:bg-brand/90"
                   onClick={onSubmitGuess}
                   disabled={saving}
+                  aria-busy={saving}
                 >
                   {saving
-                    ? "Salvando..."
+                    ? "Salvando palpite..."
                     : hasSavedGuess
-                      ? "Salvar novo palpite"
-                      : "Enviar palpite"}
+                      ? "Salvar palpite"
+                      : "Fazer palpite"}
                 </Button>
               ) : (
                 <Button
@@ -493,17 +554,12 @@ function MatchCard({
                   onClick={onEditGuess}
                   disabled={saving}
                 >
+                  <BiEditAlt className="size-4" />
                   Editar palpite
                 </Button>
               )
             ) : (
-              <LockedBar
-                label={
-                  data.teamsDefined === false
-                    ? "Palpites abrem quando o confronto for definido."
-                    : "Palpite bloqueado"
-                }
-              />
+              <LockedBar label={lockedLabel} />
             )}
           </div>
         )}
@@ -523,14 +579,17 @@ function MatchCard({
                 )}
               </p>
             )}
-            <LockedBar label="Palpite bloqueado" />
+            <MatchStatusHint data={data} hasSavedGuess={hasSavedGuess} />
+            <LockedBar label={lockedLabel} />
           </div>
         )}
 
         {data.status === "canceled" && (
           <div className="space-y-2">
             <TeamsRow data={data} />
-            <LockedBar label="Partida cancelada" />
+            <GuessSummary data={data} />
+            <MatchStatusHint data={data} hasSavedGuess={hasSavedGuess} />
+            <LockedBar label={lockedLabel} />
           </div>
         )}
 
@@ -550,7 +609,7 @@ function MatchCard({
                   </span>
                 )}
                 {data.status === "scored" && typeof data.guess.points === "number" && (
-                  <span> · Pontos: {data.guess.points}</span>
+                  <span> · {data.guess.points} pts nesta partida</span>
                 )}
                 {data.status === "finished" && <span> · Aguardando pontuação</span>}
               </div>
@@ -559,6 +618,7 @@ function MatchCard({
                 Você não palpitou
               </div>
             )}
+            <MatchStatusHint data={data} hasSavedGuess={hasSavedGuess} />
             <MegaBrainBlock forecast={data.megaBrain} home={data.home} away={data.away} />
           </div>
         )}
@@ -586,6 +646,40 @@ function teamLabelById(data: MatchCardData, teamId: string) {
   if (teamId === data.home.id) return data.home.name ?? data.home.shortName;
   if (teamId === data.away.id) return data.away.name ?? data.away.shortName;
   return "A definir";
+}
+
+function predictionStatusHint(data: MatchCardData, hasSavedGuess: boolean) {
+  if (data.status === "scheduled" && data.paupiteOpen) {
+    return hasSavedGuess
+      ? "Seu palpite está salvo. Você ainda pode editar antes do início."
+      : "Escolha o placar antes do início da partida.";
+  }
+  if (data.status === "live") {
+    return hasSavedGuess
+      ? "Jogo em andamento. Seu palpite está bloqueado para edição."
+      : "Jogo em andamento. O prazo para palpitar já terminou.";
+  }
+  if (data.status === "finished") {
+    return "Resultado lançado. A pontuação ainda será calculada.";
+  }
+  if (data.status === "scored") {
+    return "Pontuação calculada para esta partida.";
+  }
+  if (data.status === "canceled") {
+    return "Partida cancelada. Palpites não ficam disponíveis.";
+  }
+  return null;
+}
+
+function predictionLockedLabel(data: MatchCardData, hasSavedGuess: boolean) {
+  if (data.teamsDefined === false) return "Palpites abrem quando o confronto for definido.";
+  if (data.status === "live") {
+    return hasSavedGuess ? "Edição encerrada: jogo em andamento" : "Prazo encerrado";
+  }
+  if (data.status === "finished") return "Aguardando pontuação";
+  if (data.status === "scored") return "Partida pontuada";
+  if (data.status === "canceled") return "Partida cancelada";
+  return "Palpite bloqueado";
 }
 
 export { MatchCard };
