@@ -131,12 +131,7 @@ export function toMatchCard(
         1,
       )
     : 1;
-  const maxBasePoints =
-    defaultKnockoutBasePoints.exact_score +
-    defaultKnockoutBasePoints.goal_difference +
-    defaultKnockoutBasePoints.qualified_team +
-    defaultKnockoutBasePoints.qualification_method +
-    defaultKnockoutBasePoints.perfect_combo;
+  const maxBasePoints = maxKnockoutBasePoints(scoringRules);
   const savedValue = savedBet
     ? {
         home: savedBet.home_score,
@@ -220,4 +215,22 @@ function multiplierFor(rules: KnockoutScoringRules | null | undefined, team: Mat
     Number(multipliers[team?.id ?? ""] ?? 1),
     Number(multipliers[team?.external_key ?? ""] ?? 1),
   );
+}
+
+function maxKnockoutBasePoints(rules: KnockoutScoringRules | null | undefined) {
+  const basePoints = { ...defaultKnockoutBasePoints, ...rules?.base_points };
+
+  return (
+    pointValue(basePoints.exact_score) +
+    pointValue(basePoints.regulation_result) +
+    pointValue(basePoints.goal_difference) +
+    pointValue(basePoints.qualified_team) +
+    pointValue(basePoints.qualification_method) +
+    pointValue(basePoints.perfect_combo)
+  );
+}
+
+function pointValue(value: unknown) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : 0;
 }
