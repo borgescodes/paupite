@@ -15,6 +15,7 @@ import {
 import { toast } from "sonner";
 
 import { MobileShell } from "@/components/mobile/MobileShell";
+import type { PlayerMatchStatus } from "@/components/mobile/types";
 import { AvatarUploader } from "@/components/profile/AvatarUploader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -30,7 +31,7 @@ import {
   isRankingHistoryEligible,
   rankingHistoryCutoffUtcIso,
 } from "@/lib/bet-history-format";
-import { deriveMatchTemporalStatus } from "@/lib/match-status";
+import { derivePlayerMatchStatus } from "@/lib/match-status";
 import type { RankingEntry } from "@/lib/ranking";
 
 type Stats = Pick<
@@ -61,7 +62,7 @@ type ClosedBetHistoryItem = {
   kickoffAt: string;
   home: string;
   away: string;
-  status: "live" | "finished";
+  status: Exclude<PlayerMatchStatus, "scheduled">;
   finalHome: number;
   finalAway: number;
   guessHome: number;
@@ -354,7 +355,7 @@ function buildClosedBetHistory(
     .map((match) => {
       const bet = betByMatch.get(match.id);
       if (!bet) return null;
-      const status = deriveMatchTemporalStatus(match.status, match.kickoff_at);
+      const status = derivePlayerMatchStatus(match.status, match.kickoff_at);
       if (status === "scheduled" || !isRankingHistoryEligible(match.kickoff_at)) return null;
 
       const home = match.home_team?.short_name || match.home_team?.name || "Casa";
@@ -501,13 +502,9 @@ function HistoryCard({ history, stats }: { history: ClosedBetHistoryItem[]; stat
                     {item.home} x {item.away}
                   </p>
                   <span
-                    className={
-                      item.status === "live"
-                        ? "shrink-0 rounded-full bg-live/10 px-2 py-1 text-xs font-bold text-live"
-                        : "shrink-0 rounded-full bg-brand/10 px-2 py-1 text-xs font-bold text-brand"
-                    }
+                    className={historyStatusClassName(item.status)}
                   >
-                    {item.status === "live" ? "Em andamento" : `${item.points} pts`}
+                    {historyStatusLabel(item)}
                   </span>
                 </div>
                 <div className="mt-2 space-y-1 rounded-xl bg-muted/45 px-3 py-2 text-xs leading-relaxed">
@@ -531,6 +528,26 @@ function HistoryCard({ history, stats }: { history: ClosedBetHistoryItem[]; stat
       </CardContent>
     </Card>
   );
+}
+
+function historyStatusLabel(item: ClosedBetHistoryItem) {
+  if (item.status === "live") return "Em andamento";
+  if (item.status === "finished") return "Aguardando pontos";
+  if (item.status === "canceled") return "Cancelado";
+  return `${item.points} pts`;
+}
+
+function historyStatusClassName(status: ClosedBetHistoryItem["status"]) {
+  if (status === "live") {
+    return "shrink-0 rounded-full bg-live/10 px-2 py-1 text-xs font-bold text-live";
+  }
+  if (status === "finished") {
+    return "shrink-0 rounded-full bg-warning/10 px-2 py-1 text-xs font-bold text-warning";
+  }
+  if (status === "canceled") {
+    return "shrink-0 rounded-full bg-muted px-2 py-1 text-xs font-bold text-muted-foreground";
+  }
+  return "shrink-0 rounded-full bg-brand/10 px-2 py-1 text-xs font-bold text-brand";
 }
 
 function SummaryPill({ label, value }: { label: string; value: number }) {

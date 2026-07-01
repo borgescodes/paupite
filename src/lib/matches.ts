@@ -18,7 +18,7 @@ import {
   type KnockoutScoringRules,
   type QualificationMethod,
 } from "@/lib/knockout";
-import { deriveMatchTemporalStatus } from "@/lib/match-status";
+import { derivePlayerMatchStatus, isMatchOpenForPrediction } from "@/lib/match-status";
 
 export interface BetTrend {
   match_id: string;
@@ -110,8 +110,7 @@ export function toMatchCard(
   scoringRules?: KnockoutScoringRules | null,
 ): MatchCardData {
   const kickoff = new Date(match.kickoff_at);
-  const locked = kickoff.getTime() <= Date.now();
-  const status = deriveMatchTemporalStatus(match.status, kickoff);
+  const status = derivePlayerMatchStatus(match.status, kickoff);
   const knockout = isKnockoutStage(match.stage);
   const score = {
     home: match.home_score,
@@ -120,6 +119,7 @@ export function toMatchCard(
   const homeSource = parseBracketSource(match.bracket_source_home);
   const awaySource = parseBracketSource(match.bracket_source_away);
   const teamsDefined = Boolean(match.home_team?.id && match.away_team?.id);
+  const paupiteOpen = isMatchOpenForPrediction(match.status, kickoff) && teamsDefined;
   const stage = normalizeKnockoutStage(match.stage);
   const phaseWeight = stage
     ? (scoringRules?.stage_weights?.[stage] ?? defaultKnockoutStageWeights[stage])
@@ -151,7 +151,7 @@ export function toMatchCard(
     away: toTeam(match.away_team, awaySource?.label),
     teamsDefined,
     liveScore: status === "live" ? score : undefined,
-    finalScore: status === "finished" ? score : undefined,
+    finalScore: status === "finished" || status === "scored" ? score : undefined,
     knockout: knockout
       ? {
           stage: stage ?? "round_of_32",
@@ -164,10 +164,10 @@ export function toMatchCard(
           qualificationMethod: match.qualification_method ?? null,
         }
       : undefined,
-    paupiteOpen: status === "scheduled" && !locked && teamsDefined,
+    paupiteOpen,
     paupiteClosedLabel: "Paupites encerrados",
     paupiteClosesAtLabel:
-      status === "scheduled" && !locked
+      paupiteOpen
         ? kickoff.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
         : undefined,
     guess: {

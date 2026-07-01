@@ -1,6 +1,7 @@
 import type { QualificationMethod } from "@/lib/knockout";
 
 export type MatchTemporalStatus = "scheduled" | "live" | "finished";
+export type PlayerMatchStatus = MatchTemporalStatus | "scored" | "canceled";
 
 export interface TeamInfo {
   id?: string | null;
@@ -35,7 +36,7 @@ export interface MatchCardData {
   group: string;
   venue: string;
   kickoffAt: string;
-  status: MatchTemporalStatus;
+  status: PlayerMatchStatus;
   home: TeamInfo;
   away: TeamInfo;
   teamsDefined?: boolean;

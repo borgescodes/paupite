@@ -27,6 +27,7 @@ function stageLabelFallback(stage: string) {
 }
 
 export function matchStatusLabel(status: string, future: boolean, temporalStatus = status) {
+  if (status === "canceled") return "Cancelado";
   if (status === "closed") return "Pontuação calculada";
   if (status === "finished" || temporalStatus === "finished") return "Encerrado";
   if (status === "live" || temporalStatus === "live") return "Em andamento";
