@@ -9,6 +9,8 @@
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
     "lint": "eslint .",
+    "test": "npm run test:admin-result-flow",
+    "test:admin-result-flow": "tsc --strict --module CommonJS --moduleResolution Node --target ES2022 --outDir .output/tests --skipLibCheck --types node src/lib/admin-result-validation.ts tests/admin-result-validation.test.ts && node --test .output/tests/tests/admin-result-validation.test.js",
     "format": "prettier --write ."
   },
   "dependencies": {
