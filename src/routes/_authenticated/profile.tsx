@@ -160,9 +160,16 @@ function ProfilePage() {
   }
 
   async function signOut() {
+    try {
+      const { unsubscribePushOnLogout } = await import("@/hooks/usePushNotifications");
+      await unsubscribePushOnLogout();
+    } catch {
+      /* nunca bloquear logout */
+    }
     await supabase.auth.signOut();
     navigate({ to: "/auth" });
   }
+
 
   return (
     <MobileShell active="perfil">
