@@ -240,3 +240,66 @@ function formatNotificationDate(value: string) {
     .format(new Date(value))
     .replace(".", "");
 }
+
+function PushToggle({ push }: { push: ReturnType<typeof usePushNotifications> }) {
+  const { status, isBusy, error, subscribe, unsubscribe } = push;
+
+  if (status === "loading") {
+    return <p className="mt-2 text-sm text-muted-foreground">Verificando…</p>;
+  }
+  if (status === "unsupported") {
+    return <p className="mt-2 text-sm text-muted-foreground">Navegador incompatível.</p>;
+  }
+  if (status === "needs-ios-install") {
+    return (
+      <p className="mt-2 text-sm text-muted-foreground">
+        Instale o Pau Pite na Tela de Início para ativar no iPhone/iPad.
+      </p>
+    );
+  }
+  if (status === "denied") {
+    return (
+      <p className="mt-2 text-sm text-muted-foreground">
+        Permissão bloqueada no navegador. Ajuste nas configurações do site.
+      </p>
+    );
+  }
+  return (
+    <div className="mt-2 space-y-2">
+      {status === "subscribed" ? (
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-sm">Notificações ativadas neste aparelho.</span>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={isBusy}
+            onClick={() => void unsubscribe()}
+          >
+            {isBusy ? <Loader2 className="size-4 animate-spin" /> : null}
+            Desativar
+          </Button>
+        </div>
+      ) : (
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-sm text-muted-foreground">
+            Receba alertas no celular e computador.
+          </span>
+          <Button
+            type="button"
+            size="sm"
+            className="bg-brand text-brand-foreground hover:bg-brand/90"
+            disabled={isBusy}
+            onClick={() => void subscribe()}
+          >
+            {isBusy ? <Loader2 className="size-4 animate-spin" /> : null}
+            Ativar notificações
+          </Button>
+        </div>
+      )}
+      {error && status === "error" && (
+        <p className="text-xs text-destructive">Não foi possível ativar.</p>
+      )}
+    </div>
+  );
+}
