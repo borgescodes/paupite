@@ -20,7 +20,7 @@ export function AdminMatchCard({
 }) {
   const future = isMatchFuture(match.kickoff_at);
   const temporalStatus = deriveMatchTemporalStatus(match.status, match.kickoff_at);
-  const canSetResult = !future && match.status !== "closed";
+  const canSetResult = !future;
   const home =
     match.home_team?.name ?? parseBracketSource(match.bracket_source_home)?.label ?? "A definir";
   const away =
@@ -112,7 +112,7 @@ export function AdminMatchCard({
             ) : (
               <BiTrophy className="size-5" />
             )}
-            {future ? "Aguarda início" : "Resultado"}
+            {future ? "Aguarda início" : match.status === "closed" ? "Reabrir resultado" : "Resultado"}
           </Button>
         </div>
       </CardContent>

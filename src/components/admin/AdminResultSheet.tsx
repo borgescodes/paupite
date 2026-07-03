@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { BiCalculator, BiLockAlt, BiMinus, BiPlus, BiSave, BiTrophy } from "react-icons/bi";
 
 import { resultStatusOptions } from "@/components/admin/match-labels.ts";
@@ -25,12 +25,19 @@ import {
 } from "@/components/ui/drawer.tsx";
 import { Input } from "@/components/ui/input.tsx";
 import { Label } from "@/components/ui/label.tsx";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group.tsx";
 import {
-  isKnockoutStage,
-  qualificationMethodLabel,
-  type QualificationMethod,
-} from "@/lib/knockout.ts";
+  validateAdminMatchResult,
+  type AdminResultQualificationMethod,
+} from "@/lib/admin-result-validation.ts";
+import { isKnockoutStage, qualificationMethodLabel } from "@/lib/knockout.ts";
 import { deriveMatchTemporalStatus, isMatchFuture } from "@/lib/match-status.ts";
+
+const decisionMethods: AdminResultQualificationMethod[] = [
+  "regulation",
+  "extra_time",
+  "penalties",
+];
 
 export function AdminResultSheet({
   open,
@@ -51,7 +58,7 @@ export function AdminResultSheet({
     regulation_away_score?: number | null;
     status: string;
     qualified_team_id?: string | null;
-    qualification_method?: QualificationMethod | null;
+    qualification_method?: AdminResultQualificationMethod | null;
   }) => void;
   onCloseMatch: () => void;
 }) {
@@ -61,11 +68,13 @@ export function AdminResultSheet({
   const [regulationAwayScore, setRegulationAwayScore] = useState(0);
   const [status, setStatus] = useState("finished");
   const [qualifiedTeamId, setQualifiedTeamId] = useState<string | null>(null);
-  const [qualificationMethod, setQualificationMethod] = useState<QualificationMethod | null>(null);
+  const [qualificationMethod, setQualificationMethod] =
+    useState<AdminResultQualificationMethod | null>(null);
   const [closeDialogOpen, setCloseDialogOpen] = useState(false);
 
   useEffect(() => {
     if (!match || !open) return;
+    const savedMethod = match.qualification_method;
     setHomeScore(match.home_score);
     setAwayScore(match.away_score);
     setRegulationHomeScore(match.regulation_home_score ?? match.home_score);
@@ -73,8 +82,8 @@ export function AdminResultSheet({
     setStatus(
       deriveMatchTemporalStatus(match.status, match.kickoff_at) === "live" ? "live" : "finished",
     );
-    setQualifiedTeamId(match.qualified_team_id);
-    setQualificationMethod(match.qualification_method);
+    setQualifiedTeamId(savedMethod === "penalties" ? match.qualified_team_id : null);
+    setQualificationMethod(savedMethod);
   }, [match, open]);
 
   useEffect(() => {
@@ -84,70 +93,118 @@ export function AdminResultSheet({
   const future = match ? isMatchFuture(match.kickoff_at) : true;
   const knockout = isKnockoutStage(match?.stage);
   const liveResult = status === "live";
-  const tied = homeScore === awayScore;
+  const knockoutTeamsDefined = Boolean(match?.home_team_id && match?.away_team_id);
   const automaticQualifiedTeamId =
     homeScore > awayScore
       ? match?.home_team_id
       : awayScore > homeScore
         ? match?.away_team_id
         : null;
-  const winnerQualificationMethodValid =
-    qualificationMethod === "regulation" || qualificationMethod === "extra_time";
-  const tiedQualificationMethodValid =
-    qualificationMethod === "extra_time" || qualificationMethod === "penalties";
-  const officialQualifiedTeamId = knockout
-    ? liveResult
-      ? null
-      : tied
-        ? qualifiedTeamId
-        : automaticQualifiedTeamId
-    : undefined;
-  const officialQualificationMethod = knockout
-    ? liveResult
-      ? null
-      : tied
-        ? tiedQualificationMethodValid
-          ? qualificationMethod
-          : null
-        : winnerQualificationMethodValid
-          ? qualificationMethod
-          : ("regulation" as QualificationMethod)
-    : undefined;
-  const usesSeparateRegulationScore = Boolean(
+  const effectiveQualifiedTeamId =
+    qualificationMethod === "penalties" ? qualifiedTeamId : automaticQualifiedTeamId;
+
+  const validation = useMemo(() => {
+    if (!match || future) return null;
+    return validateAdminMatchResult({
+      knockout,
+      status: liveResult ? "live" : "finished",
+      homeTeamId: match.home_team_id,
+      awayTeamId: match.away_team_id,
+      homeScore,
+      awayScore,
+      regulationHomeScore:
+        knockout && !liveResult && qualificationMethod !== "regulation"
+          ? regulationHomeScore
+          : null,
+      regulationAwayScore:
+        knockout && !liveResult && qualificationMethod !== "regulation"
+          ? regulationAwayScore
+          : null,
+      qualifiedTeamId: knockout && !liveResult ? effectiveQualifiedTeamId : null,
+      qualificationMethod: knockout && !liveResult ? qualificationMethod : null,
+    });
+  }, [
+    awayScore,
+    effectiveQualifiedTeamId,
+    future,
+    homeScore,
+    knockout,
+    liveResult,
+    match,
+    qualificationMethod,
+    regulationAwayScore,
+    regulationHomeScore,
+  ]);
+
+  const resultPayload = validation?.ok ? validation.value : null;
+  const canSaveResult = !busy && Boolean(resultPayload) && (!knockout || knockoutTeamsDefined);
+  const canCloseCurrentMatch = match?.status === "finished" && status === "finished";
+  const showRegulationScore =
     knockout &&
     !liveResult &&
-    (officialQualificationMethod === "extra_time" || officialQualificationMethod === "penalties"),
-  );
-  const regulationScoreValid =
-    !usesSeparateRegulationScore ||
-    (Number.isInteger(regulationHomeScore) &&
-      Number.isInteger(regulationAwayScore) &&
-      regulationHomeScore === regulationAwayScore);
-  const qualifiedTeamName =
-    officialQualifiedTeamId === match?.home_team_id
-      ? (match?.home_team?.name ?? "Seleção A")
-      : officialQualifiedTeamId === match?.away_team_id
-        ? (match?.away_team?.name ?? "Seleção B")
-        : "A definir";
-  const knockoutTeamsDefined = Boolean(match?.home_team_id && match?.away_team_id);
-  const requiresKnockoutDecision = knockout && !liveResult && tied;
-  const winnerKnockoutComplete =
-    !knockout ||
-    liveResult ||
-    tied ||
-    winnerQualificationMethodValid ||
-    qualificationMethod === null;
-  const tiedKnockoutComplete = Boolean(
-    !requiresKnockoutDecision || (qualifiedTeamId && tiedQualificationMethodValid),
-  );
-  const canSaveResult =
-    !busy &&
-    (!knockout ||
-      (knockoutTeamsDefined &&
-        winnerKnockoutComplete &&
-        tiedKnockoutComplete &&
-        regulationScoreValid));
-  const canCloseCurrentMatch = match?.status === "finished" && status === "finished";
+    (qualificationMethod === "extra_time" || qualificationMethod === "penalties");
+  const showQualifiedSelector = knockout && !liveResult && qualificationMethod === "penalties";
+  const showAutomaticQualified =
+    knockout &&
+    !liveResult &&
+    (qualificationMethod === "regulation" || qualificationMethod === "extra_time");
+  const scoreTitle =
+    knockout && !liveResult && qualificationMethod !== "regulation"
+      ? "Placar após 120 minutos"
+      : "Placar final";
+  const qualifiedTeamName = teamName(match, effectiveQualifiedTeamId);
+
+  function handleMethodChange(method: AdminResultQualificationMethod) {
+    setQualificationMethod(method);
+
+    if (method === "regulation") {
+      setRegulationHomeScore(homeScore);
+      setRegulationAwayScore(awayScore);
+      setQualifiedTeamId(null);
+      return;
+    }
+
+    if (method === "extra_time") {
+      setQualifiedTeamId(null);
+      if (qualificationMethod !== "extra_time" && qualificationMethod !== "penalties") {
+        setRegulationHomeScore(0);
+        setRegulationAwayScore(0);
+      }
+      return;
+    }
+
+    if (qualificationMethod !== "extra_time" && qualificationMethod !== "penalties") {
+      setRegulationHomeScore(0);
+      setRegulationAwayScore(0);
+    }
+    if (
+      qualifiedTeamId !== match?.home_team_id &&
+      qualifiedTeamId !== match?.away_team_id
+    ) {
+      setQualifiedTeamId(null);
+    }
+  }
+
+  function handleStatusChange(nextStatus: string) {
+    setStatus(nextStatus);
+    if (nextStatus === "live") {
+      setQualifiedTeamId(null);
+      setQualificationMethod(null);
+    }
+  }
+
+  function handleSave() {
+    if (!resultPayload) return;
+    onSave({
+      home_score: resultPayload.homeScore,
+      away_score: resultPayload.awayScore,
+      regulation_home_score: resultPayload.regulationHomeScore,
+      regulation_away_score: resultPayload.regulationAwayScore,
+      status: resultPayload.status,
+      qualified_team_id: resultPayload.qualifiedTeamId,
+      qualification_method: resultPayload.qualificationMethod,
+    });
+  }
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
@@ -175,11 +232,44 @@ export function AdminResultSheet({
               <div className="rounded-2xl border border-warning/25 bg-warning/8 p-3 text-xs text-muted-foreground">
                 {liveResult
                   ? "Placar em andamento salva parcial sem exigir classificado ou método."
-                  : "Resultado encerrado pode liberar fechamento e atualizar confrontos futuros."}
+                  : "Escolha explicitamente como a partida foi decidida antes de salvar."}
               </div>
             )}
+
+            {knockout && knockoutTeamsDefined && !liveResult && (
+              <div className="space-y-3 rounded-2xl bg-muted/45 p-3">
+                <p className="text-xs font-extrabold uppercase text-muted-foreground">
+                  Como a partida foi decidida?
+                </p>
+                <RadioGroup
+                  value={qualificationMethod ?? ""}
+                  onValueChange={(value) =>
+                    handleMethodChange(value as AdminResultQualificationMethod)
+                  }
+                >
+                  {decisionMethods.map((method) => (
+                    <Label
+                      key={method}
+                      htmlFor={`decision-${method}`}
+                      className="flex cursor-pointer items-center gap-3 rounded-2xl border border-border/70 bg-background/65 p-3 text-sm font-bold"
+                    >
+                      <RadioGroupItem id={`decision-${method}`} value={method} />
+                      {qualificationMethodLabel(method)}
+                    </Label>
+                  ))}
+                </RadioGroup>
+              </div>
+            )}
+
             <div className="space-y-2">
-              <p className="text-xs font-extrabold uppercase text-muted-foreground">Placar final</p>
+              <p className="text-xs font-extrabold uppercase text-muted-foreground">
+                {scoreTitle}
+              </p>
+              {knockout && !liveResult && qualificationMethod === "penalties" && (
+                <p className="text-xs text-muted-foreground">
+                  Informe o placar oficial após 120 minutos. Não inclua cobranças de pênaltis.
+                </p>
+              )}
               <div className="grid grid-cols-[1fr_auto_1fr] items-end gap-3">
                 <ScoreField
                   id="home-score"
@@ -196,84 +286,21 @@ export function AdminResultSheet({
                 />
               </div>
             </div>
+
             {knockout && !knockoutTeamsDefined && (
               <p className="rounded-2xl bg-muted p-3 text-sm text-muted-foreground">
                 Defina as duas seleções antes de lançar o resultado do mata-mata.
               </p>
             )}
-            {knockout && knockoutTeamsDefined && !liveResult && (
-              <div className="space-y-3 rounded-2xl bg-muted/45 p-3">
-                <p className="text-xs font-extrabold uppercase text-muted-foreground">
-                  Classificação oficial
-                </p>
-                {!tied ? (
-                  <div className="space-y-3">
-                    <p className="text-sm text-muted-foreground">
-                      {qualifiedTeamName} se classifica pelo placar informado.
-                    </p>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="winner-qualification-method">Como venceu?</Label>
-                      <select
-                        id="winner-qualification-method"
-                        className="h-11 w-full rounded-xl border border-input bg-background/65 px-3 text-sm font-bold"
-                        value={winnerQualificationMethodValid ? qualificationMethod : "regulation"}
-                        onChange={(event) =>
-                          setQualificationMethod(event.target.value as QualificationMethod)
-                        }
-                      >
-                        <option value="regulation">{qualificationMethodLabel("regulation")}</option>
-                        <option value="extra_time">{qualificationMethodLabel("extra_time")}</option>
-                      </select>
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="qualified-team">Quem se classifica?</Label>
-                      <select
-                        id="qualified-team"
-                        className="h-11 w-full rounded-xl border border-input bg-background/65 px-3 text-sm font-bold"
-                        value={qualifiedTeamId ?? ""}
-                        onChange={(event) => setQualifiedTeamId(event.target.value || null)}
-                      >
-                        <option value="">Selecione</option>
-                        <option value={match?.home_team_id ?? ""}>
-                          {match?.home_team?.name ?? "Seleção A"}
-                        </option>
-                        <option value={match?.away_team_id ?? ""}>
-                          {match?.away_team?.name ?? "Seleção B"}
-                        </option>
-                      </select>
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="qualification-method">Como se classifica?</Label>
-                      <select
-                        id="qualification-method"
-                        className="h-11 w-full rounded-xl border border-input bg-background/65 px-3 text-sm font-bold"
-                        value={qualificationMethod ?? ""}
-                        onChange={(event) =>
-                          setQualificationMethod(
-                            (event.target.value || null) as QualificationMethod | null,
-                          )
-                        }
-                      >
-                        <option value="">Selecione</option>
-                        <option value="extra_time">{qualificationMethodLabel("extra_time")}</option>
-                        <option value="penalties">{qualificationMethodLabel("penalties")}</option>
-                      </select>
-                    </div>
-                  </>
-                )}
-              </div>
-            )}
-            {usesSeparateRegulationScore && (
+
+            {showRegulationScore && (
               <div className="space-y-3 rounded-2xl border border-warning/25 bg-warning/8 p-3">
                 <div>
                   <p className="text-xs font-extrabold uppercase text-muted-foreground">
-                    Placar no tempo regulamentar
+                    Placar aos 90 minutos
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Use o placar aos 90 minutos. Placar final continua sendo o placar acima.
+                    Prorrogação e pênaltis exigem empate no tempo regulamentar.
                   </p>
                 </div>
                 <div className="grid grid-cols-[1fr_auto_1fr] items-end gap-3">
@@ -291,20 +318,56 @@ export function AdminResultSheet({
                     onChange={setRegulationAwayScore}
                   />
                 </div>
-                {!regulationScoreValid && (
-                  <p className="rounded-xl bg-destructive/10 p-2 text-xs font-bold text-destructive">
-                    Prorrogação ou pênaltis exigem empate no tempo regulamentar.
-                  </p>
-                )}
               </div>
             )}
+
+            {showAutomaticQualified && (
+              <div className="rounded-2xl bg-muted/45 p-3">
+                <p className="text-xs font-extrabold uppercase text-muted-foreground">
+                  Classificado calculado
+                </p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {qualifiedTeamName} se classifica pelo placar informado.
+                </p>
+              </div>
+            )}
+
+            {showQualifiedSelector && (
+              <div className="space-y-1.5 rounded-2xl bg-muted/45 p-3">
+                <Label htmlFor="qualified-team">Seleção classificada</Label>
+                <select
+                  id="qualified-team"
+                  className="h-11 w-full rounded-xl border border-input bg-background/65 px-3 text-sm font-bold"
+                  value={qualifiedTeamId ?? ""}
+                  onChange={(event) => setQualifiedTeamId(event.target.value || null)}
+                >
+                  <option value="">Selecione</option>
+                  <option value={match?.home_team_id ?? ""}>
+                    {match?.home_team?.name ?? "Seleção A"}
+                  </option>
+                  <option value={match?.away_team_id ?? ""}>
+                    {match?.away_team?.name ?? "Seleção B"}
+                  </option>
+                </select>
+                <p className="text-xs text-muted-foreground">
+                  Use este campo apenas para indicar quem avançou na disputa de pênaltis.
+                </p>
+              </div>
+            )}
+
+            {validation && !validation.ok && (
+              <p className="rounded-2xl bg-destructive/10 p-3 text-sm font-bold text-destructive">
+                {validation.error}
+              </p>
+            )}
+
             <div className="space-y-1.5">
               <Label htmlFor="result-status">Situação da partida</Label>
               <select
                 id="result-status"
                 className="h-12 w-full rounded-2xl border border-input bg-background/65 px-3 text-sm font-bold"
                 value={status}
-                onChange={(event) => setStatus(event.target.value)}
+                onChange={(event) => handleStatusChange(event.target.value)}
               >
                 {resultStatusOptions.map((option) => (
                   <option key={option.value} value={option.value}>
@@ -318,39 +381,18 @@ export function AdminResultSheet({
                   : "Após salvar como encerrado, use “Fechar partida e recalcular”."}
               </p>
             </div>
-            <Button
-              className="w-full"
-              disabled={!canSaveResult}
-              onClick={() =>
-                onSave({
-                  home_score: homeScore,
-                  away_score: awayScore,
-                  regulation_home_score:
-                    knockout && !liveResult
-                      ? usesSeparateRegulationScore
-                        ? regulationHomeScore
-                        : homeScore
-                      : null,
-                  regulation_away_score:
-                    knockout && !liveResult
-                      ? usesSeparateRegulationScore
-                        ? regulationAwayScore
-                        : awayScore
-                      : null,
-                  status,
-                  qualified_team_id: officialQualifiedTeamId,
-                  qualification_method: officialQualificationMethod,
-                })
-              }
-            >
+
+            <Button className="w-full" disabled={!canSaveResult} onClick={handleSave}>
               <BiSave className="size-5" />
               Salvar resultado
             </Button>
+
             {match?.status === "live" && status === "finished" && (
               <p className="rounded-2xl bg-muted p-3 text-xs text-muted-foreground">
                 Salve o resultado como encerrado para liberar fechamento e recálculo.
               </p>
             )}
+
             {canCloseCurrentMatch && (
               <div className="rounded-2xl border border-warning/25 bg-warning/8 p-4">
                 <p className="font-extrabold">Fechar e recalcular</p>
@@ -429,9 +471,10 @@ function ScoreField({
         type="number"
         min={0}
         max={99}
+        step={1}
         className="h-16 rounded-2xl text-center text-3xl font-extrabold"
         value={value}
-        onChange={(event) => onChange(Number(event.target.value))}
+        onChange={(event) => onChange(event.target.value === "" ? 0 : Number(event.target.value))}
       />
       <div className="grid grid-cols-2 gap-2">
         <Button
@@ -453,4 +496,10 @@ function ScoreField({
       </div>
     </div>
   );
+}
+
+function teamName(match: AdminMatch | null, teamId: string | null | undefined) {
+  if (teamId === match?.home_team_id) return match.home_team?.name ?? "Seleção A";
+  if (teamId === match?.away_team_id) return match.away_team?.name ?? "Seleção B";
+  return "A definir";
 }
