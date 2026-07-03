@@ -38,3 +38,10 @@ verify_jwt = false
 
 [functions.import-matches]
 verify_jwt = false
+
+[functions.push-subscriptions]
+verify_jwt = false
+
+[functions.push-dispatch]
+verify_jwt = false
+
