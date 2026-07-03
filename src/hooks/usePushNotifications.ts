@@ -135,7 +135,7 @@ export function usePushNotifications(userId: string | null | undefined): PushSta
         const pub = await getPublicKey();
         sub = await reg.pushManager.subscribe({
           userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(pub),
+          applicationServerKey: urlBase64ToUint8Array(pub).buffer as ArrayBuffer,
         });
       }
       const { error: err } = await supabase.functions.invoke("push-subscriptions", {
