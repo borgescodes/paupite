@@ -35,8 +35,10 @@ export function NotificationCenter({
   error,
   isClearingAllNotifications,
   onClearAllNotifications,
+  userId,
 }: NotificationCenterProps) {
   const hasNotifications = notifications.length > 0;
+  const push = usePushNotifications(userId ?? null);
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
