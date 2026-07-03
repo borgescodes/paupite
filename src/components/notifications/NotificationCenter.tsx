@@ -13,6 +13,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Notification } from "@/hooks/use-notifications";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { cn } from "@/lib/utils";
 
 interface NotificationCenterProps {
@@ -23,6 +24,7 @@ interface NotificationCenterProps {
   error: Error | null;
   isClearingAllNotifications: boolean;
   onClearAllNotifications: () => void;
+  userId?: string | null;
 }
 
 export function NotificationCenter({
@@ -33,8 +35,10 @@ export function NotificationCenter({
   error,
   isClearingAllNotifications,
   onClearAllNotifications,
+  userId,
 }: NotificationCenterProps) {
   const hasNotifications = notifications.length > 0;
+  const push = usePushNotifications(userId ?? null);
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
@@ -67,6 +71,15 @@ export function NotificationCenter({
         </DrawerHeader>
 
         <ScrollArea className="h-[min(64vh,520px)] px-5 pb-5">
+          {userId && (
+            <div className="mb-3 rounded-xl border border-border/70 bg-muted/30 p-3">
+              <p className="text-xs font-extrabold uppercase tracking-wide text-muted-foreground">
+                Notificações deste aparelho
+              </p>
+              <PushToggle push={push} />
+            </div>
+          )}
+
           {isLoading && <NotificationSkeleton />}
 
           {!isLoading && error && (
@@ -226,4 +239,67 @@ function formatNotificationDate(value: string) {
   })
     .format(new Date(value))
     .replace(".", "");
+}
+
+function PushToggle({ push }: { push: ReturnType<typeof usePushNotifications> }) {
+  const { status, isBusy, error, subscribe, unsubscribe } = push;
+
+  if (status === "loading") {
+    return <p className="mt-2 text-sm text-muted-foreground">Verificando…</p>;
+  }
+  if (status === "unsupported") {
+    return <p className="mt-2 text-sm text-muted-foreground">Navegador incompatível.</p>;
+  }
+  if (status === "needs-ios-install") {
+    return (
+      <p className="mt-2 text-sm text-muted-foreground">
+        Instale o Pau Pite na Tela de Início para ativar no iPhone/iPad.
+      </p>
+    );
+  }
+  if (status === "denied") {
+    return (
+      <p className="mt-2 text-sm text-muted-foreground">
+        Permissão bloqueada no navegador. Ajuste nas configurações do site.
+      </p>
+    );
+  }
+  return (
+    <div className="mt-2 space-y-2">
+      {status === "subscribed" ? (
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-sm">Notificações ativadas neste aparelho.</span>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={isBusy}
+            onClick={() => void unsubscribe()}
+          >
+            {isBusy ? <Loader2 className="size-4 animate-spin" /> : null}
+            Desativar
+          </Button>
+        </div>
+      ) : (
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-sm text-muted-foreground">
+            Receba alertas no celular e computador.
+          </span>
+          <Button
+            type="button"
+            size="sm"
+            className="bg-brand text-brand-foreground hover:bg-brand/90"
+            disabled={isBusy}
+            onClick={() => void subscribe()}
+          >
+            {isBusy ? <Loader2 className="size-4 animate-spin" /> : null}
+            Ativar notificações
+          </Button>
+        </div>
+      )}
+      {error && status === "error" && (
+        <p className="text-xs text-destructive">Não foi possível ativar.</p>
+      )}
+    </div>
+  );
 }

@@ -60,7 +60,9 @@ export function NotificationBell({ userId }: { userId?: string | null }) {
         error={error}
         isClearingAllNotifications={isClearingAllNotifications}
         onClearAllNotifications={() => void handleClearAllNotifications()}
+        userId={userId}
       />
+
     </>
   );
 }
