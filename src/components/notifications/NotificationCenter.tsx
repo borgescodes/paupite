@@ -71,6 +71,15 @@ export function NotificationCenter({
         </DrawerHeader>
 
         <ScrollArea className="h-[min(64vh,520px)] px-5 pb-5">
+          {userId && (
+            <div className="mb-3 rounded-xl border border-border/70 bg-muted/30 p-3">
+              <p className="text-xs font-extrabold uppercase tracking-wide text-muted-foreground">
+                Notificações deste aparelho
+              </p>
+              <PushToggle push={push} />
+            </div>
+          )}
+
           {isLoading && <NotificationSkeleton />}
 
           {!isLoading && error && (
