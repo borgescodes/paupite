@@ -13,6 +13,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Notification } from "@/hooks/use-notifications";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { cn } from "@/lib/utils";
 
 interface NotificationCenterProps {
@@ -23,6 +24,7 @@ interface NotificationCenterProps {
   error: Error | null;
   isClearingAllNotifications: boolean;
   onClearAllNotifications: () => void;
+  userId?: string | null;
 }
 
 export function NotificationCenter({
