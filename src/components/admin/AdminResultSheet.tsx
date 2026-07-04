@@ -499,7 +499,8 @@ function ScoreField({
 }
 
 function teamName(match: AdminMatch | null, teamId: string | null | undefined) {
-  if (teamId === match?.home_team_id) return match.home_team?.name ?? "Seleção A";
-  if (teamId === match?.away_team_id) return match.away_team?.name ?? "Seleção B";
+  if (!match) return "A definir";
+  if (teamId === match.home_team_id) return match.home_team?.name ?? "Seleção A";
+  if (teamId === match.away_team_id) return match.away_team?.name ?? "Seleção B";
   return "A definir";
 }
