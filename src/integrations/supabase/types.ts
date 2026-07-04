@@ -1298,6 +1298,14 @@ export type Database = {
       }
     }
     Functions: {
+      admin_finalize_match_result: {
+        Args: { _actor_id?: string; _match_id: string }
+        Returns: {
+          bets_updated: number
+          match_id: string
+          status: string
+        }[]
+      }
       admin_recalculate_match_points: {
         Args: { _match_id: string }
         Returns: number
