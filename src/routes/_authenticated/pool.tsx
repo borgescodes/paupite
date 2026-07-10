@@ -99,6 +99,9 @@ interface PoolScoringRules {
   special_points: Record<string, number>;
   special_results: Record<string, string | null>;
   specials_lock_at: string | null;
+  specials_manual_locked: boolean;
+  specials_manual_locked_at: string | null;
+  specials_lock_reason: string | null;
 }
 
 interface SpecialPrediction {
