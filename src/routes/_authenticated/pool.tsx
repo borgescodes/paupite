@@ -279,6 +279,12 @@ function PoolPage() {
       );
     }
 
+    channel = channel.on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "pool_scoring_rules" },
+      () => void refetchPool(),
+    );
+
     channel.subscribe();
     return () => {
       void supabase.removeChannel(channel);
