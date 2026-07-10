@@ -477,26 +477,15 @@ function PoolPage() {
                   onSave={(value) =>
                     void run(async () => {
                       if (!user?.id) throw new Error("Usuário não autenticado.");
-                      const lockAt = poolScoringRules?.specials_lock_at
-                        ? new Date(poolScoringRules.specials_lock_at)
-                        : null;
-                      if (lockAt && lockAt <= new Date()) {
-                        throw new Error("special_predictions_locked");
-                      }
-
-                      const { error: saveError } = await supabase
-                        .from("special_predictions")
-                        .upsert(
-                          {
-                            pool_id: summary.id,
-                            user_id: user.id,
-                            champion_team_id: value.champion_team_id || null,
-                            runner_up_team_id: value.runner_up_team_id || null,
-                            third_place_team_id: value.third_place_team_id || null,
-                            top_scorer: null,
-                          },
-                          { onConflict: "pool_id,user_id" },
-                        );
+                      const { error: saveError } = await (supabase.rpc as any)(
+                        "save_special_predictions",
+                        {
+                          _pool_id: summary.id,
+                          _champion_team_id: value.champion_team_id || null,
+                          _runner_up_team_id: value.runner_up_team_id || null,
+                          _third_place_team_id: value.third_place_team_id || null,
+                        },
+                      );
                       if (saveError) throw new Error(saveError.message);
                     }, "Palpites especiais salvos.")
                   }
