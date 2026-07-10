@@ -668,6 +668,10 @@ export type Database = {
           special_points: Json
           special_results: Json
           specials_lock_at: string | null
+          specials_lock_reason: string | null
+          specials_manual_locked: boolean
+          specials_manual_locked_at: string | null
+          specials_manual_locked_by: string | null
           stage_weights: Json
           team_multipliers: Json
           updated_at: string
@@ -680,6 +684,10 @@ export type Database = {
           special_points: Json
           special_results?: Json
           specials_lock_at?: string | null
+          specials_lock_reason?: string | null
+          specials_manual_locked?: boolean
+          specials_manual_locked_at?: string | null
+          specials_manual_locked_by?: string | null
           stage_weights: Json
           team_multipliers?: Json
           updated_at?: string
@@ -692,6 +700,10 @@ export type Database = {
           special_points?: Json
           special_results?: Json
           specials_lock_at?: string | null
+          specials_lock_reason?: string | null
+          specials_manual_locked?: boolean
+          specials_manual_locked_at?: string | null
+          specials_manual_locked_by?: string | null
           stage_weights?: Json
           team_multipliers?: Json
           updated_at?: string
@@ -1318,6 +1330,36 @@ export type Database = {
         Args: { _match_id: string; _new_status: string }
         Returns: number
       }
+      admin_set_special_predictions_lock: {
+        Args: {
+          _lock_at?: string
+          _mode: string
+          _pool_id: string
+          _reason?: string
+        }
+        Returns: {
+          base_points: Json
+          created_at: string
+          id: string
+          pool_id: string
+          special_points: Json
+          special_results: Json
+          specials_lock_at: string | null
+          specials_lock_reason: string | null
+          specials_manual_locked: boolean
+          specials_manual_locked_at: string | null
+          specials_manual_locked_by: string | null
+          stage_weights: Json
+          team_multipliers: Json
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "pool_scoring_rules"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       admin_soft_delete_match: { Args: { _match_id: string }; Returns: number }
       admin_update_match_score: {
         Args: {
@@ -1356,6 +1398,34 @@ export type Database = {
           qualified_team: string
           status: string
         }[]
+      }
+      save_special_predictions: {
+        Args: {
+          _champion_team_id: string
+          _pool_id: string
+          _runner_up_team_id: string
+          _third_place_team_id: string
+        }
+        Returns: {
+          champion_team_id: string | null
+          id: string
+          locked_at: string | null
+          points: number
+          points_breakdown: Json
+          pool_id: string
+          runner_up_team_id: string | null
+          submitted_at: string
+          third_place_team_id: string | null
+          top_scorer: string | null
+          updated_at: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "special_predictions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
     }
     Enums: {
