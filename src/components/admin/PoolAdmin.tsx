@@ -89,7 +89,6 @@ interface AdminTeam {
 }
 
 interface KnockoutForm {
-  specials_lock_at: string;
   champion_team_id: string;
   runner_up_team_id: string;
   third_place_team_id: string;
