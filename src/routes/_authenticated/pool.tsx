@@ -884,7 +884,15 @@ function SpecialPredictionsCard({
         <p className="text-sm text-muted-foreground">
           Defina campeão, vice e 3º lugar antes do prazo. Última edição válida vira definitiva.
         </p>
-        {lockAt && <SpecialCountdown lockAt={lockAt} locked={locked} />}
+        {manualLocked && (
+          <div className="rounded-2xl bg-destructive/10 p-3 text-xs font-bold text-destructive">
+            Palpites especiais bloqueados pelo administrador.
+            {rules?.specials_lock_reason ? ` Motivo: ${rules.specials_lock_reason}.` : ""}
+          </div>
+        )}
+        {lockAt && !manualLocked && (
+          <SpecialCountdown lockAt={lockAt} locked={scheduledElapsed} />
+        )}
         <div className="grid gap-3 md:grid-cols-3">
           <TeamField
             id="special-champion"
