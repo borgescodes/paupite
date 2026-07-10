@@ -159,11 +159,12 @@ export function PoolAdmin({ currentRole }: { currentRole: string }) {
     setMultiplierTeamId(firstMultiplier?.[0] ?? "");
     setMultiplierValue(Number(firstMultiplier?.[1] ?? 2));
     setKnockoutForm({
-      specials_lock_at: toDateTimeLocal(nextPoolRules?.specials_lock_at ?? null),
       champion_team_id: specialResults.champion_team_id ?? "",
       runner_up_team_id: specialResults.runner_up_team_id ?? "",
       third_place_team_id: specialResults.third_place_team_id ?? "",
     });
+    setScheduleLockInput(toDateTimeLocal(nextPoolRules?.specials_lock_at ?? null));
+    setLockReasonInput(nextPoolRules?.specials_lock_reason ?? "");
     const map: Record<string, UserName> = {};
     for (const user of (usersResult.data ?? []) as UserName[]) map[user.id] = user;
     setUsers(map);
