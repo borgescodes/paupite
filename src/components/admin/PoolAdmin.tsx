@@ -75,6 +75,10 @@ interface PoolScoringRules {
   special_points: Record<string, number>;
   special_results: Record<string, string | null>;
   specials_lock_at: string | null;
+  specials_manual_locked: boolean | null;
+  specials_manual_locked_at: string | null;
+  specials_manual_locked_by: string | null;
+  specials_lock_reason: string | null;
 }
 
 interface AdminTeam {
