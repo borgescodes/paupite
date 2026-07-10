@@ -233,7 +233,6 @@ export function PoolAdmin({ currentRole }: { currentRole: string }) {
           third_place_team_id: knockoutForm.third_place_team_id || null,
           top_scorer: null,
         },
-        specials_lock_at: fromDateTimeLocal(knockoutForm.specials_lock_at),
       })
       .eq("id", poolRules.id);
     if (updateError) throw new Error(updateError.message);
