@@ -75,6 +75,10 @@ interface PoolScoringRules {
   special_points: Record<string, number>;
   special_results: Record<string, string | null>;
   specials_lock_at: string | null;
+  specials_manual_locked: boolean | null;
+  specials_manual_locked_at: string | null;
+  specials_manual_locked_by: string | null;
+  specials_lock_reason: string | null;
 }
 
 interface AdminTeam {
@@ -85,7 +89,6 @@ interface AdminTeam {
 }
 
 interface KnockoutForm {
-  specials_lock_at: string;
   champion_team_id: string;
   runner_up_team_id: string;
   third_place_team_id: string;
@@ -103,11 +106,12 @@ export function PoolAdmin({ currentRole }: { currentRole: string }) {
   const [multiplierTeamId, setMultiplierTeamId] = useState("");
   const [multiplierValue, setMultiplierValue] = useState(2);
   const [knockoutForm, setKnockoutForm] = useState<KnockoutForm>({
-    specials_lock_at: "",
     champion_team_id: "",
     runner_up_team_id: "",
     third_place_team_id: "",
   });
+  const [scheduleLockInput, setScheduleLockInput] = useState("");
+  const [lockReasonInput, setLockReasonInput] = useState("");
   const [removalTarget, setRemovalTarget] = useState<Enrollment | null>(null);
   const [removalConfirmText, setRemovalConfirmText] = useState("");
   const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
@@ -155,11 +159,12 @@ export function PoolAdmin({ currentRole }: { currentRole: string }) {
     setMultiplierTeamId(firstMultiplier?.[0] ?? "");
     setMultiplierValue(Number(firstMultiplier?.[1] ?? 2));
     setKnockoutForm({
-      specials_lock_at: toDateTimeLocal(nextPoolRules?.specials_lock_at ?? null),
       champion_team_id: specialResults.champion_team_id ?? "",
       runner_up_team_id: specialResults.runner_up_team_id ?? "",
       third_place_team_id: specialResults.third_place_team_id ?? "",
     });
+    setScheduleLockInput(toDateTimeLocal(nextPoolRules?.specials_lock_at ?? null));
+    setLockReasonInput(nextPoolRules?.specials_lock_reason ?? "");
     const map: Record<string, UserName> = {};
     for (const user of (usersResult.data ?? []) as UserName[]) map[user.id] = user;
     setUsers(map);
@@ -228,7 +233,6 @@ export function PoolAdmin({ currentRole }: { currentRole: string }) {
           third_place_team_id: knockoutForm.third_place_team_id || null,
           top_scorer: null,
         },
-        specials_lock_at: fromDateTimeLocal(knockoutForm.specials_lock_at),
       })
       .eq("id", poolRules.id);
     if (updateError) throw new Error(updateError.message);
@@ -494,19 +498,26 @@ export function PoolAdmin({ currentRole }: { currentRole: string }) {
             <CardTitle className="text-base">Mata-mata</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            <SpecialsLockPanel
+              poolId={poolRules.pool_id}
+              manualLocked={Boolean(poolRules.specials_manual_locked)}
+              scheduledLockAt={poolRules.specials_lock_at}
+              scheduleInput={scheduleLockInput}
+              reasonInput={lockReasonInput}
+              busy={busy}
+              onScheduleInputChange={setScheduleLockInput}
+              onReasonInputChange={setLockReasonInput}
+              onAction={(payload, success) =>
+                run(async () => {
+                  const { error: rpcError } = await (supabase.rpc as any)(
+                    "admin_set_special_predictions_lock",
+                    payload,
+                  );
+                  if (rpcError) throw new Error(rpcError.message);
+                }, success)
+              }
+            />
             <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="Lock apostas especiais">
-                <Input
-                  type="datetime-local"
-                  value={knockoutForm.specials_lock_at}
-                  onChange={(event) =>
-                    setKnockoutForm((current) => ({
-                      ...current,
-                      specials_lock_at: event.target.value,
-                    }))
-                  }
-                />
-              </Field>
               <Field label="Campeão oficial">
                 <TeamSelectInput
                   value={knockoutForm.champion_team_id}
@@ -535,6 +546,7 @@ export function PoolAdmin({ currentRole }: { currentRole: string }) {
                 />
               </Field>
             </div>
+
 
             <div className="rounded-2xl bg-muted/45 p-3">
               <p className="text-sm font-bold">Multiplicador por time</p>
@@ -1013,4 +1025,153 @@ function poolStatusLabel(status: string) {
     archived: "Arquivado",
   };
   return map[status] ?? status;
+}
+
+type LockAction =
+  | { _pool_id: string; _mode: "lock_now"; _reason: string | null }
+  | { _pool_id: string; _mode: "unlock" }
+  | { _pool_id: string; _mode: "schedule"; _lock_at: string }
+  | { _pool_id: string; _mode: "clear_schedule" };
+
+function SpecialsLockPanel({
+  poolId,
+  manualLocked,
+  scheduledLockAt,
+  scheduleInput,
+  reasonInput,
+  busy,
+  onScheduleInputChange,
+  onReasonInputChange,
+  onAction,
+}: {
+  poolId: string;
+  manualLocked: boolean;
+  scheduledLockAt: string | null;
+  scheduleInput: string;
+  reasonInput: string;
+  busy: boolean;
+  onScheduleInputChange: (value: string) => void;
+  onReasonInputChange: (value: string) => void;
+  onAction: (payload: LockAction, success: string) => Promise<unknown>;
+}) {
+  const scheduledDate = scheduledLockAt ? new Date(scheduledLockAt) : null;
+  const scheduleActive = Boolean(scheduledDate && scheduledDate.getTime() > Date.now());
+  return (
+    <div className="rounded-2xl border border-warning/40 bg-warning/5 p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-sm font-extrabold">Palpites especiais</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {manualLocked
+              ? "Bloqueio manual ativo. Jogadores não podem criar ou editar palpites."
+              : scheduleActive
+                ? `Agendado para ${new Date(scheduledDate!).toLocaleString("pt-BR")}.`
+                : "Palpites em aberto."}
+          </p>
+        </div>
+        <span
+          className={
+            "shrink-0 rounded-full px-2 py-1 text-xs font-extrabold " +
+            (manualLocked
+              ? "bg-destructive/15 text-destructive"
+              : scheduleActive
+                ? "bg-warning/20 text-warning"
+                : "bg-success/15 text-success")
+          }
+        >
+          {manualLocked ? "Bloqueado" : scheduleActive ? "Agendado" : "Aberto"}
+        </span>
+      </div>
+
+      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+        <div className="space-y-2 rounded-xl bg-background/40 p-3">
+          <p className="text-xs font-bold">Bloqueio manual</p>
+          {!manualLocked ? (
+            <>
+              <Field label="Motivo (opcional)">
+                <Input
+                  value={reasonInput}
+                  onChange={(event) => onReasonInputChange(event.target.value)}
+                  placeholder="Ex.: iniciamos a fase de mata-mata"
+                />
+              </Field>
+              <Button
+                variant="destructive"
+                disabled={busy}
+                className="w-full"
+                onClick={() =>
+                  void onAction(
+                    {
+                      _pool_id: poolId,
+                      _mode: "lock_now",
+                      _reason: reasonInput.trim() || null,
+                    },
+                    "Palpites especiais bloqueados.",
+                  )
+                }
+              >
+                Bloquear agora
+              </Button>
+            </>
+          ) : (
+            <Button
+              variant="secondary"
+              disabled={busy}
+              className="w-full"
+              onClick={() =>
+                void onAction(
+                  { _pool_id: poolId, _mode: "unlock" },
+                  "Palpites especiais desbloqueados.",
+                )
+              }
+            >
+              Desbloquear
+            </Button>
+          )}
+        </div>
+
+        <div className="space-y-2 rounded-xl bg-background/40 p-3">
+          <p className="text-xs font-bold">Agendar bloqueio</p>
+          <Field label="Data e hora">
+            <Input
+              type="datetime-local"
+              value={scheduleInput}
+              onChange={(event) => onScheduleInputChange(event.target.value)}
+            />
+          </Field>
+          <div className="flex gap-2">
+            <Button
+              variant="secondary"
+              disabled={busy || !scheduleInput}
+              className="flex-1"
+              onClick={() => {
+                const iso = fromDateTimeLocal(scheduleInput);
+                if (!iso) return;
+                void onAction(
+                  { _pool_id: poolId, _mode: "schedule", _lock_at: iso },
+                  "Agendamento salvo.",
+                );
+              }}
+            >
+              Salvar agendamento
+            </Button>
+            {scheduledLockAt && (
+              <Button
+                variant="ghost"
+                disabled={busy}
+                onClick={() =>
+                  void onAction(
+                    { _pool_id: poolId, _mode: "clear_schedule" },
+                    "Agendamento removido.",
+                  )
+                }
+              >
+                Limpar
+              </Button>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }

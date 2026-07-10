@@ -99,6 +99,9 @@ interface PoolScoringRules {
   special_points: Record<string, number>;
   special_results: Record<string, string | null>;
   specials_lock_at: string | null;
+  specials_manual_locked: boolean;
+  specials_manual_locked_at: string | null;
+  specials_lock_reason: string | null;
 }
 
 interface SpecialPrediction {
@@ -227,7 +230,14 @@ function PoolPage() {
   const specialsLockAt = poolScoringRules?.specials_lock_at
     ? new Date(poolScoringRules.specials_lock_at)
     : null;
-  const specialsLocked = Boolean(specialsLockAt && specialsLockAt <= new Date());
+  const specialsManualLocked = Boolean(poolScoringRules?.specials_manual_locked);
+  const [nowTick, setNowTick] = useState(() => Date.now());
+  useEffect(() => {
+    const id = window.setInterval(() => setNowTick(Date.now()), 1_000);
+    return () => window.clearInterval(id);
+  }, []);
+  const specialsLocked =
+    specialsManualLocked || Boolean(specialsLockAt && specialsLockAt.getTime() <= nowTick);
   const specialsPending = Boolean(
     isActiveEnrollment(enrollment?.status) && !specialPrediction && !specialsLocked,
   );
@@ -268,6 +278,12 @@ function PoolPage() {
         () => void refetchPool(),
       );
     }
+
+    channel = channel.on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "pool_scoring_rules" },
+      () => void refetchPool(),
+    );
 
     channel.subscribe();
     return () => {
@@ -461,26 +477,15 @@ function PoolPage() {
                   onSave={(value) =>
                     void run(async () => {
                       if (!user?.id) throw new Error("Usuário não autenticado.");
-                      const lockAt = poolScoringRules?.specials_lock_at
-                        ? new Date(poolScoringRules.specials_lock_at)
-                        : null;
-                      if (lockAt && lockAt <= new Date()) {
-                        throw new Error("special_predictions_locked");
-                      }
-
-                      const { error: saveError } = await supabase
-                        .from("special_predictions")
-                        .upsert(
-                          {
-                            pool_id: summary.id,
-                            user_id: user.id,
-                            champion_team_id: value.champion_team_id || null,
-                            runner_up_team_id: value.runner_up_team_id || null,
-                            third_place_team_id: value.third_place_team_id || null,
-                            top_scorer: null,
-                          },
-                          { onConflict: "pool_id,user_id" },
-                        );
+                      const { error: saveError } = await (supabase.rpc as any)(
+                        "save_special_predictions",
+                        {
+                          _pool_id: summary.id,
+                          _champion_team_id: value.champion_team_id || null,
+                          _runner_up_team_id: value.runner_up_team_id || null,
+                          _third_place_team_id: value.third_place_team_id || null,
+                        },
+                      );
                       if (saveError) throw new Error(saveError.message);
                     }, "Palpites especiais salvos.")
                   }
@@ -816,7 +821,14 @@ function SpecialPredictionsCard({
 }) {
   const enrolled = isActiveEnrollment(enrollment?.status);
   const lockAt = rules?.specials_lock_at ? new Date(rules.specials_lock_at) : null;
-  const locked = Boolean(lockAt && lockAt <= new Date());
+  const manualLocked = Boolean(rules?.specials_manual_locked);
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), 1_000);
+    return () => window.clearInterval(id);
+  }, []);
+  const scheduledElapsed = Boolean(lockAt && lockAt.getTime() <= now);
+  const locked = manualLocked || scheduledElapsed;
   const [form, setForm] = useState({
     champion_team_id: prediction?.champion_team_id ?? "",
     runner_up_team_id: prediction?.runner_up_team_id ?? "",
@@ -872,7 +884,15 @@ function SpecialPredictionsCard({
         <p className="text-sm text-muted-foreground">
           Defina campeão, vice e 3º lugar antes do prazo. Última edição válida vira definitiva.
         </p>
-        {lockAt && <SpecialCountdown lockAt={lockAt} locked={locked} />}
+        {manualLocked && (
+          <div className="rounded-2xl bg-destructive/10 p-3 text-xs font-bold text-destructive">
+            Palpites especiais bloqueados pelo administrador.
+            {rules?.specials_lock_reason ? ` Motivo: ${rules.specials_lock_reason}.` : ""}
+          </div>
+        )}
+        {lockAt && !manualLocked && (
+          <SpecialCountdown lockAt={lockAt} locked={scheduledElapsed} />
+        )}
         <div className="grid gap-3 md:grid-cols-3">
           <TeamField
             id="special-champion"
@@ -1415,12 +1435,18 @@ function friendlyPoolError(caught: unknown) {
   const message = caught instanceof Error ? caught.message : "";
   const normalized = message.toLowerCase();
 
+  if (normalized.includes("special_predictions_locked")) {
+    return "Palpites especiais bloqueados. Não foi possível salvar.";
+  }
+  if (normalized.includes("enrollment_not_active")) {
+    return "Inscrição não está ativa. Confirme sua inscrição antes de palpitar.";
+  }
   if (
-    normalized.includes("special_predictions_locked") ||
     normalized.includes("row-level security") ||
-    normalized.includes("policy")
+    normalized.includes("policy") ||
+    normalized.includes("forbidden")
   ) {
-    return "Prazo encerrado ou inscrição não ativa. Não foi possível concluir a operação.";
+    return "Operação bloqueada pelas regras do bolão.";
   }
 
   if (normalized.includes("permission denied")) {
@@ -1604,7 +1630,7 @@ async function fetchPool(userId: string, isOperator: boolean): Promise<PoolData>
           supabase
             .from("pool_scoring_rules")
             .select(
-              "id,pool_id,stage_weights,base_points,team_multipliers,special_points,special_results,specials_lock_at",
+              "id,pool_id,stage_weights,base_points,team_multipliers,special_points,special_results,specials_lock_at,specials_manual_locked,specials_manual_locked_at,specials_lock_reason",
             )
             .eq("pool_id", summary.id)
             .maybeSingle(),
