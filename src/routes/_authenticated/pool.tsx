@@ -1630,7 +1630,7 @@ async function fetchPool(userId: string, isOperator: boolean): Promise<PoolData>
           supabase
             .from("pool_scoring_rules")
             .select(
-              "id,pool_id,stage_weights,base_points,team_multipliers,special_points,special_results,specials_lock_at",
+              "id,pool_id,stage_weights,base_points,team_multipliers,special_points,special_results,specials_lock_at,specials_manual_locked,specials_manual_locked_at,specials_lock_reason",
             )
             .eq("pool_id", summary.id)
             .maybeSingle(),
