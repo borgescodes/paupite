@@ -230,7 +230,14 @@ function PoolPage() {
   const specialsLockAt = poolScoringRules?.specials_lock_at
     ? new Date(poolScoringRules.specials_lock_at)
     : null;
-  const specialsLocked = Boolean(specialsLockAt && specialsLockAt <= new Date());
+  const specialsManualLocked = Boolean(poolScoringRules?.specials_manual_locked);
+  const [nowTick, setNowTick] = useState(() => Date.now());
+  useEffect(() => {
+    const id = window.setInterval(() => setNowTick(Date.now()), 1_000);
+    return () => window.clearInterval(id);
+  }, []);
+  const specialsLocked =
+    specialsManualLocked || Boolean(specialsLockAt && specialsLockAt.getTime() <= nowTick);
   const specialsPending = Boolean(
     isActiveEnrollment(enrollment?.status) && !specialPrediction && !specialsLocked,
   );
