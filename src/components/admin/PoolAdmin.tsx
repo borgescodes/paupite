@@ -498,19 +498,26 @@ export function PoolAdmin({ currentRole }: { currentRole: string }) {
             <CardTitle className="text-base">Mata-mata</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            <SpecialsLockPanel
+              poolId={poolRules.pool_id}
+              manualLocked={Boolean(poolRules.specials_manual_locked)}
+              scheduledLockAt={poolRules.specials_lock_at}
+              scheduleInput={scheduleLockInput}
+              reasonInput={lockReasonInput}
+              busy={busy}
+              onScheduleInputChange={setScheduleLockInput}
+              onReasonInputChange={setLockReasonInput}
+              onAction={(payload, success) =>
+                run(async () => {
+                  const { error: rpcError } = await (supabase.rpc as any)(
+                    "admin_set_special_predictions_lock",
+                    payload,
+                  );
+                  if (rpcError) throw new Error(rpcError.message);
+                }, success)
+              }
+            />
             <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="Lock apostas especiais">
-                <Input
-                  type="datetime-local"
-                  value={knockoutForm.specials_lock_at}
-                  onChange={(event) =>
-                    setKnockoutForm((current) => ({
-                      ...current,
-                      specials_lock_at: event.target.value,
-                    }))
-                  }
-                />
-              </Field>
               <Field label="Campeão oficial">
                 <TeamSelectInput
                   value={knockoutForm.champion_team_id}
@@ -539,6 +546,7 @@ export function PoolAdmin({ currentRole }: { currentRole: string }) {
                 />
               </Field>
             </div>
+
 
             <div className="rounded-2xl bg-muted/45 p-3">
               <p className="text-sm font-bold">Multiplicador por time</p>
