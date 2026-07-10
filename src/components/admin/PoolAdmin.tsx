@@ -1026,3 +1026,152 @@ function poolStatusLabel(status: string) {
   };
   return map[status] ?? status;
 }
+
+type LockAction =
+  | { _pool_id: string; _mode: "lock_now"; _reason: string | null }
+  | { _pool_id: string; _mode: "unlock" }
+  | { _pool_id: string; _mode: "schedule"; _lock_at: string }
+  | { _pool_id: string; _mode: "clear_schedule" };
+
+function SpecialsLockPanel({
+  poolId,
+  manualLocked,
+  scheduledLockAt,
+  scheduleInput,
+  reasonInput,
+  busy,
+  onScheduleInputChange,
+  onReasonInputChange,
+  onAction,
+}: {
+  poolId: string;
+  manualLocked: boolean;
+  scheduledLockAt: string | null;
+  scheduleInput: string;
+  reasonInput: string;
+  busy: boolean;
+  onScheduleInputChange: (value: string) => void;
+  onReasonInputChange: (value: string) => void;
+  onAction: (payload: LockAction, success: string) => Promise<unknown>;
+}) {
+  const scheduledDate = scheduledLockAt ? new Date(scheduledLockAt) : null;
+  const scheduleActive = Boolean(scheduledDate && scheduledDate.getTime() > Date.now());
+  return (
+    <div className="rounded-2xl border border-warning/40 bg-warning/5 p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-sm font-extrabold">Palpites especiais</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {manualLocked
+              ? "Bloqueio manual ativo. Jogadores não podem criar ou editar palpites."
+              : scheduleActive
+                ? `Agendado para ${new Date(scheduledDate!).toLocaleString("pt-BR")}.`
+                : "Palpites em aberto."}
+          </p>
+        </div>
+        <span
+          className={
+            "shrink-0 rounded-full px-2 py-1 text-xs font-extrabold " +
+            (manualLocked
+              ? "bg-destructive/15 text-destructive"
+              : scheduleActive
+                ? "bg-warning/20 text-warning"
+                : "bg-success/15 text-success")
+          }
+        >
+          {manualLocked ? "Bloqueado" : scheduleActive ? "Agendado" : "Aberto"}
+        </span>
+      </div>
+
+      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+        <div className="space-y-2 rounded-xl bg-background/40 p-3">
+          <p className="text-xs font-bold">Bloqueio manual</p>
+          {!manualLocked ? (
+            <>
+              <Field label="Motivo (opcional)">
+                <Input
+                  value={reasonInput}
+                  onChange={(event) => onReasonInputChange(event.target.value)}
+                  placeholder="Ex.: iniciamos a fase de mata-mata"
+                />
+              </Field>
+              <Button
+                variant="destructive"
+                disabled={busy}
+                className="w-full"
+                onClick={() =>
+                  void onAction(
+                    {
+                      _pool_id: poolId,
+                      _mode: "lock_now",
+                      _reason: reasonInput.trim() || null,
+                    },
+                    "Palpites especiais bloqueados.",
+                  )
+                }
+              >
+                Bloquear agora
+              </Button>
+            </>
+          ) : (
+            <Button
+              variant="secondary"
+              disabled={busy}
+              className="w-full"
+              onClick={() =>
+                void onAction(
+                  { _pool_id: poolId, _mode: "unlock" },
+                  "Palpites especiais desbloqueados.",
+                )
+              }
+            >
+              Desbloquear
+            </Button>
+          )}
+        </div>
+
+        <div className="space-y-2 rounded-xl bg-background/40 p-3">
+          <p className="text-xs font-bold">Agendar bloqueio</p>
+          <Field label="Data e hora">
+            <Input
+              type="datetime-local"
+              value={scheduleInput}
+              onChange={(event) => onScheduleInputChange(event.target.value)}
+            />
+          </Field>
+          <div className="flex gap-2">
+            <Button
+              variant="secondary"
+              disabled={busy || !scheduleInput}
+              className="flex-1"
+              onClick={() => {
+                const iso = fromDateTimeLocal(scheduleInput);
+                if (!iso) return;
+                void onAction(
+                  { _pool_id: poolId, _mode: "schedule", _lock_at: iso },
+                  "Agendamento salvo.",
+                );
+              }}
+            >
+              Salvar agendamento
+            </Button>
+            {scheduledLockAt && (
+              <Button
+                variant="ghost"
+                disabled={busy}
+                onClick={() =>
+                  void onAction(
+                    { _pool_id: poolId, _mode: "clear_schedule" },
+                    "Agendamento removido.",
+                  )
+                }
+              >
+                Limpar
+              </Button>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
