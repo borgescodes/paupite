@@ -1435,12 +1435,18 @@ function friendlyPoolError(caught: unknown) {
   const message = caught instanceof Error ? caught.message : "";
   const normalized = message.toLowerCase();
 
+  if (normalized.includes("special_predictions_locked")) {
+    return "Palpites especiais bloqueados. Não foi possível salvar.";
+  }
+  if (normalized.includes("enrollment_not_active")) {
+    return "Inscrição não está ativa. Confirme sua inscrição antes de palpitar.";
+  }
   if (
-    normalized.includes("special_predictions_locked") ||
     normalized.includes("row-level security") ||
-    normalized.includes("policy")
+    normalized.includes("policy") ||
+    normalized.includes("forbidden")
   ) {
-    return "Prazo encerrado ou inscrição não ativa. Não foi possível concluir a operação.";
+    return "Operação bloqueada pelas regras do bolão.";
   }
 
   if (normalized.includes("permission denied")) {
