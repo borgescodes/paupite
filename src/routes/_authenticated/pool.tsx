@@ -821,7 +821,14 @@ function SpecialPredictionsCard({
 }) {
   const enrolled = isActiveEnrollment(enrollment?.status);
   const lockAt = rules?.specials_lock_at ? new Date(rules.specials_lock_at) : null;
-  const locked = Boolean(lockAt && lockAt <= new Date());
+  const manualLocked = Boolean(rules?.specials_manual_locked);
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), 1_000);
+    return () => window.clearInterval(id);
+  }, []);
+  const scheduledElapsed = Boolean(lockAt && lockAt.getTime() <= now);
+  const locked = manualLocked || scheduledElapsed;
   const [form, setForm] = useState({
     champion_team_id: prediction?.champion_team_id ?? "",
     runner_up_team_id: prediction?.runner_up_team_id ?? "",
