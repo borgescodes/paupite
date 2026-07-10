@@ -106,11 +106,12 @@ export function PoolAdmin({ currentRole }: { currentRole: string }) {
   const [multiplierTeamId, setMultiplierTeamId] = useState("");
   const [multiplierValue, setMultiplierValue] = useState(2);
   const [knockoutForm, setKnockoutForm] = useState<KnockoutForm>({
-    specials_lock_at: "",
     champion_team_id: "",
     runner_up_team_id: "",
     third_place_team_id: "",
   });
+  const [scheduleLockInput, setScheduleLockInput] = useState("");
+  const [lockReasonInput, setLockReasonInput] = useState("");
   const [removalTarget, setRemovalTarget] = useState<Enrollment | null>(null);
   const [removalConfirmText, setRemovalConfirmText] = useState("");
   const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
