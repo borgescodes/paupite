@@ -8,6 +8,7 @@ import { DaySelector } from "@/components/mobile/DaySelector";
 import { MatchCard } from "@/components/mobile/MatchCard";
 import { MobileShell } from "@/components/mobile/MobileShell";
 import type { PredictionValue } from "@/components/mobile/types";
+import { RetrospectiveGate } from "@/components/retrospective/RetrospectiveGate";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/hooks/use-auth";
@@ -267,9 +268,11 @@ function HomePage() {
 
   return (
     <MobileShell active="partidas">
+      <RetrospectiveGate userId={user?.id} autoOpen />
       {days.length > 0 && (
         <DaySelector days={days} selectedDate={selectedDate} onSelect={setSelectedDate} />
       )}
+
 
       <div className="relative overflow-hidden">
         <div className="pointer-events-none absolute inset-0 overflow-hidden">

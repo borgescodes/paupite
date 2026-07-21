@@ -1,7 +1,16 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useState } from "react";
-import { BiBell, BiFootball, BiGroup, BiImport, BiShieldQuarter, BiUser } from "react-icons/bi";
+import {
+  BiBell,
+  BiCommentDetail,
+  BiFootball,
+  BiGroup,
+  BiImport,
+  BiShieldQuarter,
+  BiUser,
+} from "react-icons/bi";
 
+import { FeedbackAdmin } from "@/components/admin/FeedbackAdmin";
 import { ImportAdmin } from "@/components/admin/ImportAdmin";
 import { MatchesAdmin } from "@/components/admin/MatchesAdmin";
 import { NotificationsAdmin } from "@/components/admin/NotificationsAdmin";
@@ -34,7 +43,7 @@ export const Route = createFileRoute("/_authenticated/admin")({
   component: AdminPage,
 });
 
-type Section = "matches" | "users" | "pool" | "import" | "notifications";
+type Section = "matches" | "users" | "pool" | "import" | "notifications" | "feedback";
 
 function AdminPage() {
   const { profile, loading } = useAuth();
@@ -55,6 +64,7 @@ function AdminPage() {
     { key: "pool" as const, label: "Bolão", icon: BiGroup, show: true },
     { key: "import" as const, label: "Importar", icon: BiImport, show: superadmin },
     { key: "notifications" as const, label: "Notificações", icon: BiBell, show: superadmin },
+    { key: "feedback" as const, label: "Feedback", icon: BiCommentDetail, show: true },
   ].filter((item) => item.show);
 
   return (
@@ -101,6 +111,7 @@ function AdminPage() {
           {section === "pool" && <PoolAdmin currentRole={profile.role} />}
           {section === "import" && superadmin && <ImportAdmin />}
           {section === "notifications" && superadmin && <NotificationsAdmin />}
+          {section === "feedback" && <FeedbackAdmin />}
         </section>
       </main>
     </MobileShell>

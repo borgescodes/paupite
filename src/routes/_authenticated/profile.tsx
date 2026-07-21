@@ -17,6 +17,11 @@ import { toast } from "sonner";
 import { MobileShell } from "@/components/mobile/MobileShell";
 import type { PlayerMatchStatus } from "@/components/mobile/types";
 import { AvatarUploader } from "@/components/profile/AvatarUploader";
+import {
+  openRetrospective,
+  RetrospectiveGate,
+  useHasArchivedCompetition,
+} from "@/components/retrospective/RetrospectiveGate";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -100,6 +105,7 @@ function ProfilePage() {
   const { user, profile, loading } = useAuth();
   const navigate = useNavigate();
   const { accentTheme, setAccentTheme } = useThemeMode(user?.id);
+  const hasArchivedCompetition = useHasArchivedCompetition();
   const [displayName, setDisplayName] = useState("");
   const [nickname, setNickname] = useState("");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
@@ -173,6 +179,7 @@ function ProfilePage() {
 
   return (
     <MobileShell active="perfil">
+      <RetrospectiveGate userId={user?.id} />
       <main className="screen-enter mx-auto max-w-xl space-y-5 px-3 py-5">
         <section className="glass-card rounded-3xl p-5 text-center">
           <AvatarUploader
@@ -300,6 +307,16 @@ function ProfilePage() {
           </Card>
         )}
 
+        {hasArchivedCompetition && (
+          <Button
+            variant="secondary"
+            className="h-11 w-full rounded-2xl"
+            onClick={() => openRetrospective()}
+          >
+            Ver retrospectiva da Copa
+          </Button>
+        )}
+
         <Button
           variant="outline"
           className="h-11 w-full rounded-2xl"
@@ -312,6 +329,7 @@ function ProfilePage() {
     </MobileShell>
   );
 }
+
 
 async function fetchProfileStats(userId: string): Promise<ProfileStatsData> {
   const [freeResult, poolResult, betsResult, matchesResult] = await Promise.all([
