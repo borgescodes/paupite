@@ -133,6 +133,8 @@ export type Database = {
       }
       competitions: {
         Row: {
+          archived_at: string | null
+          archived_by: string | null
           created_at: string
           id: string
           name: string
@@ -141,6 +143,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          archived_at?: string | null
+          archived_by?: string | null
           created_at?: string
           id?: string
           name: string
@@ -149,6 +153,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          archived_at?: string | null
+          archived_by?: string | null
           created_at?: string
           id?: string
           name?: string
@@ -1185,6 +1191,70 @@ export type Database = {
         }
         Relationships: []
       }
+      tournament_feedback: {
+        Row: {
+          competition_id: string
+          created_at: string
+          improvement_suggestion: string | null
+          tournament_suggestion: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          competition_id: string
+          created_at?: string
+          improvement_suggestion?: string | null
+          tournament_suggestion?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          competition_id?: string
+          created_at?: string
+          improvement_suggestion?: string | null
+          tournament_suggestion?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tournament_feedback_competition_id_fkey"
+            columns: ["competition_id"]
+            isOneToOne: false
+            referencedRelation: "competitions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_retrospective_views: {
+        Row: {
+          competition_id: string
+          first_viewed_at: string
+          last_viewed_at: string
+          user_id: string
+        }
+        Insert: {
+          competition_id: string
+          first_viewed_at?: string
+          last_viewed_at?: string
+          user_id: string
+        }
+        Update: {
+          competition_id?: string
+          first_viewed_at?: string
+          last_viewed_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_retrospective_views_competition_id_fkey"
+            columns: ["competition_id"]
+            isOneToOne: false
+            referencedRelation: "competitions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       match_bet_trends: {
@@ -1310,6 +1380,25 @@ export type Database = {
       }
     }
     Functions: {
+      admin_archive_competition: {
+        Args: { _competition_id: string }
+        Returns: {
+          archived_at: string | null
+          archived_by: string | null
+          created_at: string
+          id: string
+          name: string
+          season: string | null
+          status: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "competitions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       admin_finalize_match_result: {
         Args: { _actor_id?: string; _match_id: string }
         Returns: {
@@ -1361,6 +1450,25 @@ export type Database = {
         }
       }
       admin_soft_delete_match: { Args: { _match_id: string }; Returns: number }
+      admin_unarchive_competition: {
+        Args: { _competition_id: string }
+        Returns: {
+          archived_at: string | null
+          archived_by: string | null
+          created_at: string
+          id: string
+          name: string
+          season: string | null
+          status: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "competitions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       admin_update_match_score: {
         Args: {
           _match_id: string
