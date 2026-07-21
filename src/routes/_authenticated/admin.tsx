@@ -1,7 +1,16 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useState } from "react";
-import { BiBell, BiFootball, BiGroup, BiImport, BiShieldQuarter, BiUser } from "react-icons/bi";
+import {
+  BiBell,
+  BiCommentDetail,
+  BiFootball,
+  BiGroup,
+  BiImport,
+  BiShieldQuarter,
+  BiUser,
+} from "react-icons/bi";
 
+import { FeedbackAdmin } from "@/components/admin/FeedbackAdmin";
 import { ImportAdmin } from "@/components/admin/ImportAdmin";
 import { MatchesAdmin } from "@/components/admin/MatchesAdmin";
 import { NotificationsAdmin } from "@/components/admin/NotificationsAdmin";
