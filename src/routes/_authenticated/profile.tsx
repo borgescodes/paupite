@@ -17,6 +17,11 @@ import { toast } from "sonner";
 import { MobileShell } from "@/components/mobile/MobileShell";
 import type { PlayerMatchStatus } from "@/components/mobile/types";
 import { AvatarUploader } from "@/components/profile/AvatarUploader";
+import {
+  openRetrospective,
+  RetrospectiveGate,
+  useHasArchivedCompetition,
+} from "@/components/retrospective/RetrospectiveGate";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
