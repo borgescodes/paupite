@@ -43,7 +43,7 @@ export const Route = createFileRoute("/_authenticated/admin")({
   component: AdminPage,
 });
 
-type Section = "matches" | "users" | "pool" | "import" | "notifications";
+type Section = "matches" | "users" | "pool" | "import" | "notifications" | "feedback";
 
 function AdminPage() {
   const { profile, loading } = useAuth();
@@ -64,6 +64,7 @@ function AdminPage() {
     { key: "pool" as const, label: "Bolão", icon: BiGroup, show: true },
     { key: "import" as const, label: "Importar", icon: BiImport, show: superadmin },
     { key: "notifications" as const, label: "Notificações", icon: BiBell, show: superadmin },
+    { key: "feedback" as const, label: "Feedback", icon: BiCommentDetail, show: true },
   ].filter((item) => item.show);
 
   return (
