@@ -19,6 +19,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { callEdgeFunction } from "@/lib/edge";
+import { CompetitionArchiveCard } from "@/components/admin/CompetitionArchiveCard";
 
 interface Settings {
   id: string;
@@ -244,6 +245,8 @@ export function PoolAdmin({ currentRole }: { currentRole: string }) {
 
   return (
     <div className="space-y-4">
+      {superadmin && <CompetitionArchiveCard />}
+
       {superadmin ? (
         <Card className="glass-card">
           <CardHeader>
