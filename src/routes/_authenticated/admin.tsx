@@ -111,6 +111,7 @@ function AdminPage() {
           {section === "pool" && <PoolAdmin currentRole={profile.role} />}
           {section === "import" && superadmin && <ImportAdmin />}
           {section === "notifications" && superadmin && <NotificationsAdmin />}
+          {section === "feedback" && <FeedbackAdmin />}
         </section>
       </main>
     </MobileShell>
